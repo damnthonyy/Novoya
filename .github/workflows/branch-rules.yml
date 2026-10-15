@@ -1,0 +1,42 @@
+name: Branch rules
+
+# Enforces the team's git flow on every pull request:
+#   - main only accepts pull requests from dev
+#   - dev only accepts pull requests from isolated work branches
+#     (feature/*, fix/*, chore/*, docs/*, refactor/*, test/*)
+# Branch protection makes this check required, so a PR that breaks the
+# rules cannot be merged.
+
+on:
+  pull_request:
+    branches: [main, dev]
+    types: [opened, edited, reopened, synchronize]
+
+permissions:
+  contents: read
+
+jobs:
+  branch-rules:
+    name: Check branch rules
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check source and target branches
+        env:
+          BASE: ${{ github.base_ref }}
+          HEAD: ${{ github.head_ref }}
+        run: |
+          echo "Pull request: $HEAD -> $BASE"
+
+          if [ "$BASE" = "main" ]; then
+            if [ "$HEAD" != "dev" ]; then
+              echo "::error::main only accepts pull requests from dev. Open your PR against dev instead."
+              exit 1
+            fi
+          elif [ "$BASE" = "dev" ]; then
+            if ! echo "$HEAD" | grep -Eq '^(feature|fix|chore|docs|refactor|test)/[a-z0-9._-]+$'; then
+              echo "::error::Branch '$HEAD' does not follow the naming rule. Use feature/<name>, fix/<name>, chore/<name>, docs/<name>, refactor/<name> or test/<name> (lowercase, digits, . _ -)."
+              exit 1
+            fi
+          fi
+
+          echo "Branch rules passed."
