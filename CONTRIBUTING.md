@@ -1,5 +1,7 @@
 # Contributing to Novoya
 
+This page covers git and pull requests. For sprints, the backlog and our XP practices, read [How we work](docs/PROCESS.md) first.
+
 ## Branches
 
 | Branch | Purpose | Who writes to it |
