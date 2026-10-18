@@ -66,6 +66,25 @@
         "title": "DestinationOut",
         "type": "object"
       },
+      "DestinationResponse": {
+        "description": "A place Novoya can plan a trip, from listed partner offers.",
+        "properties": {
+          "city": {
+            "title": "City",
+            "type": "string"
+          },
+          "country": {
+            "title": "Country",
+            "type": "string"
+          }
+        },
+        "required": [
+          "country",
+          "city"
+        ],
+        "title": "DestinationResponse",
+        "type": "object"
+      },
       "EmailRequest": {
         "properties": {
           "email": {
@@ -1897,6 +1916,32 @@
         "summary": "Start Sign In",
         "tags": [
           "auth"
+        ]
+      }
+    },
+    "/destinations": {
+      "get": {
+        "description": "Countries and cities with at least one listed offer. Read from the database each time.",
+        "operationId": "listDestinations",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/DestinationResponse"
+                  },
+                  "title": "Response Listdestinations",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "List Destinations",
+        "tags": [
+          "catalog"
         ]
       }
     },

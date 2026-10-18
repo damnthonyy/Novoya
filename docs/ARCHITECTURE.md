@@ -20,7 +20,7 @@ This document is the starting proposal. Change it by pull request, like code.
    - **Email and password**: the client signs up with a form, then clicks the link in a verification email. They cannot sign in until the email is verified. They can reset a forgotten password by email.
    - A new account always has the `client` role. If someone signs up with a password and later signs in with Google using the same email, they get the same account.
 2. The client types what they want ("a calm week by the sea in May").
-3. The AI checks coverage: is there at least one active partner at that destination? If not (for example Japan with no partner there), it says so and suggests covered destinations close to the wish. The flow stops here.
+3. The AI checks coverage: is there at least one listed offer (an active offer of an active partner) at that destination? If not (for example Japan with no partner there), it says so and suggests covered destinations close to the wish. The flow stops here.
 4. The AI opens a preference panel: sections, each with tags to pick (style, rhythm, accommodation, activities, food, transport...). The tags come from the partner offers at that destination, so the client can only pick what we can deliver.
 5. The last step of the panel asks for the maximum budget, the number of travellers and the dates.
 6. The AI builds a proposed plan from partner offers, day by day, **without prices**. If the client picked no tags, it builds the plan from the wish text, budget and travellers, starting with the offers partners mark as `featured`.
@@ -116,9 +116,8 @@ A test (`tests/test_architecture.py`) reads every import and fails in CI if a la
 
 The agent orchestrator gives the LLM two tools through the `tools` parameter (tool calling). They are plain Python functions in the `planning` module (`infrastructure/llm/tools.py`) that read the catalog through `catalog.public`:
 
-- `covered_destinations()`: the countries and cities with at least one active offer of an active partner.
+- `covered_destinations()`: the countries and cities with at least one listed offer (an active offer of an active partner).
 - `search_offers(country, city, tags, persons, start_date, end_date)`: the active offers of active partners at that destination that fit the group size and the whole trip. `city` and `tags` are optional. With tags, an offer needs at least one of them, and offers matching more tags come first, then `featured` ones. There is no budget argument: offers have no price.
-
 When the LLM asks for a tool, the orchestrator runs the function and sends the result back. The LLM never touches the database directly.
 
 - The model chooses the arguments, so each tool checks them. Bad arguments, dates in the wrong order or an uncovered destination give the model an error it can act on, for example "call covered_destinations".
@@ -255,7 +254,7 @@ Client:
 | POST | `/auth/logout` | Sign out |
 | POST | `/auth/logout-all` | Sign out on every device |
 | GET | `/me` | The signed-in user, their role, language and sign-in methods |
-| GET | `/destinations` | Destinations covered by our partners |
+| GET | `/destinations` | Destinations with at least one listed offer (active offer of an active partner) |
 | POST | `/wishes` | Send the wish. Returns the panel, or `not_covered` with suggested destinations |
 | POST | `/wishes/{id}/answers` | Send the selected tags, budget, travellers and dates. Saves them on the wish and returns the proposed plan |
 | GET | `/plans/{id}` | The plan, day by day, with no prices until it is quoted and no partner names |

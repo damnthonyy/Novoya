@@ -57,6 +57,16 @@ class SqlOfferRepository:
         rows = (await self._session.execute(stmt)).all()
         return [(offer_to_entity(offer), partner_to_entity(partner)) for offer, partner in rows]
 
+    async def list_listed_destinations(self) -> list[tuple[str, str]]:
+        stmt = (
+            select(OfferRow.country, OfferRow.city)
+            .join(PartnerRow, OfferRow.partner_id == PartnerRow.id)
+            .where(OfferRow.active.is_(True), PartnerRow.active.is_(True))
+            .distinct()
+            .order_by(OfferRow.country, OfferRow.city)
+        )
+        return [(country, city) for country, city in (await self._session.execute(stmt)).all()]
+
     async def list_at(self, country: str, city: str | None) -> list[tuple[Offer, Partner]]:
         stmt = (
             select(OfferRow, PartnerRow)

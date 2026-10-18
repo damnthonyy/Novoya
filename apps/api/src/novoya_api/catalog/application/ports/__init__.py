@@ -14,6 +14,13 @@ class OfferRepository(Protocol):
         """Every offer with its partner. The use case decides which are listed."""
         ...
 
+    async def list_listed_destinations(self) -> list[tuple[str, str]]:
+        """Distinct country, city of listed offers, sorted.
+
+        Listed means an active offer of an active partner.
+        """
+        ...
+
     async def list_at(self, country: str, city: str | None) -> list[tuple[Offer, Partner]]:
         """Offers at this destination, with their partner. city None means the whole country."""
         ...

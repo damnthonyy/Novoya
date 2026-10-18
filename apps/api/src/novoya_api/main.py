@@ -2,6 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from novoya_api.accounts.presentation.http.router import router as accounts_router
+from novoya_api.catalog.presentation.http.router import router as catalog_router
 from novoya_api.config import get_settings
 from novoya_api.health.presentation.http.router import router as health_router
 from novoya_api.shared.presentation.http.errors import register_error_handlers
@@ -23,6 +24,7 @@ def create_app() -> FastAPI:
     register_error_handlers(app)
     app.include_router(health_router)
     app.include_router(accounts_router)
+    app.include_router(catalog_router)
     app.include_router(wishes_router)
     return app
 
