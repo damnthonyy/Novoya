@@ -1,7 +1,7 @@
 import { createFileRoute } from '@tanstack/react-router'
 
 import { ApiStatus } from '../components/ApiStatus'
-import { WishForm } from '../components/wishForm'
+import { WishForm } from '../components/WishForm'
 
 export const Route = createFileRoute('/')({
   component: HomePage,
