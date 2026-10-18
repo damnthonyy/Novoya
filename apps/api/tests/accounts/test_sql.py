@@ -18,6 +18,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 from sqlalchemy.pool import NullPool
 
 from alembic import command
+from novoya_api.accounts.application.ports.identity_provider import PendingSignIn
 from novoya_api.accounts.application.services.one_time_tokens import consume_token
 from novoya_api.accounts.application.use_cases.change_user_role import (
     ChangeUserRole,
@@ -27,13 +28,17 @@ from novoya_api.accounts.domain.auth_session import AuthSession
 from novoya_api.accounts.domain.credentials import PasswordCredential
 from novoya_api.accounts.domain.errors import (
     EmailAlreadyUsed,
+    IdentityAlreadyLinked,
     InvalidOrExpiredToken,
     LastAdminRequired,
 )
+from novoya_api.accounts.domain.oauth_identity import OAuthIdentity
 from novoya_api.accounts.domain.one_time_token import OneTimeToken, TokenPurpose
 from novoya_api.accounts.domain.role import Role
 from novoya_api.accounts.domain.value_objects import Email, PasswordHash
 from novoya_api.accounts.infrastructure.db.repositories import (
+    SqlOAuthIdentityRepository,
+    SqlOAuthStateStore,
     SqlOneTimeTokenRepository,
     SqlPasswordCredentialRepository,
     SqlRoleChangeRepository,
@@ -45,10 +50,13 @@ from novoya_api.accounts.presentation import cli
 from novoya_api.accounts.presentation.http.dependencies import build_store
 from novoya_api.config import get_settings
 from novoya_api.shared.infrastructure.db.session import get_engine, get_sessionmaker
-from tests.accounts.fakes import FrozenClock, make_user
+from tests.accounts.fakes import FrozenClock, google_identity, make_user
 
 API_DIR = Path(__file__).parent.parent.parent
-TABLES = "role_changes, one_time_tokens, sessions, password_credentials, users"
+TABLES = (
+    "oauth_states, oauth_identities, role_changes, one_time_tokens, sessions, "
+    "password_credentials, users"
+)
 NOW = FrozenClock().now()
 
 
@@ -226,6 +234,102 @@ def test_grant_role_command(database_url, capsys):
     assert "user_not_found" in capsys.readouterr().err
 
 
+async def test_password_credentials_are_deleted(session):
+    users, credentials = SqlUserRepository(session), SqlPasswordCredentialRepository(session)
+    alice = make_user("alice@example.com")
+    await users.add(alice)
+    await credentials.upsert(PasswordCredential(alice.id, PasswordHash("h"), NOW))
+    await session.commit()
+
+    await credentials.delete(alice.id)
+    await session.commit()
+
+    assert await credentials.get(alice.id) is None
+
+
+async def test_oauth_identities_are_found_by_provider_and_subject(session):
+    users, identities = SqlUserRepository(session), SqlOAuthIdentityRepository(session)
+    alice = make_user("alice@example.com")
+    await users.add(alice)
+    identity = OAuthIdentity.link(alice.id, google_identity(), NOW)
+    await identities.add(identity)
+    await session.commit()
+
+    found = await identities.get("google", "google-sub-1")
+    assert found == identity
+    assert await identities.get("google", "another-sub") is None
+    assert await identities.providers_for_user(alice.id) == {"google"}
+    assert await identities.providers_for_user(make_user("bob@example.com").id) == set()
+
+    found.touch(NOW + timedelta(days=1))
+    await identities.save(found)
+    await session.commit()
+    assert (await identities.get("google", "google-sub-1")).last_login_at == NOW + timedelta(days=1)
+
+
+async def test_a_google_account_is_linked_to_one_user_only(session):
+    users, identities = SqlUserRepository(session), SqlOAuthIdentityRepository(session)
+    alice, bob = make_user("alice@example.com"), make_user("bob@example.com")
+    await users.add(alice)
+    await users.add(bob)
+    await identities.add(OAuthIdentity.link(alice.id, google_identity(), NOW))
+
+    with pytest.raises(IdentityAlreadyLinked):
+        await identities.add(OAuthIdentity.link(bob.id, google_identity(), NOW))
+
+
+async def test_a_user_has_at_most_one_google_account(session):
+    users, identities = SqlUserRepository(session), SqlOAuthIdentityRepository(session)
+    alice = make_user("alice@example.com")
+    await users.add(alice)
+    await identities.add(OAuthIdentity.link(alice.id, google_identity(), NOW))
+
+    with pytest.raises(IdentityAlreadyLinked):
+        await identities.add(
+            OAuthIdentity.link(alice.id, google_identity(subject="another-google-account"), NOW)
+        )
+
+
+async def test_an_identity_for_a_missing_user_is_not_reported_as_already_linked(session):
+    """Only the (provider, subject) unique index means "already linked"; a foreign key
+    failure is a bug and must surface as it is."""
+    from sqlalchemy.exc import IntegrityError
+
+    ghost = make_user("ghost@example.com")  # never added
+
+    with pytest.raises(IntegrityError):
+        await SqlOAuthIdentityRepository(session).add(
+            OAuthIdentity.link(ghost.id, google_identity(), NOW)
+        )
+
+
+PENDING = PendingSignIn("google", "verifier", "nonce", "/wishes/new")
+
+
+async def test_an_oauth_state_is_read_once(session):
+    states = SqlOAuthStateStore(session)
+    await states.put("a" * 64, PENDING, NOW + timedelta(minutes=10), NOW)
+    await session.commit()
+
+    assert await states.pop("a" * 64, NOW) == PENDING
+    await session.commit()
+    assert await states.pop("a" * 64, NOW) is None
+
+
+async def test_an_expired_oauth_state_is_not_returned_and_is_cleaned_up(session):
+    states = SqlOAuthStateStore(session)
+    later = NOW + timedelta(minutes=11)
+    await states.put("a" * 64, PENDING, NOW + timedelta(minutes=10), NOW)
+    await session.commit()
+
+    assert await states.pop("a" * 64, later) is None
+
+    await states.put("b" * 64, PENDING, later + timedelta(minutes=10), later)  # cleans "a"
+    await session.commit()
+    count = await session.scalar(text("SELECT count(*) FROM oauth_states"))
+    assert count == 1
+
+
 # Two requests at the same time: two sessions, the second must wait for the first.
 
 
@@ -294,3 +398,102 @@ async def test_a_reset_link_used_by_two_requests_at_once_works_once(sessions):
 
         with pytest.raises(InvalidOrExpiredToken):
             await again
+
+
+async def test_a_state_sent_back_twice_at_once_signs_in_once(sessions):
+    async with sessions() as setup:
+        await SqlOAuthStateStore(setup).put("a" * 64, PENDING, NOW + timedelta(minutes=10), NOW)
+        await setup.commit()
+
+    async def pop() -> PendingSignIn | None:
+        async with sessions() as session:
+            pending = await SqlOAuthStateStore(session).pop("a" * 64, NOW)
+            await asyncio.sleep(0.2)  # hold the row until commit
+            await session.commit()
+            return pending
+
+    results = await asyncio.gather(pop(), pop())
+
+    assert sorted(results, key=lambda r: r is None) == [PENDING, None]
+
+
+async def test_a_failed_google_sign_in_changes_nothing_but_the_used_state(session):
+    """A disabled, unverified account: SignIn deletes its password and revokes its sessions
+    (pre-hijacking guard), then the session opener refuses the disabled account. The request
+    ends without commit, like get_session does: the account must be as it was."""
+    from novoya_api.accounts.application.dto import ClientInfo
+    from novoya_api.accounts.application.services.session_opener import (
+        SessionOpener,
+        SessionPolicy,
+    )
+    from novoya_api.accounts.application.use_cases.sign_in import SignIn, SignInCommand
+    from novoya_api.accounts.domain.errors import AccountDisabled
+    from novoya_api.accounts.domain.user import UserStatus
+    from novoya_api.accounts.infrastructure.identity_providers import DictIdentityProviders
+    from tests.accounts.fakes import FakeIdentityProvider
+
+    store = build_store(session)
+    tokens = SecureTokenGenerator()
+    squatter = make_user("alice@example.com", verified=False, status=UserStatus.DISABLED)
+    await store.users.add(squatter)
+    await store.credentials.upsert(PasswordCredential(squatter.id, PasswordHash("h"), NOW))
+    await store.oauth_states.put(
+        tokens.hash("the-state"), PENDING, NOW + timedelta(minutes=10), NOW
+    )
+    await session.commit()
+    provider = FakeIdentityProvider()
+    clock = FrozenClock(NOW)
+    sign_in = SignIn(
+        DictIdentityProviders([provider]),
+        store.oauth_states,
+        tokens,
+        store.users,
+        store.identities,
+        store.credentials,
+        store.sessions,
+        SessionOpener(store.sessions, tokens, clock, SessionPolicy()),
+        store.uow,
+        clock,
+    )
+    client = ClientInfo("127.0.0.1", "tests", None)
+
+    with pytest.raises(AccountDisabled):
+        await sign_in(
+            SignInCommand("google", "code", "the-state", "http://cb", None, client, "the-state")
+        )
+    await session.rollback()
+
+    assert await store.credentials.get(squatter.id) is not None
+    assert not (await store.users.get(squatter.id)).is_email_verified
+    assert await store.identities.providers_for_user(squatter.id) == set()
+    assert await store.oauth_states.pop(tokens.hash("the-state"), NOW) is None  # used up
+
+
+async def test_a_sign_in_does_not_undo_a_role_change_made_meanwhile(sessions):
+    """Copilot's scenario on #73: the sign-in reads the user, an admin demotes them and
+    commits, then the sign-in saves the user. Only the changed columns are written, so the
+    demotion stays."""
+    async with sessions() as setup:
+        agent = make_user("alice@example.com", role=Role.AGENT, verified=False)
+        await SqlUserRepository(setup).add(agent)
+        await setup.commit()
+
+    async with sessions() as signing_in:
+        users = SqlUserRepository(signing_in)
+        user = await users.get(agent.id)  # the sign-in has read the agent
+
+        async with sessions() as admin:  # the demotion commits in between
+            await admin.execute(
+                text("UPDATE users SET role = 'client' WHERE id = :id"), {"id": agent.id.value}
+            )
+            await admin.commit()
+
+        user.verify_email(NOW)
+        user.fill_in_name("Alice Martin")
+        await users.save(user)
+        await signing_in.commit()
+
+    async with sessions() as check:
+        stored = await SqlUserRepository(check).get(agent.id)
+    assert stored.role is Role.CLIENT
+    assert stored.is_email_verified

@@ -16,6 +16,18 @@ class SessionInvalid(Unauthenticated):
     code = "unauthenticated"
 
 
+class OAuthStateInvalid(Unauthenticated):
+    """The sign-in came back with a state we did not issue, used already or too old."""
+
+    code = "oauth_state_invalid"
+
+
+class OAuthProviderError(Unauthenticated):
+    """The provider refused the code, could not be reached, or sent an invalid ID token."""
+
+    code = "oauth_failed"
+
+
 class InvalidCredentials(Unauthenticated):
     """Wrong email or password. Same error whether the email exists or not."""
 
@@ -32,6 +44,12 @@ class EmailNotVerified(PermissionDenied):
     code = "email_not_verified"
 
 
+class OAuthEmailNotVerified(PermissionDenied):
+    """The provider does not vouch for the email address: we cannot link or create on it."""
+
+    code = "oauth_email_not_verified"
+
+
 class AccountDisabled(PermissionDenied):
     code = "account_disabled"
 
@@ -40,8 +58,28 @@ class UserNotFound(NotFound):
     code = "user_not_found"
 
 
+class UnknownIdentityProvider(NotFound):
+    """No such sign-in provider, or it is not configured (no client ID and secret)."""
+
+    code = "unknown_provider"
+
+
+class IdentityAlreadyLinked(Conflict):
+    """This provider account is already linked to another user."""
+
+    code = "identity_already_linked"
+
+
 class EmailAlreadyUsed(Conflict):
     code = "email_already_used"
+
+
+class OAuthLinkNotAllowed(Conflict):
+    """An account exists with this email, but the provider cannot prove who owns the address
+    today (not Gmail or a Workspace domain), or the account has another provider account
+    linked already. The person signs in with their password instead."""
+
+    code = "oauth_link_not_allowed"
 
 
 class CannotChangeOwnRole(Conflict):

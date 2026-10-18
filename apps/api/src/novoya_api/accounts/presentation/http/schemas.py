@@ -74,7 +74,11 @@ class MeResponse(UserResponse):
 
     @classmethod
     def of_account(cls, account: AccountView) -> "MeResponse":
-        methods: list[Literal["password", "google"]] = ["password"] if account.has_password else []
+        methods: list[Literal["password", "google"]] = []
+        if account.has_password:
+            methods.append("password")
+        if account.has_google:
+            methods.append("google")
         return cls(**UserResponse.of(account.user).model_dump(), sign_in_methods=methods)
 
 

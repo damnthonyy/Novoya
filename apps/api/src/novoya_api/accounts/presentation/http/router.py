@@ -1,9 +1,12 @@
+import logging
 from typing import Annotated
+from urllib.parse import urlencode
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Query, Request, Response, status
+from fastapi import APIRouter, Depends, Path, Query, Request, Response, status
+from fastapi.responses import RedirectResponse
 
-from novoya_api.accounts.application.dto import CurrentUserView
+from novoya_api.accounts.application.dto import ClientInfo, CurrentUserView
 from novoya_api.accounts.application.use_cases.change_password import ChangePassword
 from novoya_api.accounts.application.use_cases.change_user_role import (
     ChangeUserRole,
@@ -19,22 +22,31 @@ from novoya_api.accounts.application.use_cases.register import Register, Registe
 from novoya_api.accounts.application.use_cases.resend_verification_email import (
     ResendVerificationEmail,
 )
+from novoya_api.accounts.application.use_cases.sign_in import SignIn, SignInCommand
 from novoya_api.accounts.application.use_cases.sign_in_with_password import (
     SignInWithPassword,
     SignInWithPasswordCommand,
 )
 from novoya_api.accounts.application.use_cases.sign_out import SignOut, SignOutEverywhere
+from novoya_api.accounts.application.use_cases.start_sign_in import (
+    StartSignIn,
+    StartSignInCommand,
+)
 from novoya_api.accounts.application.use_cases.verify_email import VerifyEmail
 from novoya_api.accounts.domain.value_objects import UserId
 from novoya_api.accounts.presentation.http.cookies import (
     clear_session_cookie,
+    clear_state_cookie,
     read_session_cookie,
+    read_state_cookie,
     set_session_cookie,
+    set_state_cookie,
 )
 from novoya_api.accounts.presentation.http.dependencies import (
     ClientDep,
     CurrentUser,
     SettingsDep,
+    callback_url,
     get_change_password,
     get_change_user_role,
     get_get_account,
@@ -43,9 +55,11 @@ from novoya_api.accounts.presentation.http.dependencies import (
     get_request_password_reset,
     get_resend_verification_email,
     get_reset_password,
+    get_sign_in,
     get_sign_in_with_password,
     get_sign_out,
     get_sign_out_everywhere,
+    get_start_sign_in,
     get_verify_email,
     require_admin,
 )
@@ -62,7 +76,11 @@ from novoya_api.accounts.presentation.http.schemas import (
     UserResponse,
     role_of,
 )
+from novoya_api.config import Settings
+from novoya_api.shared.domain.errors import DomainError
 from novoya_api.shared.presentation.http.errors import ErrorResponse
+
+logger = logging.getLogger(__name__)
 
 ERRORS = {
     401: {"model": ErrorResponse},
@@ -141,6 +159,121 @@ async def sign_in_with_password(
         SignInWithPasswordCommand(body.email, body.password.get_secret_value(), client)
     )
     set_session_cookie(response, token, settings)
+
+
+# Sign-in with a provider (Google). Both routes are browser navigations, so they answer with a
+# redirect, never JSON: to the provider, to the web app, or to its login page with ?error=code.
+
+ProviderName = Annotated[str, Path(max_length=20, pattern="^[a-z]+$", examples=["google"])]
+SIGN_IN_REDIRECT = {
+    status.HTTP_302_FOUND: {
+        "description": "To the provider or the web app; on failure to /login?error=<code>"
+    }
+}
+
+
+def login_page(settings: Settings, code: str) -> RedirectResponse:
+    query = urlencode({"error": code})
+    return RedirectResponse(f"{settings.frontend_url.rstrip('/')}/login?{query}", status_code=302)
+
+
+@auth_router.get(
+    "/{provider}/login",
+    operation_id="startSignIn",
+    status_code=status.HTTP_302_FOUND,
+    response_class=RedirectResponse,
+    responses=SIGN_IN_REDIRECT,
+)
+async def start_sign_in(
+    provider: ProviderName,
+    client: ClientDep,
+    settings: SettingsDep,
+    use_case: Annotated[StartSignIn, Depends(get_start_sign_in)],
+    redirect_to: Annotated[
+        str | None, Query(max_length=2048, description="A page of the web app, e.g. /wishes/new")
+    ] = None,
+) -> RedirectResponse:
+    """Start signing in with the provider (google). Only openid, email and profile are asked.
+    Sets a 10-minute state cookie: the callback must come back to this browser."""
+    try:
+        started = await use_case(
+            StartSignInCommand(
+                provider, callback_url(settings, provider), redirect_to, client.ip_address
+            )
+        )
+    except DomainError as error:
+        return login_page(settings, error.code)
+    except Exception:
+        logger.exception("Starting a %s sign-in failed", provider)
+        return login_page(settings, "oauth_failed")
+    response = RedirectResponse(started.url, status_code=302)
+    set_state_cookie(response, started.state, settings)
+    return response
+
+
+@auth_router.get(
+    "/{provider}/callback",
+    operation_id="finishSignIn",
+    status_code=status.HTTP_302_FOUND,
+    response_class=RedirectResponse,
+    responses=SIGN_IN_REDIRECT,
+)
+async def finish_sign_in(
+    provider: ProviderName,
+    request: Request,
+    client: ClientDep,
+    settings: SettingsDep,
+    use_case: Annotated[SignIn, Depends(get_sign_in)],
+    code: Annotated[str | None, Query(max_length=2048)] = None,
+    state: Annotated[str | None, Query(max_length=512)] = None,
+    error: Annotated[str | None, Query(max_length=100)] = None,
+) -> RedirectResponse:
+    """Where the provider sends the browser back. Creates, links or loads the account, sets
+    the session cookie and goes to the page asked at the start."""
+    response = await _finish(provider, request, client, settings, use_case, code, state, error)
+    clear_state_cookie(response, settings, state)  # used once, whatever the outcome
+    return response
+
+
+async def _finish(
+    provider: str,
+    request: Request,
+    client: ClientInfo,
+    settings: Settings,
+    use_case: SignIn,
+    code: str | None,
+    state: str | None,
+    error: str | None,
+) -> RedirectResponse:
+    if error is not None:  # the user pressed Cancel, or the provider refused
+        return login_page(
+            settings, "oauth_cancelled" if error == "access_denied" else "oauth_failed"
+        )
+    if not code or not state:
+        return login_page(settings, "oauth_failed")
+    try:
+        result = await use_case(
+            SignInCommand(
+                provider,
+                code,
+                state,
+                callback_url(settings, provider),
+                request.headers.get("accept-language"),
+                client,
+                read_state_cookie(request, settings, state),
+            )
+        )
+    except DomainError as failure:
+        return login_page(settings, failure.code)
+    except Exception:
+        # A database error, for example: still a page for the browser, never a JSON 500.
+        logger.exception("Finishing a %s sign-in failed", provider)
+        return login_page(settings, "oauth_failed")
+    response = RedirectResponse(
+        f"{settings.frontend_url.rstrip('/')}{result.redirect_to}", status_code=302
+    )
+    set_session_cookie(response, result.token, settings)
+    return response
 
 
 @auth_router.post("/logout", operation_id="signOut", status_code=status.HTTP_204_NO_CONTENT)

@@ -4,9 +4,14 @@ from dataclasses import dataclass, field, replace
 from datetime import UTC, datetime, timedelta
 from uuid import UUID
 
+from novoya_api.accounts.application.ports.identity_provider import (
+    AuthorizationRequest,
+    PendingSignIn,
+)
 from novoya_api.accounts.domain.auth_session import AuthSession
 from novoya_api.accounts.domain.credentials import PasswordCredential
-from novoya_api.accounts.domain.errors import EmailAlreadyUsed
+from novoya_api.accounts.domain.errors import EmailAlreadyUsed, IdentityAlreadyLinked
+from novoya_api.accounts.domain.oauth_identity import ExternalIdentity, OAuthIdentity
 from novoya_api.accounts.domain.one_time_token import OneTimeToken, TokenPurpose
 from novoya_api.accounts.domain.role import Role
 from novoya_api.accounts.domain.role_change import RoleChange
@@ -29,12 +34,13 @@ class FrozenClock:
 class FakeUnitOfWork:
     def __init__(self) -> None:
         self.commits = 0
+        self.rollbacks = 0
 
     async def commit(self) -> None:
         self.commits += 1
 
     async def rollback(self) -> None:
-        pass
+        self.rollbacks += 1
 
 
 # Entities are copied in and out, like a database would: a use case must call save().
@@ -92,6 +98,45 @@ class InMemoryPasswordCredentialRepository:
 
     async def upsert(self, credential: PasswordCredential) -> None:
         self.rows[credential.user_id] = replace(credential)
+
+    async def delete(self, user_id: UserId) -> None:
+        self.rows.pop(user_id, None)
+
+
+class InMemoryOAuthIdentityRepository:
+    def __init__(self) -> None:
+        self.rows: dict[tuple[str, str], OAuthIdentity] = {}
+
+    async def get(self, provider: str, subject: str) -> OAuthIdentity | None:
+        identity = self.rows.get((provider, subject))
+        return replace(identity) if identity else None
+
+    async def add(self, identity: OAuthIdentity) -> None:
+        if (identity.provider, identity.subject) in self.rows:
+            raise IdentityAlreadyLinked("this account is already linked to another user")
+        self.rows[(identity.provider, identity.subject)] = replace(identity)
+
+    async def save(self, identity: OAuthIdentity) -> None:
+        self.rows[(identity.provider, identity.subject)] = replace(identity)
+
+    async def providers_for_user(self, user_id: UserId) -> set[str]:
+        return {i.provider for i in self.rows.values() if i.user_id == user_id}
+
+
+class InMemoryOAuthStateStore:
+    def __init__(self) -> None:
+        self.rows: dict[str, tuple[PendingSignIn, datetime]] = {}
+
+    async def put(
+        self, state_hash: str, pending: PendingSignIn, expires_at: datetime, now: datetime
+    ) -> None:
+        self.rows[state_hash] = (pending, expires_at)
+
+    async def pop(self, state_hash: str, now: datetime) -> PendingSignIn | None:
+        row = self.rows.pop(state_hash, None)
+        if row is None or row[1] <= now:
+            return None
+        return row[0]
 
 
 class InMemorySessionRepository:
@@ -159,6 +204,10 @@ class InMemoryStore:
     )
     tokens: InMemoryOneTimeTokenRepository = field(default_factory=InMemoryOneTimeTokenRepository)
     role_changes: InMemoryRoleChangeRepository = field(default_factory=InMemoryRoleChangeRepository)
+    identities: InMemoryOAuthIdentityRepository = field(
+        default_factory=InMemoryOAuthIdentityRepository
+    )
+    oauth_states: InMemoryOAuthStateStore = field(default_factory=InMemoryOAuthStateStore)
     uow: FakeUnitOfWork = field(default_factory=FakeUnitOfWork)
     sessions: InMemorySessionRepository = field(init=False)
 
@@ -238,3 +287,52 @@ def make_user(
     if verified:
         user.verify_email(now)
     return user
+
+
+def google_identity(
+    subject: str = "google-sub-1",
+    email: str = "alice@example.com",
+    email_verified: bool = True,
+    name: str | None = "Alice Martin",
+    locale: str | None = "en",
+    email_authoritative: bool = True,
+) -> ExternalIdentity:
+    return ExternalIdentity(
+        "google", subject, Email(email), email_verified, email_authoritative, name, locale
+    )
+
+
+class FakeIdentityProvider:
+    """Stands for Google: a fixed authorization URL, and the identity the test chose."""
+
+    def __init__(self, identity: ExternalIdentity | None = None, name: str = "google") -> None:
+        self.name = name
+        self.identity = identity or google_identity()
+        self.error: Exception | None = None
+        self.requests = 0
+        self.fetches: list[dict] = []
+
+    def build_authorization_request(self, redirect_uri: str) -> AuthorizationRequest:
+        self.requests += 1
+        n = self.requests
+        return AuthorizationRequest(
+            url=f"https://idp.example/auth?state=state-{n}&redirect_uri={redirect_uri}",
+            state=f"state-{n}",
+            code_verifier=f"verifier-{n}",
+            nonce=f"nonce-{n}",
+        )
+
+    async def fetch_identity(
+        self, code: str, code_verifier: str, redirect_uri: str, nonce: str
+    ) -> ExternalIdentity:
+        self.fetches.append(
+            {
+                "code": code,
+                "code_verifier": code_verifier,
+                "redirect_uri": redirect_uri,
+                "nonce": nonce,
+            }
+        )
+        if self.error is not None:
+            raise self.error
+        return self.identity

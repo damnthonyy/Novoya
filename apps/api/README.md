@@ -42,6 +42,8 @@ The API runs on http://localhost:8000. Interactive docs: http://localhost:8000/d
 
 Sign-up is by email and password; the account is a `client` and must confirm its email before signing in. Locally, the emails land in Mailpit: http://localhost:8025 (`docker compose up mailpit`).
 
+Sign-in with Google needs `NOVOYA_GOOGLE_CLIENT_ID` and `NOVOYA_GOOGLE_CLIENT_SECRET` (ask the team; see #14). Without them, the rest of the app works and `/auth/google/login` sends the browser to `/login?error=unknown_provider`. The web app links to `http://localhost:8000/auth/google/login?redirect_to=/wishes/new`; Google comes back to `/auth/google/callback`, which sets the session cookie and goes to `redirect_to`. A first Google sign-in creates a `client`; an existing account with the same email is linked. While the Google app is in Testing, only its test users can sign in.
+
 Roles are `client`, `agent` and `admin`. The first admin is named with a command, on an account that already exists and has confirmed its email; after that, an admin changes roles with `PATCH /admin/users/{id}/role`.
 
 ```bash

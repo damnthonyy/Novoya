@@ -44,6 +44,11 @@ class User:
     def is_active(self) -> bool:
         return self.status is UserStatus.ACTIVE
 
+    def fill_in_name(self, name: str | None) -> None:
+        """Take the provider's name only when we have none: a name chosen at sign-up wins."""
+        if self.name is None and name and name.strip():
+            self.name = name.strip()[:200]
+
     def verify_email(self, now: datetime) -> None:
         if self.email_verified_at is None:
             self.email_verified_at = now

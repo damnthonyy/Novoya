@@ -15,9 +15,14 @@ from fastapi import Depends, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from novoya_api.accounts.application.dto import ClientInfo, CurrentUserView
+from novoya_api.accounts.application.ports.identity_provider import (
+    IdentityProviders,
+    OAuthStateStore,
+)
 from novoya_api.accounts.application.ports.mailer import AuthMailer
 from novoya_api.accounts.application.ports.rate_limiter import RateLimiter
 from novoya_api.accounts.application.ports.repositories import (
+    OAuthIdentityRepository,
     OneTimeTokenRepository,
     PasswordCredentialRepository,
     RoleChangeRepository,
@@ -39,14 +44,18 @@ from novoya_api.accounts.application.use_cases.register import Register
 from novoya_api.accounts.application.use_cases.resend_verification_email import (
     ResendVerificationEmail,
 )
+from novoya_api.accounts.application.use_cases.sign_in import SignIn
 from novoya_api.accounts.application.use_cases.sign_in_with_password import SignInWithPassword
 from novoya_api.accounts.application.use_cases.sign_out import SignOut, SignOutEverywhere
+from novoya_api.accounts.application.use_cases.start_sign_in import StartSignIn
 from novoya_api.accounts.application.use_cases.verify_email import VerifyEmail
 from novoya_api.accounts.domain.errors import NotAllowed, SessionInvalid
-from novoya_api.accounts.domain.policies import PasswordPolicy
+from novoya_api.accounts.domain.policies import PasswordPolicy, RedirectPolicy
 from novoya_api.accounts.domain.role import Role
 from novoya_api.accounts.domain.value_objects import PasswordHash, PlainPassword
 from novoya_api.accounts.infrastructure.db.repositories import (
+    SqlOAuthIdentityRepository,
+    SqlOAuthStateStore,
     SqlOneTimeTokenRepository,
     SqlPasswordCredentialRepository,
     SqlRoleChangeRepository,
@@ -54,6 +63,8 @@ from novoya_api.accounts.infrastructure.db.repositories import (
     SqlUserRepository,
 )
 from novoya_api.accounts.infrastructure.email.smtp_auth_mailer import SmtpAuthMailer
+from novoya_api.accounts.infrastructure.google_oauth import GoogleIdentityProvider
+from novoya_api.accounts.infrastructure.identity_providers import DictIdentityProviders
 from novoya_api.accounts.infrastructure.in_memory_rate_limiter import InMemoryRateLimiter
 from novoya_api.accounts.infrastructure.security import (
     Argon2PasswordHasher,
@@ -83,6 +94,8 @@ class AccountsStore:
     sessions: SessionRepository
     tokens: OneTimeTokenRepository
     role_changes: RoleChangeRepository
+    identities: OAuthIdentityRepository
+    oauth_states: OAuthStateStore
     uow: UnitOfWork
 
 
@@ -93,6 +106,8 @@ def build_store(session: AsyncSession) -> AccountsStore:
         sessions=SqlSessionRepository(session),
         tokens=SqlOneTimeTokenRepository(session),
         role_changes=SqlRoleChangeRepository(session),
+        identities=SqlOAuthIdentityRepository(session),
+        oauth_states=SqlOAuthStateStore(session),
         uow=SqlAlchemyUnitOfWork(session),
     )
 
@@ -136,6 +151,30 @@ def get_mailer(settings: SettingsDep) -> AuthMailer:
 
 def get_token_generator() -> TokenGenerator:
     return SecureTokenGenerator()
+
+
+def build_identity_providers(settings: Settings) -> DictIdentityProviders:
+    """Google only when its client ID and secret are set; the rest of the app works without."""
+    providers = []
+    secret = (
+        settings.google_client_secret.get_secret_value() if settings.google_client_secret else ""
+    )
+    if settings.google_client_id and secret:  # an empty line in .env counts as not set
+        providers.append(
+            GoogleIdentityProvider(settings.google_client_id, secret, clock=SystemClock())
+        )
+    return DictIdentityProviders(providers)
+
+
+@lru_cache
+def get_identity_providers() -> IdentityProviders:
+    """Built once: the Google adapter keeps Google's signing keys between sign-ins."""
+    return build_identity_providers(get_settings())
+
+
+def callback_url(settings: Settings, provider: str) -> str:
+    """Our redirect URI, the one registered at the provider (see #14)."""
+    return f"{settings.api_public_url.rstrip('/')}/auth/{provider}/callback"
 
 
 def get_clock() -> Clock:
@@ -239,6 +278,38 @@ def get_sign_in_with_password(
     )
 
 
+ProvidersDep = Annotated[IdentityProviders, Depends(get_identity_providers)]
+
+
+def get_start_sign_in(
+    store: StoreDep,
+    providers: ProvidersDep,
+    tokens: TokensDep,
+    rate_limiter: RateLimiterDep,
+    clock: ClockDep,
+) -> StartSignIn:
+    return StartSignIn(
+        providers, store.oauth_states, tokens, rate_limiter, store.uow, clock, RedirectPolicy()
+    )
+
+
+def get_sign_in(
+    store: StoreDep, providers: ProvidersDep, tokens: TokensDep, opener: OpenerDep, clock: ClockDep
+) -> SignIn:
+    return SignIn(
+        providers,
+        store.oauth_states,
+        tokens,
+        store.users,
+        store.identities,
+        store.credentials,
+        store.sessions,
+        opener,
+        store.uow,
+        clock,
+    )
+
+
 def get_sign_out(store: StoreDep, opener: OpenerDep) -> SignOut:
     return SignOut(opener, store.uow)
 
@@ -295,7 +366,7 @@ def get_change_password(
 
 
 def get_get_account(store: StoreDep) -> GetAccount:
-    return GetAccount(store.users, store.credentials)
+    return GetAccount(store.users, store.credentials, store.identities)
 
 
 def get_list_users(store: StoreDep) -> ListUsers:
