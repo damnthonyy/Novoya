@@ -1,7 +1,7 @@
 """add partners and offers tables
 
 Revision ID: 7c3a1e9b4d2f
-Revises: e329ac9e242a
+Revises: 92f81d9a6b75
 Create Date: 2026-10-18
 
 """
@@ -14,7 +14,7 @@ from sqlalchemy.dialects import postgresql
 from alembic import op
 
 revision: str = "7c3a1e9b4d2f"
-down_revision: str | Sequence[str] | None = "e329ac9e242a"
+down_revision: str | Sequence[str] | None = "92f81d9a6b75"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 
