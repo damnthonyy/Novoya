@@ -171,3 +171,21 @@ async def test_validation_problem_does_not_repeat_the_answer():
 
     assert secret not in orchestrator.calls[1]["messages"][-1]["content"]
     assert secret not in str(raised.value)
+
+
+async def test_truncated_json_after_prose_is_retried_not_crashed():
+    orchestrator = FakeOrchestrator(
+        'Here is the JSON: {"name": "Lis', '{"name": "Lisbon", "nights": 3}'
+    )
+
+    result = await run_structured(orchestrator, USER_MESSAGES, City)
+
+    assert result == City(name="Lisbon", nights=3)
+    assert len(orchestrator.calls) == 2
+
+
+async def test_truncated_json_twice_raises_llm_error():
+    orchestrator = FakeOrchestrator('Here: {"name":', 'Again: {"nights": 3')
+
+    with pytest.raises(LLMError):
+        await run_structured(orchestrator, USER_MESSAGES, City)

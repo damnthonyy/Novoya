@@ -49,7 +49,11 @@ def _parse[T: BaseModel](answer: str, output: type[T]) -> T:
     if fenced:
         text = fenced.group(1)
     elif not text.startswith("{") and "{" in text:
-        text = text[text.index("{") : text.rindex("}") + 1]  # prose around the object
+        # Prose around the object. A cut-off object has no "}": validation then fails as
+        # usual, so the caller gets a retry, not a crash.
+        start = text.index("{")
+        end = text.rfind("}")
+        text = text[start : end + 1] if end > start else text[start:]
     return output.model_validate_json(text)
 
 

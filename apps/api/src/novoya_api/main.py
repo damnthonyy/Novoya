@@ -6,6 +6,7 @@ from novoya_api.config import get_settings
 from novoya_api.health.presentation.http.router import router as health_router
 from novoya_api.shared.presentation.http.errors import register_error_handlers
 from novoya_api.shared.presentation.http.origin_middleware import OriginCheckMiddleware
+from novoya_api.wishes.presentation.http.router import router as wishes_router
 
 
 def create_app() -> FastAPI:
@@ -22,6 +23,7 @@ def create_app() -> FastAPI:
     register_error_handlers(app)
     app.include_router(health_router)
     app.include_router(accounts_router)
+    app.include_router(wishes_router)
     return app
 
 
