@@ -21,7 +21,7 @@ flowchart TB
 
 | Module | Owns | Issues |
 |---|---|---|
-| `accounts` | Users, Google sign-in, the client and agent roles, the language, deleting an account | #15, #49, #46 |
+| `accounts` | Users, sign-in with Google or email and password, sessions, the client, agent and admin roles, the language, deleting an account | #15, #49, #46, #59 |
 | `catalog` | Partners, offers, covered destinations | #17, #18, #20, #21 |
 | `wishes` | The client's wish, the coverage check, the preference panel and its answers | #23, #25, #28 |
 | `planning` | The plan built from offers and its status machine, the agent's negotiation (queue, prices) | #29, #50, #51 |
@@ -54,9 +54,10 @@ apps/api/src/novoya_api/
       dependencies.py  composition root: builds use cases with their adapters
 
   shared/
-    domain/            errors.py (DomainError, NotFound, PermissionDenied, InvalidTransition),
+    domain/            errors.py (DomainError, NotFound, PermissionDenied, InvalidTransition,
+                       Unauthenticated, Conflict, InvalidInput, TooManyRequests),
                        value objects (Money, DateRange, Destination, Locale)
-    application/       UnitOfWork port
+    application/       UnitOfWork and Clock ports
     infrastructure/    db/ (Base, session), llm/ (OpenRouter client, tool-calling loop)
     presentation/      domain error → HTTP response handler
 ```
@@ -104,7 +105,7 @@ So the inner layers of a module never know other modules exist, and each module 
 | `planning` | `catalog` (check offer ids, LLM travel tools) | `catalog.public` |
 | `quoting` | `planning` (priced plan, mark quoted, accepted or rejected), `accounts` (email, language) | `planning.public`, `accounts.public` |
 | `accounts` | `wishes`, `planning`, `quoting` (delete a user's data) | each `public.delete_for_user` |
-| all routers | `accounts` (`current_user`, `require_agent`) | `accounts.public` |
+| all routers | `accounts` (`current_user`, `require_client`, `require_agent`, `require_admin`, `Role`, `get_user`) | `accounts.public` |
 
 Each module owns its tables. Foreign keys across modules are allowed in the database, but code reads another module's data only through `public.py`.
 
@@ -114,7 +115,7 @@ Each module owns its tables. Foreign keys across modules are allowed in the data
 
 | Module | Entities | Rules they own |
 |---|---|---|
-| accounts | `User`, `Role`, `Locale` | Only agents handle quotes. `NOVOYA_AGENT_EMAILS` decides who is an agent |
+| accounts | `User`, `Role`, `PasswordCredential`, `OAuthIdentity`, `AuthSession`, `OneTimeToken`, `RoleChange` | A new account is `client`, and signing in never changes a role. Only an admin changes a role, never their own, and there is always at least one admin. `agent` and `admin` need a verified email. A password account cannot sign in before its email is verified. Only agents (and admins) handle quotes |
 | catalog | `Partner`, `Offer` | An inactive partner's offers are never used. An offer fits a group size and dates or not. Offers have **no price** |
 | wishes | `Wish`, `Panel`, `Tag` | `draft` → `not_covered` or `panel_shown` → `answered` → `planned`. Selected tags must come from the panel shown |
 | planning | `Plan`, `PlanItem` | The status machine below. Every item is a real, active offer. Only the assigned agent sets prices |
@@ -138,7 +139,7 @@ The allowed moves are methods on `Plan`, for example `plan.request_quote(by=user
 
 | Module | Use cases | Endpoints | Ports |
 |---|---|---|---|
-| accounts | `SignIn`, `GetCurrentUser`, `DeleteAccount` | `/auth/google/*`, `/auth/logout`, `GET /me`, `DELETE /me` | UserRepository, IdentityProvider, PersonalDataEraser |
+| accounts | `StartSignIn`, `SignIn`, `Register`, `VerifyEmail`, `SignInWithPassword`, `RequestPasswordReset`, `ResetPassword`, `ChangePassword`, `SignOut`, `SignOutEverywhere`, `GetCurrentUser`, `ListUsers`, `ChangeUserRole`, `DeleteAccount` | `/auth/{provider}/*` (Google), `/auth/register`, `/auth/login`, `/auth/email/*`, `/auth/password/*`, `/auth/logout`, `/auth/logout-all`, `GET /me`, `DELETE /me`, `/admin/users` | UserRepository, PasswordCredentialRepository, OAuthIdentityRepository, SessionRepository, IdentityProvider, PasswordHasher, AuthMailer, RateLimiter, PersonalDataEraser |
 | catalog | `ListDestinations`, `SearchOffers`, `ManagePartners`, `ManageOffers` | `GET /destinations`, `/admin/partners`, `/admin/offers` | PartnerRepository, OfferRepository |
 | wishes | `SendWish`, `AnswerPanel` | `POST /wishes`, `POST /wishes/{id}/answers` | WishRepository, Catalog, PanelBuilder, PlanStarter |
 | planning | `GeneratePlan`, `GetPlan`, `RequestQuote`, `ListQuoteQueue`, `TakePlan`, `SetItemPrice` | `GET /plans/{id}`, `POST /plans/{id}/request-quote`, `/agent/plans/*` | PlanRepository, PlanGenerator, Catalog |
@@ -152,7 +153,7 @@ Every module also uses the shared `UnitOfWork` port: one use case is one transac
 | Module | Adapter | Tool |
 |---|---|---|
 | all | `infrastructure/db/` repositories and tables | SQLAlchemy 2 (async) + PostgreSQL |
-| accounts | `google_oauth.py` | Google OAuth, `openid email profile` |
+| accounts | `google_oauth.py`, `security.py`, `email/` | Google OpenID Connect with Authlib (`openid email profile`, PKCE), Argon2id password hashes, SMTP (Mailpit locally) |
 | wishes | `llm/panel_builder.py` | OpenRouter, through `shared/infrastructure/llm` |
 | planning | `llm/plan_generator.py`, `llm/tools.py` | OpenRouter tool calling; the tools read offers through `catalog.public` |
 | quoting | `pdf/`, `email/` | Jinja2 + WeasyPrint, SMTP (Mailpit locally) |
@@ -173,10 +174,14 @@ Errors are defined once in `shared/domain/errors.py` and turned into HTTP codes 
 
 | Domain error | HTTP |
 |---|---|
-| `NotFound` | 404 |
+| `Unauthenticated` | 401 |
 | `PermissionDenied` | 403 |
-| `InvalidTransition` | 409 |
-| Invalid input (Pydantic) | 422 |
+| `NotFound` | 404 |
+| `InvalidTransition`, `Conflict` | 409 |
+| `InvalidInput`, invalid input (Pydantic) | 422 |
+| `TooManyRequests` | 429, with `Retry-After` |
+
+Every error has a `code`, and the API answers `{code, detail}`, so the frontend can translate the message. Module errors extend these classes (for example `InvalidCredentials` extends `Unauthenticated`), so the one handler is enough.
 
 "Destination not covered" is not an error: it is a normal result of `SendWish`, returned with status 200 and `not_covered`.
 
