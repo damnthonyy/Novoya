@@ -124,6 +124,8 @@ C’est le vrai vocabulaire de l’app. Si ce niveau est propre, le reste s’as
 | `TagButton` | Tag + label + état cliquable | cocher / décocher une préférence |
 | `SectionTitle` | kicker + titre + hint | nommer une section du panneau |
 | `BudgetSlider` | label + slider + Price | fixer le budget max |
+| `GoogleButton` | Icon + Button | “Continuer avec Google” |
+| `TextField` | label + Input + message d’erreur | un champ de formulaire (e-mail, mot de passe) |
 | `TravelerStepper` | boutons − / + et un nombre | nombre de voyageurs |
 | `DateRangeField` | deux dates | départ / retour |
 | `CoverageHint` | Text + Badge | on couvre / on ne couvre pas cette destination |
@@ -156,6 +158,8 @@ Un organisme est une **région** que tu poses dans un template. Toujours aliment
 | `PlanTimeline` | PlanDayCard[] | le plan |
 | `PlanDayCard` | tampon du jour, activités (sans prix) | un jour |
 | `DayDetail` | contenu d’un jour ouvert | détail |
+| `SignInForm` | GoogleButton, Divider, TextField × 2, Button, lien “mot de passe oublié” | connexion |
+| `SignUpForm` | GoogleButton, Divider, TextField × 2, Button | inscription |
 | `QuoteSummary` | lignes du devis, Price total, lien PDF, Button accepter / refuser | le devis |
 | `SavedTripCard` | titre, dates, Badge (statut du devis) | liste “mes voyages” |
 | `OnboardingSlide` | titre + texte + visuel | intro |
@@ -172,7 +176,7 @@ Le template gère la **transition de page** (entrée / sortie). Les organismes g
 
 | Template | Slots | Sert à |
 |---|---|---|
-| `AuthTemplate` | média / bouton de connexion | login |
+| `AuthTemplate` | média / formulaire | connexion, inscription, e-mail, mot de passe |
 | `EditorialTemplate` | header, hero, footer | splash, onboarding, accueil |
 | `PanelTemplate` | header, progression, sections, CTA collant | panneau de préférences |
 | `RitualTemplate` | plein écran, peu de chrome | génération du plan |
@@ -189,7 +193,11 @@ Là seulement on branchera le routeur et, plus tard, l’API.
 |---|---|---|
 | Splash | Editorial | Logo, motion d’entrée |
 | Onboarding | Editorial | OnboardingSlide (skippable) |
-| Login | Auth | un seul bouton “Continuer avec Google” (pas de mot de passe) |
+| Connexion | Auth | SignInForm (Google ou e-mail + mot de passe) |
+| Inscription | Auth | SignUpForm |
+| Vérification de l’e-mail | Auth | message + bouton “renvoyer l’e-mail” |
+| Mot de passe oublié | Auth | TextField e-mail + Button |
+| Nouveau mot de passe | Auth | TextField mot de passe + Button |
 | Accueil | Editorial | AppHeader + WishHero |
 | Destination non couverte | Editorial | CoverageEmpty |
 | Panneau | Panel | PreferencePanel |
@@ -204,7 +212,7 @@ Là seulement on branchera le routeur et, plus tard, l’API.
 
 Aucun écran “connecter une source”.
 
-Les pages agent (file des devis, saisie des prix, partenaires et offres) vivent aussi dans `apps/web`, sous des routes réservées au rôle `agent`. Elles réutilisent les mêmes atomes et molécules. Leurs organismes seront ajoutés ici quand on les dessinera.
+Les pages agent (file des devis, saisie des prix, partenaires et offres) vivent aussi dans `apps/web`, sous des routes réservées au rôle `agent`. La page admin des utilisateurs et de leurs rôles est réservée au rôle `admin`. Elles réutilisent les mêmes atomes et molécules. Leurs organismes seront ajoutés ici quand on les dessinera.
 
 ---
 
