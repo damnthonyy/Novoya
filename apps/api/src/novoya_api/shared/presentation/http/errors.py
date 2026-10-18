@@ -1,0 +1,56 @@
+"""One handler that turns domain errors into HTTP responses, for every module.
+
+The status comes from the error's base class; the body is {"code": ..., "detail": ...}.
+"""
+
+from fastapi import FastAPI, Request, status
+from fastapi.responses import JSONResponse
+from pydantic import BaseModel
+
+from novoya_api.shared.domain.errors import (
+    Conflict,
+    DomainError,
+    InvalidInput,
+    InvalidTransition,
+    NotFound,
+    PermissionDenied,
+    TooManyRequests,
+    Unauthenticated,
+)
+
+STATUS_BY_ERROR: list[tuple[type[DomainError], int]] = [
+    (Unauthenticated, status.HTTP_401_UNAUTHORIZED),
+    (PermissionDenied, status.HTTP_403_FORBIDDEN),
+    (NotFound, status.HTTP_404_NOT_FOUND),
+    (InvalidTransition, status.HTTP_409_CONFLICT),
+    (Conflict, status.HTTP_409_CONFLICT),
+    (InvalidInput, status.HTTP_422_UNPROCESSABLE_CONTENT),
+    (TooManyRequests, status.HTTP_429_TOO_MANY_REQUESTS),
+]
+
+
+class ErrorResponse(BaseModel):
+    """Body of every error raised by a business rule."""
+
+    code: str
+    detail: str
+
+
+def status_of(error: DomainError) -> int:
+    for error_type, status_code in STATUS_BY_ERROR:
+        if isinstance(error, error_type):
+            return status_code
+    return status.HTTP_400_BAD_REQUEST
+
+
+async def handle_domain_error(request: Request, error: Exception) -> JSONResponse:
+    assert isinstance(error, DomainError)
+    body = ErrorResponse(code=error.code, detail=str(error) or error.code)
+    headers = {}
+    if isinstance(error, TooManyRequests):
+        headers["Retry-After"] = str(error.retry_after_seconds)
+    return JSONResponse(body.model_dump(), status_code=status_of(error), headers=headers)
+
+
+def register_error_handlers(app: FastAPI) -> None:
+    app.add_exception_handler(DomainError, handle_domain_error)

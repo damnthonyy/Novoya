@@ -37,12 +37,28 @@ uv run uvicorn novoya_api.main:app --reload
 
 The API runs on http://localhost:8000. Interactive docs: http://localhost:8000/docs.
 
+## Accounts and roles
+
+Sign-up is by email and password; the account is a `client` and must confirm its email before signing in. Locally, the emails land in Mailpit: http://localhost:8025 (`docker compose up mailpit`).
+
+Roles are `client`, `agent` and `admin`. The first admin is named with a command, on an account that already exists and has confirmed its email; after that, an admin changes roles with `PATCH /admin/users/{id}/role`.
+
+```bash
+uv run python -m novoya_api.accounts.presentation.cli grant-role --email you@example.com --role admin
+# or, with docker compose:
+docker compose exec api python -m novoya_api.accounts.presentation.cli grant-role --email you@example.com --role admin
+```
+
+Other modules protect their routes with `require_client`, `require_agent` or `require_admin` from `accounts/public.py`, on the router (the admin passes all three), and read the signed-in user with `CurrentUser`.
+
 ## Checks
 
 ```bash
 uv run ruff check . && uv run ruff format --check .
 uv run pytest
 ```
+
+`tests/accounts/test_sql.py` needs PostgreSQL (`docker compose up db`) and is skipped without it. It works in a separate `novoya_test` database, created if needed, so it never empties the development data.
 
 ## Database migrations
 
