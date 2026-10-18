@@ -6,9 +6,9 @@ Novoya côté écran, c’est trois gestes :
 
 1. l’utilisateur **écrit** le voyage qu’il veut (le souhait) ;
 2. il **affine** dans un panneau de tags (préférences, puis budget / voyageurs / dates) ;
-3. il **lit** un plan jour par jour.
+3. il **lit** un plan jour par jour, sans prix, puis demande un devis à l’agence.
 
-Pas de Gmail, pas d’Instagram, pas d’import. Le design system ne contient que l’UI voyageur.
+Pas de Gmail, pas d’Instagram, pas d’import. Le plan n’affiche jamais de prix : seul le devis, écrit par un agent, en a un.
 
 ---
 
@@ -49,10 +49,10 @@ La logique métier n’est pas ici : voir [DOMAIN.md](DOMAIN.md).
 
 ## Dossiers
 
-Tout vit sous `frontend/src/`.
+Tout vit sous `apps/web/src/`.
 
 ```text
-frontend/src/
+apps/web/src/
   design/            # matière visuelle
   components/        # UI Atomic Design (ce fichier)
   domain/            # règles métier — voir DOMAIN.md
@@ -61,14 +61,17 @@ frontend/src/
     panel/
     constraints/
     plan/
+    quote/
   api/               # HTTP, plus tard — pas des règles
   hooks/             # adaptateur React — voir HOOKS.md
     ui/              # visuel ; les composants peuvent l’importer
-    wish/ coverage/ panel/ constraints/ plan/   # pages seulement
+    wish/ coverage/ panel/ constraints/ plan/ quote/   # pages seulement
   routes/            # pages = unique colle UI + métier + API
 ```
 
-Aujourd’hui Vite utilise encore `App.tsx` : c’est le gabarit de départ. Les **pages** remplaceront ça plus tard. Ne pas mettre de logique métier dans `design/` ni dans `components/`.
+Les pages sont les fichiers de `src/routes/`. `main.tsx` monte le routeur, et `router.tsx` crée le routeur et le client TanStack Query. Ne pas mettre de logique métier dans `design/` ni dans `components/`.
+
+`components/ApiStatus.tsx` vient du setup M0 et appelle l’API directement. C’est une exception temporaire : il sera retiré ou déplacé dans une page.
 
 ---
 
@@ -105,7 +108,7 @@ Un atome = un élément. Pas de label + champ + bouton ensemble. Pas d’histoir
 | `LogoMark` | marque |
 | `SkeletonBone` | placeholder de chargement |
 | `ProgressDot` | un point du rituel de génération |
-| `Price` | montant formaté (1 800 €) |
+| `Price` | montant formaté (1 800 €), seulement dans le devis et le budget |
 
 Dès qu’il faut un libellé **et** un champ **et** une action → ce n’est plus un atome, c’est une **molécule**.
 
@@ -151,9 +154,10 @@ Un organisme est une **région** que tu poses dans un template. Toujours aliment
 | `ChoiceRecap` | RecapChip[] + Button | “voilà ce que tu as choisi” |
 | `GenerationRitual` | StatusLine + scène motion | pendant que le plan se construit |
 | `PlanTimeline` | PlanDayCard[] | le plan |
-| `PlanDayCard` | tampon du jour, activités, Price | un jour |
+| `PlanDayCard` | tampon du jour, activités (sans prix) | un jour |
 | `DayDetail` | contenu d’un jour ouvert | détail |
-| `SavedTripCard` | titre, dates, Badge | liste “mes voyages” |
+| `QuoteSummary` | lignes du devis, Price total, lien PDF, Button accepter / refuser | le devis |
+| `SavedTripCard` | titre, dates, Badge (statut du devis) | liste “mes voyages” |
 | `OnboardingSlide` | titre + texte + visuel | intro |
 
 **`PreferencePanel`** est volontairement générique : il reçoit `sections` (id, titre, tags) et `onToggle(tagId)`. Il n’a pas besoin de connaître les sections à l’avance — c’est le JSON du backend, plus tard, qui les remplit.
@@ -168,7 +172,7 @@ Le template gère la **transition de page** (entrée / sortie). Les organismes g
 
 | Template | Slots | Sert à |
 |---|---|---|
-| `AuthTemplate` | média / formulaire | login |
+| `AuthTemplate` | média / bouton de connexion | login |
 | `EditorialTemplate` | header, hero, footer | splash, onboarding, accueil |
 | `PanelTemplate` | header, progression, sections, CTA collant | panneau de préférences |
 | `RitualTemplate` | plein écran, peu de chrome | génération du plan |
@@ -185,7 +189,7 @@ Là seulement on branchera le routeur et, plus tard, l’API.
 |---|---|---|
 | Splash | Editorial | Logo, motion d’entrée |
 | Onboarding | Editorial | OnboardingSlide (skippable) |
-| Login | Auth | formulaire minimal (pas Gmail lecture) |
+| Login | Auth | un seul bouton “Continuer avec Google” (pas de mot de passe) |
 | Accueil | Editorial | AppHeader + WishHero |
 | Destination non couverte | Editorial | CoverageEmpty |
 | Panneau | Panel | PreferencePanel |
@@ -194,10 +198,13 @@ Là seulement on branchera le routeur et, plus tard, l’API.
 | Génération | Ritual | GenerationRitual |
 | Plan | Plan | ChoiceRecap (lecture) + PlanTimeline |
 | Détail d’un jour | Plan | DayDetail |
+| Devis | Plan | QuoteSummary |
 | Mes voyages | List | SavedTripCard[] |
 | Réglages | List | compte, langue, thème |
 
-Aucun écran “connecter une source”. Aucun écran admin partenaires dans ce design system voyageur.
+Aucun écran “connecter une source”.
+
+Les pages agent (file des devis, saisie des prix, partenaires et offres) vivent aussi dans `apps/web`, sous des routes réservées au rôle `agent`. Elles réutilisent les mêmes atomes et molécules. Leurs organismes seront ajoutés ici quand on les dessinera.
 
 ---
 
@@ -256,10 +263,9 @@ Atomic Design ne parle pas des animations. On les **nomme** pour ne pas les reco
 ## Ce qui n’entre pas ici
 
 - règles métier → `src/domain/` ([DOMAIN.md](DOMAIN.md))
-- appels HTTP → `src/api/` (`queryClient.ts` + `generated/` via `pnpm gen:api`)
+- appels HTTP → `src/api/` (`client.ts` + `generated/` via `pnpm gen:api`)
 - arbre de routes généré → `src/routeTree.gen.ts` (ne pas éditer)
 - Gmail, Instagram, Docs, voyages importés
-- écrans admin (partenaires, offres)
 
 ---
 

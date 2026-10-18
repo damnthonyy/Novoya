@@ -26,3 +26,6 @@ dist-ssr
 # Generated: run `pnpm gen:api` (API client) or the dev server (route tree)
 src/api/generated
 src/routeTree.gen.ts
+
+# TanStack router generator scratch files
+.tanstack

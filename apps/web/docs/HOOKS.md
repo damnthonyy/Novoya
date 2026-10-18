@@ -14,13 +14,14 @@ Pas encore de code : seulement l’endroit et qui a le droit de les importer.
 ## Deux familles, deux dossiers
 
 ```text
-frontend/src/hooks/
+apps/web/src/hooks/
   ui/             # visuel uniquement — les composants PEUVENT s’en servir
   wish/           # état du souhait — SEULES les pages (routes/)
   coverage/
   panel/
   constraints/
   plan/
+  quote/
 ```
 
 Même découpage que `domain/`, pour ne pas tout mélanger dans un `hooks/` fourre-tout.
@@ -77,6 +78,7 @@ Ce sont des **noms** pour plus tard, pas des fichiers à remplir maintenant.
 | `hooks/panel/` | quels tags sont on | `domain/panel` |
 | `hooks/constraints/` | budget, voyageurs, dates | `domain/constraints` |
 | `hooks/plan/` | le plan affiché, jour ouvert | `domain/plan` |
+| `hooks/quote/` | le devis affiché, accepter / refuser | `domain/quote` |
 | `hooks/ui/` | motion, media query, panneau ouvert | personne côté métier |
 
 Quand le backend existera : un hook **API** (`useCreateWish`, TanStack Query) vivra dans `api/`, pas dans `hooks/wish/`. Le hook produit pourra *appeler* le hook API depuis la **page**, ou la page appellera les deux. Le domaine reste sans `fetch`.

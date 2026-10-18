@@ -10,7 +10,7 @@ Pas encore de fonctions : seulement l’endroit, le découpage, et qui a le droi
 ## Les trois tiroirs, jamais mélangés
 
 ```text
-frontend/src/
+apps/web/src/
   components/     # UI (Atomic Design)     → voir ATOMIC.md
   domain/         # règles métier          → ce fichier  (PAS de hooks)
   hooks/          # état React autour du domaine → voir HOOKS.md
@@ -61,12 +61,13 @@ Un organisme reçoit des props déjà calculées. Il ne décide pas si la destin
 Un dossier = **un morceau de produit**. Un dossier n’importe pas les autres sans raison. Si deux domaines se parlent trop, la règle est au mauvais endroit.
 
 ```text
-frontend/src/domain/
+apps/web/src/domain/
   wish/           # le texte du voyage
   coverage/       # on peut planifier ici, ou pas
   panel/          # tags, sections, réponses
   constraints/    # budget, voyageurs, dates
   plan/           # itinéraire jour par jour
+  quote/          # le devis de l’agence
 ```
 
 ### `wish/`
@@ -114,10 +115,21 @@ Ne contient pas le slider ni le stepper.
 Le plan généré.
 
 - plan “agent” vs plan “populaire / featured”
-- un jour a un ordre, des activités, un ordre de grandeur de prix
-- le total reste dans le budget (règle de lecture côté front)
+- un jour a un ordre et des activités
+- le plan n’a **aucun prix** : les prix sont négociés par un agent et n’apparaissent que dans le devis
 
 Ne contient pas `PlanTimeline` ni `PlanDayCard`.
+
+### `quote/`
+
+Le devis écrit par l’agent.
+
+- statut : demandé, prêt, accepté, refusé
+- le client peut accepter ou refuser seulement un devis prêt
+
+Le total est calculé par le backend. Le front l’affiche, il ne le recalcule pas.
+
+Ne contient pas `QuoteSummary`.
 
 ---
 
@@ -146,7 +158,7 @@ Le domaine n’a jamais su ce qu’était un bouton.
 - écrans Gmail / Instagram / imports (hors périmètre)
 - détails d’URL (`/wishes`) → ça, c’est `api/`
 
-`api/` contient le `queryClient` TanStack Query et le client généré (`generated/`, via `pnpm gen:api`). Pas de règles métier là-dedans.
+`api/` contient la config du client HTTP (`client.ts`) et le client généré (`generated/`, via `pnpm gen:api`). Le client TanStack Query est créé dans `src/router.tsx`. Pas de règles métier là-dedans.
 
 ---
 

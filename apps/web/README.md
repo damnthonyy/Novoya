@@ -2,9 +2,15 @@
 
 React + TypeScript + Vite, with TanStack Router (file-based routes), TanStack Query and TanStack Form. See [docs/ARCHITECTURE.md](../../docs/ARCHITECTURE.md).
 
+How `src/` is organised:
+
+- Screens, in Atomic Design: [docs/ATOMIC.md](docs/ATOMIC.md)
+- Business rules (`src/domain/`): [docs/DOMAIN.md](docs/DOMAIN.md)
+- React hooks (`src/hooks/`): [docs/HOOKS.md](docs/HOOKS.md)
+
 ## Run locally
 
-Needs Node 22 and pnpm. The API should run on http://localhost:8000.
+Needs Node 22.22.2+ (or 24.15+) and pnpm. The API should run on http://localhost:8000.
 
 ```bash
 cp .env.example .env
