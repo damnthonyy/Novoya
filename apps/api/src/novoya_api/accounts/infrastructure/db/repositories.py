@@ -46,40 +46,57 @@ def user_to_entity(row: UserModel) -> User:
     )
 
 
-def copy_user(user: User, row: UserModel) -> None:
-    row.email = user.email.value
-    row.name = user.name
-    row.role = user.role.value
-    row.locale = user.locale.value
-    row.status = user.status.value
-    row.email_verified_at = user.email_verified_at
+def user_columns(user: User) -> dict[str, object]:
+    return {
+        "email": user.email.value,
+        "name": user.name,
+        "role": user.role.value,
+        "locale": user.locale.value,
+        "status": user.status.value,
+        "email_verified_at": user.email_verified_at,
+    }
 
 
 class SqlUserRepository:
+    """save() writes only the columns the use case changed since it read the user. Writing
+    them all would undo what another request committed meanwhile: a sign-in that read an
+    agent would give the role back after an admin's demotion."""
+
     def __init__(self, session: AsyncSession) -> None:
         self._session = session
+        self._read: dict[UserId, dict[str, object]] = {}  # each user as this request read it
+
+    def _entity(self, row: UserModel) -> User:
+        user = user_to_entity(row)
+        self._read[user.id] = user_columns(user)
+        return user
 
     async def get(self, user_id: UserId) -> User | None:
         row = await self._session.get(UserModel, user_id.value)
-        return user_to_entity(row) if row else None
+        return self._entity(row) if row else None
 
     async def get_by_email(self, email: Email) -> User | None:
         row = await self._session.scalar(select(UserModel).where(UserModel.email == email.value))
-        return user_to_entity(row) if row else None
+        return self._entity(row) if row else None
 
     async def add(self, user: User) -> None:
-        row = UserModel(id=user.id.value, created_at=user.created_at)
-        copy_user(user, row)
-        self._session.add(row)
+        columns = user_columns(user)
+        self._session.add(UserModel(id=user.id.value, created_at=user.created_at, **columns))
         try:
             await self._session.flush()  # two sign-ups at once: the unique index decides
         except IntegrityError as exc:
             raise EmailAlreadyUsed("this email address already has an account") from exc
+        self._read[user.id] = columns
 
     async def save(self, user: User) -> None:
-        row = await self._session.get(UserModel, user.id.value)
-        if row is not None:
-            copy_user(user, row)
+        columns = user_columns(user)
+        read = self._read.get(user.id)
+        changed = {k: v for k, v in columns.items() if read is None or read[k] != v}
+        if changed:
+            await self._session.execute(
+                update(UserModel).where(UserModel.id == user.id.value).values(**changed)
+            )
+        self._read[user.id] = columns
 
     async def count_active_with_role(self, role: Role) -> int:
         # FOR UPDATE locks these rows until commit: two admins demoting each other at the
@@ -104,7 +121,7 @@ class SqlUserRepository:
             statement = statement.where(UserModel.role == role.value)
         statement = statement.order_by(UserModel.created_at.desc()).limit(limit).offset(offset)
         rows = await self._session.scalars(statement)
-        return [user_to_entity(row) for row in rows]
+        return [self._entity(row) for row in rows]
 
 
 class SqlRoleChangeRepository:
@@ -151,7 +168,7 @@ class SqlPasswordCredentialRepository:
         )
 
 
-IDENTITY_UNIQUE = "uq_oauth_identities_provider_subject"
+IDENTITY_UNIQUE = ("uq_oauth_identities_provider_subject", "uq_oauth_identities_user_provider")
 
 
 def identity_to_entity(row: OAuthIdentityModel) -> OAuthIdentity:
@@ -191,8 +208,8 @@ class SqlOAuthIdentityRepository:
         try:
             await self._session.flush()  # two first sign-ins at once: the unique index decides
         except IntegrityError as exc:
-            # Only that index means "already linked"; any other violation is a bug to surface.
-            if IDENTITY_UNIQUE not in str(exc.orig):
+            # Only these indexes mean "already linked"; any other violation is a bug to surface.
+            if not any(name in str(exc.orig) for name in IDENTITY_UNIQUE):
                 raise
             raise IdentityAlreadyLinked("this account is already linked to another user") from exc
 

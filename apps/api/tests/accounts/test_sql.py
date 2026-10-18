@@ -278,6 +278,18 @@ async def test_a_google_account_is_linked_to_one_user_only(session):
         await identities.add(OAuthIdentity.link(bob.id, google_identity(), NOW))
 
 
+async def test_a_user_has_at_most_one_google_account(session):
+    users, identities = SqlUserRepository(session), SqlOAuthIdentityRepository(session)
+    alice = make_user("alice@example.com")
+    await users.add(alice)
+    await identities.add(OAuthIdentity.link(alice.id, google_identity(), NOW))
+
+    with pytest.raises(IdentityAlreadyLinked):
+        await identities.add(
+            OAuthIdentity.link(alice.id, google_identity(subject="another-google-account"), NOW)
+        )
+
+
 async def test_an_identity_for_a_missing_user_is_not_reported_as_already_linked(session):
     """Only the (provider, subject) unique index means "already linked"; a foreign key
     failure is a bug and must surface as it is."""
@@ -455,3 +467,33 @@ async def test_a_failed_google_sign_in_changes_nothing_but_the_used_state(sessio
     assert not (await store.users.get(squatter.id)).is_email_verified
     assert await store.identities.providers_for_user(squatter.id) == set()
     assert await store.oauth_states.pop(tokens.hash("the-state"), NOW) is None  # used up
+
+
+async def test_a_sign_in_does_not_undo_a_role_change_made_meanwhile(sessions):
+    """Copilot's scenario on #73: the sign-in reads the user, an admin demotes them and
+    commits, then the sign-in saves the user. Only the changed columns are written, so the
+    demotion stays."""
+    async with sessions() as setup:
+        agent = make_user("alice@example.com", role=Role.AGENT, verified=False)
+        await SqlUserRepository(setup).add(agent)
+        await setup.commit()
+
+    async with sessions() as signing_in:
+        users = SqlUserRepository(signing_in)
+        user = await users.get(agent.id)  # the sign-in has read the agent
+
+        async with sessions() as admin:  # the demotion commits in between
+            await admin.execute(
+                text("UPDATE users SET role = 'client' WHERE id = :id"), {"id": agent.id.value}
+            )
+            await admin.commit()
+
+        user.verify_email(NOW)
+        user.fill_in_name("Alice Martin")
+        await users.save(user)
+        await signing_in.commit()
+
+    async with sessions() as check:
+        stored = await SqlUserRepository(check).get(agent.id)
+    assert stored.role is Role.CLIENT
+    assert stored.is_email_verified

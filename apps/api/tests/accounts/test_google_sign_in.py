@@ -21,6 +21,7 @@ from novoya_api.accounts.domain.credentials import PasswordCredential
 from novoya_api.accounts.domain.errors import (
     AccountDisabled,
     EmailAlreadyUsed,
+    IdentityAlreadyLinked,
     OAuthEmailNotVerified,
     OAuthLinkNotAllowed,
     OAuthProviderError,
@@ -531,3 +532,55 @@ async def test_losing_the_race_to_create_the_account_still_signs_in(google):
     assert not result.is_new_user
     assert len(users.rows) == 1
     assert google.store.uow.rollbacks == 1
+
+
+async def test_the_same_google_account_linked_by_another_tab_meanwhile_signs_in(google):
+    """Tab B linked this Google account between our lookup by sub and our lookup by email:
+    it's the same person, so we sign in instead of refusing a "second" Google account."""
+    user = make_user("alice@example.com")
+    await google.store.users.add(user)
+    identities = google.store.identities
+    original_get = identities.get
+    lookups = 0
+
+    async def get_while_tab_b_links(provider, subject):
+        nonlocal lookups
+        lookups += 1
+        if lookups == 1:
+            from novoya_api.accounts.domain.oauth_identity import OAuthIdentity
+
+            found = await original_get(provider, subject)
+            await identities.add(OAuthIdentity.link(user.id, google_identity(), google.clock.now()))
+            return found  # None: tab B's link came just after our lookup
+        return await original_get(provider, subject)
+
+    identities.get = get_while_tab_b_links
+
+    result = await google.full()
+
+    assert not result.is_new_user
+    assert len(identities.rows) == 1
+
+
+async def test_two_google_accounts_linking_one_user_at_once_keep_only_one(google):
+    """The database refuses a second Google identity for the user (unique user and
+    provider); the retry then sees the first one and refuses ours."""
+    from novoya_api.accounts.domain.oauth_identity import OAuthIdentity
+
+    user = make_user("alice@example.com")
+    await google.store.users.add(user)
+    identities = google.store.identities
+    original_add = identities.add
+
+    async def add_after_the_other_account(identity):
+        identities.add = original_add
+        other = google_identity(subject="another-google-account")
+        await original_add(OAuthIdentity.link(user.id, other, google.clock.now()))
+        raise IdentityAlreadyLinked("already linked")
+
+    identities.add = add_after_the_other_account
+
+    with pytest.raises(OAuthLinkNotAllowed):
+        await google.full()
+
+    assert set(identities.rows) == {("google", "another-google-account")}

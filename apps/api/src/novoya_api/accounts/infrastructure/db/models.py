@@ -110,6 +110,9 @@ class OAuthIdentityModel(Base):
     __tablename__ = "oauth_identities"
     __table_args__ = (
         UniqueConstraint("provider", "subject", name="uq_oauth_identities_provider_subject"),
+        # One account per provider and user: two Google accounts linked at the same moment
+        # cannot both pass the check in the use case.
+        UniqueConstraint("user_id", "provider", name="uq_oauth_identities_user_provider"),
     )
 
     id: Mapped[UUID] = mapped_column(Uuid, primary_key=True)

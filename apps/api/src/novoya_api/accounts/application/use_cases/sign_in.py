@@ -108,20 +108,25 @@ class SignIn:
         await self._uow.commit()
         return SignInResult(token, pending.redirect_to, is_new)
 
+    async def _sign_in_linked(
+        self, identity: OAuthIdentity, external: ExternalIdentity, now: datetime
+    ) -> User:
+        user = await self._users.get(identity.user_id)
+        if user is None:
+            raise UserNotFound("the linked account no longer exists")
+        identity.touch(now)
+        await self._identities.save(identity)
+        user.fill_in_name(external.name)
+        await self._users.save(user)
+        return user
+
     async def _resolve_user(
         self, external: ExternalIdentity, locale_hint: str | None, now: datetime
     ) -> tuple[User, bool]:
         # 1. Linked already: found by (provider, sub), not by email, which can change.
         identity = await self._identities.get(external.provider, external.subject)
         if identity is not None:
-            user = await self._users.get(identity.user_id)
-            if user is None:
-                raise UserNotFound("the linked account no longer exists")
-            identity.touch(now)
-            await self._identities.save(identity)
-            user.fill_in_name(external.name)
-            await self._users.save(user)
-            return user, False
+            return await self._sign_in_linked(identity, external, now), False
 
         # Linking and creating rely on the email: the provider must vouch for it.
         if not external.email_verified:
@@ -131,14 +136,18 @@ class SignIn:
         # today. A Google account on a company address may belong to a former employee.
         user = await self._users.get_by_email(external.email)
         if user is not None:
+            refusal = None
             if not external.email_authoritative:
-                raise OAuthLinkNotAllowed(
-                    "an account already uses this email: sign in with your password"
-                )
-            if external.provider in await self._identities.providers_for_user(user.id):
-                raise OAuthLinkNotAllowed(
-                    "this account is already linked to another Google account"
-                )
+                refusal = "an account already uses this email: sign in with your password"
+            elif external.provider in await self._identities.providers_for_user(user.id):
+                refusal = "this account is already linked to another Google account"
+            if refusal is not None:
+                # Another tab may have linked this very Google account since our lookup:
+                # then it is the same person signing in, not a second account.
+                identity = await self._identities.get(external.provider, external.subject)
+                if identity is not None:
+                    return await self._sign_in_linked(identity, external, now), False
+                raise OAuthLinkNotAllowed(refusal)
             if not user.is_email_verified:
                 # Pre-hijacking (plan §12.4): whoever set a password on this unverified
                 # address may not be its owner. The provider proves the owner: drop the

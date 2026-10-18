@@ -46,6 +46,7 @@ def upgrade() -> None:
         sa.ForeignKeyConstraint(["user_id"], ["users.id"], ondelete="CASCADE"),
         sa.PrimaryKeyConstraint("id"),
         sa.UniqueConstraint("provider", "subject", name="uq_oauth_identities_provider_subject"),
+        sa.UniqueConstraint("user_id", "provider", name="uq_oauth_identities_user_provider"),
     )
     op.create_index(
         op.f("ix_oauth_identities_user_id"), "oauth_identities", ["user_id"], unique=False
