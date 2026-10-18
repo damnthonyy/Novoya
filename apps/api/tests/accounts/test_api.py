@@ -171,6 +171,23 @@ async def test_weak_password_and_bad_email_get_422(client):
     assert response.json()["code"] == "invalid_email"
 
 
+async def test_a_too_long_password_gets_weak_password_and_is_not_echoed(client):
+    password = "a very long passphrase " * 10  # 230 characters
+    response = await client.post(
+        "/auth/register", json={"email": "alice@example.com", "password": password}
+    )
+    assert response.status_code == 422
+    assert response.json()["code"] == "weak_password"
+    assert "passphrase" not in response.text
+
+
+async def test_an_invalid_body_gets_invalid_input_without_the_values(client):
+    response = await client.post("/auth/login", json={"email": "alice@example.com"})
+    assert response.status_code == 422
+    assert response.json() == {"code": "invalid_input", "detail": "password: Field required"}
+    assert "alice@example.com" not in response.text
+
+
 async def test_wrong_password_gets_401(client, mailer):
     await sign_up(client, mailer, "alice@example.com")
     response = await client.post(

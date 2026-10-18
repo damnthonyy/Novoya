@@ -122,8 +122,15 @@ def get_dummy_hash() -> PasswordHash:
 
 
 def get_mailer(settings: SettingsDep) -> AuthMailer:
+    password = settings.smtp_password.get_secret_value() if settings.smtp_password else None
     return SmtpAuthMailer(
-        settings.smtp_host, settings.smtp_port, settings.mail_from, settings.frontend_url
+        settings.smtp_host,
+        settings.smtp_port,
+        settings.mail_from,
+        settings.frontend_url,
+        username=settings.smtp_username,
+        password=password,
+        start_tls=settings.smtp_start_tls,
     )
 
 

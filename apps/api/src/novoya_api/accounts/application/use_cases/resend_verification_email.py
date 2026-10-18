@@ -37,7 +37,7 @@ class ResendVerificationEmail:
 
     async def __call__(self, email: str) -> None:
         address = Email(email)
-        await self._rate_limiter.hit(f"mail:email:{address}", 3, timedelta(hours=1))
+        await self._rate_limiter.hit(f"verify:email:{address}", 3, timedelta(hours=1))
         user = await self._users.get_by_email(address)
         if user is None or user.is_email_verified:
             return

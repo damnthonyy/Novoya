@@ -4,6 +4,7 @@ The status comes from the error's base class; the body is {"code": ..., "detail"
 """
 
 from fastapi import FastAPI, Request, status
+from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
@@ -52,5 +53,18 @@ async def handle_domain_error(request: Request, error: Exception) -> JSONRespons
     return JSONResponse(body.model_dump(), status_code=status_of(error), headers=headers)
 
 
+async def handle_validation_error(request: Request, error: Exception) -> JSONResponse:
+    """Invalid request bodies get the same {code, detail} shape. The input values are left
+    out: they can be passwords or personal data."""
+    assert isinstance(error, RequestValidationError)
+    detail = "; ".join(
+        f"{'.'.join(str(part) for part in e['loc'][1:]) or 'body'}: {e['msg']}"
+        for e in error.errors()
+    )
+    body = ErrorResponse(code="invalid_input", detail=detail)
+    return JSONResponse(body.model_dump(), status_code=status.HTTP_422_UNPROCESSABLE_CONTENT)
+
+
 def register_error_handlers(app: FastAPI) -> None:
     app.add_exception_handler(DomainError, handle_domain_error)
+    app.add_exception_handler(RequestValidationError, handle_validation_error)

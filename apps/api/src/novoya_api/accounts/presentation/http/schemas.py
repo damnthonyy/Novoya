@@ -13,14 +13,14 @@ RoleName = Literal["client", "agent", "admin"]
 
 class RegisterRequest(BaseModel):
     email: str = Field(max_length=254)
-    password: SecretStr = Field(max_length=128)
+    password: SecretStr
     name: str | None = Field(default=None, max_length=200)
     locale: Literal["en", "fr"] | None = None  # defaults to the browser language
 
 
 class SignInRequest(BaseModel):
     email: str = Field(max_length=254)
-    password: SecretStr = Field(max_length=128)
+    password: SecretStr
 
 
 class TokenRequest(BaseModel):
@@ -33,12 +33,12 @@ class EmailRequest(BaseModel):
 
 class ResetPasswordRequest(BaseModel):
     token: str = Field(max_length=200)
-    new_password: SecretStr = Field(max_length=128)
+    new_password: SecretStr
 
 
 class ChangePasswordRequest(BaseModel):
-    current_password: SecretStr = Field(max_length=128)
-    new_password: SecretStr = Field(max_length=128)
+    current_password: SecretStr
+    new_password: SecretStr
 
 
 class ChangeRoleRequest(BaseModel):

@@ -5,14 +5,12 @@
         "properties": {
           "current_password": {
             "format": "password",
-            "maxLength": 128,
             "title": "Current Password",
             "type": "string",
             "writeOnly": true
           },
           "new_password": {
             "format": "password",
-            "maxLength": 128,
             "title": "New Password",
             "type": "string",
             "writeOnly": true
@@ -211,7 +209,6 @@
           },
           "password": {
             "format": "password",
-            "maxLength": 128,
             "title": "Password",
             "type": "string",
             "writeOnly": true
@@ -228,7 +225,6 @@
         "properties": {
           "new_password": {
             "format": "password",
-            "maxLength": 128,
             "title": "New Password",
             "type": "string",
             "writeOnly": true
@@ -255,7 +251,6 @@
           },
           "password": {
             "format": "password",
-            "maxLength": 128,
             "title": "Password",
             "type": "string",
             "writeOnly": true

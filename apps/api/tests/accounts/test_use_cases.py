@@ -58,13 +58,13 @@ CLIENT = ClientInfo(ip_address="127.0.0.1", user_agent="tests", current_token=No
 class Accounts:
     """The accounts module wired with fakes."""
 
-    def __init__(self) -> None:
+    def __init__(self, real_rate_limits: bool = False) -> None:
         self.store = InMemoryStore()
         self.clock = FrozenClock()
         self.tokens = SequentialTokenGenerator()
         self.mailer = RecordingMailer()
         self.hasher = PlainTextPasswordHasher()
-        self.limiter = NoopRateLimiter()
+        self.limiter = InMemoryRateLimiter(self.clock) if real_rate_limits else NoopRateLimiter()
         s = self.store
         self.opener = SessionOpener(s.sessions, self.tokens, self.clock, SessionPolicy())
         self.register = Register(
@@ -341,3 +341,40 @@ async def test_rate_limiter_blocks_past_the_limit():
     assert error.value.retry_after_seconds == 15 * 60
     clock.advance(timedelta(minutes=15))
     await limiter.hit("key", 3, timedelta(minutes=15))
+
+
+async def test_failed_logins_from_another_ip_do_not_lock_the_owner_out():
+    accounts = Accounts(real_rate_limits=True)
+    await accounts.signed_up()
+    attacker = ClientInfo(ip_address="6.6.6.6", user_agent="attacker", current_token=None)
+    for _ in range(10):
+        with pytest.raises(InvalidCredentials):
+            await accounts.sign_in(SignInWithPasswordCommand("alice@example.com", "nope", attacker))
+    with pytest.raises(TooManyAttempts):
+        await accounts.sign_in(SignInWithPasswordCommand("alice@example.com", "nope", attacker))
+
+    assert await accounts.signed_in()  # the owner, from her own IP
+
+
+async def test_resending_the_verification_email_does_not_block_a_password_reset():
+    accounts = Accounts(real_rate_limits=True)
+    await accounts.signed_up(verified=False)
+    for _ in range(3):
+        await accounts.resend("alice@example.com")
+
+    await accounts.forgot("alice@example.com")
+
+    assert accounts.mailer.last_token("alice@example.com", "password_reset")
+
+
+async def test_rate_limiter_drops_finished_windows_when_it_is_full():
+    clock = FrozenClock()
+    limiter = InMemoryRateLimiter(clock)
+    limiter.MAX_KEYS = 3
+    for key in ("a@x.io", "b@x.io", "c@x.io"):
+        await limiter.hit(key, 3, timedelta(minutes=15))
+    clock.advance(timedelta(minutes=15))
+
+    await limiter.hit("d@x.io", 3, timedelta(minutes=15))
+
+    assert list(limiter._windows) == ["d@x.io"]

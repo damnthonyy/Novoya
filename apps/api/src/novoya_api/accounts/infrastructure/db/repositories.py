@@ -7,7 +7,7 @@ use case does, through the UnitOfWork that shares their session.
 from datetime import datetime
 from uuid import UUID
 
-from sqlalchemy import func, or_, select, update
+from sqlalchemy import or_, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -78,12 +78,14 @@ class SqlUserRepository:
             copy_user(user, row)
 
     async def count_active_with_role(self, role: Role) -> int:
-        count = await self._session.scalar(
-            select(func.count())
-            .select_from(UserModel)
+        # FOR UPDATE locks these rows until commit: two admins demoting each other at the
+        # same time are counted one after the other, so the last admin is always kept.
+        ids = await self._session.scalars(
+            select(UserModel.id)
             .where(UserModel.role == role.value, UserModel.status == UserStatus.ACTIVE.value)
+            .with_for_update()
         )
-        return count or 0
+        return len(ids.all())
 
     async def search(
         self, query: str | None, role: Role | None, limit: int, offset: int
@@ -228,10 +230,13 @@ class SqlOneTimeTokenRepository:
 
     async def get(self, token_hash: str, purpose: TokenPurpose) -> OneTimeToken | None:
         row = await self._session.scalar(
-            select(OneTimeTokenModel).where(
+            select(OneTimeTokenModel)
+            .where(
                 OneTimeTokenModel.token_hash == token_hash,
                 OneTimeTokenModel.purpose == purpose.value,
             )
+            # Locked until commit: a second request with the same link waits, then sees it used.
+            .with_for_update()
         )
         return token_to_entity(row) if row else None
 

@@ -18,9 +18,18 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 from sqlalchemy.pool import NullPool
 
 from alembic import command
+from novoya_api.accounts.application.services.one_time_tokens import consume_token
+from novoya_api.accounts.application.use_cases.change_user_role import (
+    ChangeUserRole,
+    ChangeUserRoleCommand,
+)
 from novoya_api.accounts.domain.auth_session import AuthSession
 from novoya_api.accounts.domain.credentials import PasswordCredential
-from novoya_api.accounts.domain.errors import EmailAlreadyUsed
+from novoya_api.accounts.domain.errors import (
+    EmailAlreadyUsed,
+    InvalidOrExpiredToken,
+    LastAdminRequired,
+)
 from novoya_api.accounts.domain.one_time_token import OneTimeToken, TokenPurpose
 from novoya_api.accounts.domain.role import Role
 from novoya_api.accounts.domain.value_objects import Email, PasswordHash
@@ -31,7 +40,9 @@ from novoya_api.accounts.infrastructure.db.repositories import (
     SqlSessionRepository,
     SqlUserRepository,
 )
+from novoya_api.accounts.infrastructure.security import SecureTokenGenerator
 from novoya_api.accounts.presentation import cli
+from novoya_api.accounts.presentation.http.dependencies import build_store
 from novoya_api.config import get_settings
 from novoya_api.shared.infrastructure.db.session import get_engine, get_sessionmaker
 from tests.accounts.fakes import FrozenClock, make_user
@@ -213,3 +224,73 @@ def test_grant_role_command(database_url, capsys):
     assert "boss@x.io is now admin" in capsys.readouterr().out
     assert cli.main(["grant-role", "--email", "nobody@x.io", "--role", "admin"]) == 1
     assert "user_not_found" in capsys.readouterr().err
+
+
+# Two requests at the same time: two sessions, the second must wait for the first.
+
+
+@pytest.fixture
+async def sessions(database_url) -> AsyncIterator[async_sessionmaker[AsyncSession]]:
+    engine = create_async_engine(database_url, poolclass=NullPool)
+    async with engine.begin() as connection:
+        await connection.execute(text(f"TRUNCATE {TABLES} CASCADE"))
+    yield async_sessionmaker(engine, expire_on_commit=False)
+    await engine.dispose()
+
+
+async def blocked(task: asyncio.Task) -> bool:
+    await asyncio.sleep(0.3)
+    return not task.done()
+
+
+async def test_two_admins_demoting_each_other_at_once_keep_one_admin(sessions):
+    a = make_user("a@x.io", role=Role.ADMIN)
+    b = make_user("b@x.io", role=Role.ADMIN)
+    async with sessions() as setup:
+        store = build_store(setup)
+        await store.users.add(a)
+        await store.users.add(b)
+        await setup.commit()
+
+    async with sessions() as first, sessions() as second:
+        users = SqlUserRepository(first)
+        assert await users.count_active_with_role(Role.ADMIN) == 2  # A's request, admins locked
+        store = build_store(second)
+        demote_a = ChangeUserRole(store.users, store.role_changes, store.uow, FrozenClock())
+        b_demotes_a = asyncio.create_task(
+            demote_a(ChangeUserRoleCommand(a.id, Role.CLIENT, changed_by=b.id))
+        )
+        assert await blocked(b_demotes_a)
+
+        target = await users.get(b.id)
+        target.change_role(Role.CLIENT, changed_by=a.id, now=NOW)
+        await users.save(target)
+        await first.commit()
+
+        with pytest.raises(LastAdminRequired):
+            await b_demotes_a
+
+
+async def test_a_reset_link_used_by_two_requests_at_once_works_once(sessions):
+    generator = SecureTokenGenerator()
+    raw = generator.generate()
+    alice = make_user("alice@example.com")
+    async with sessions() as setup:
+        store = build_store(setup)
+        await store.users.add(alice)
+        await store.tokens.add(
+            OneTimeToken.issue(alice.id, TokenPurpose.PASSWORD_RESET, generator.hash(raw), NOW)
+        )
+        await setup.commit()
+
+    async with sessions() as first, sessions() as second:
+        purpose = TokenPurpose.PASSWORD_RESET
+        await consume_token(SqlOneTimeTokenRepository(first), generator, raw, purpose, NOW)
+        again = asyncio.create_task(
+            consume_token(SqlOneTimeTokenRepository(second), generator, raw, purpose, NOW)
+        )
+        assert await blocked(again)
+        await first.commit()
+
+        with pytest.raises(InvalidOrExpiredToken):
+            await again

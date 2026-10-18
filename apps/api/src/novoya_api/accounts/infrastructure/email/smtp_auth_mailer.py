@@ -52,9 +52,21 @@ MESSAGES: dict[str, dict[Locale, tuple[str, str]]] = {
 
 
 class SmtpAuthMailer:
-    def __init__(self, host: str, port: int, sender: str, frontend_url: str) -> None:
+    def __init__(
+        self,
+        host: str,
+        port: int,
+        sender: str,
+        frontend_url: str,
+        username: str | None = None,
+        password: str | None = None,
+        start_tls: bool = False,
+    ) -> None:
         self._host = host
         self._port = port
+        self._username = username
+        self._password = password
+        self._start_tls = start_tls
         self._sender = sender
         self._frontend_url = frontend_url.rstrip("/")
 
@@ -77,7 +89,16 @@ class SmtpAuthMailer:
         message["Subject"] = subject
         message.set_content(body.format(link=link))
         try:
-            await aiosmtplib.send(message, hostname=self._host, port=self._port, timeout=10)
-        except (aiosmtplib.SMTPException, OSError):
+            await aiosmtplib.send(
+                message,
+                hostname=self._host,
+                port=self._port,
+                username=self._username,
+                password=self._password,
+                start_tls=self._start_tls,
+                timeout=10,
+            )
+        except (aiosmtplib.SMTPException, OSError) as error:
             # The account change is already committed; the user can ask for a new link.
-            logger.exception("could not send the %s email", kind)
+            # Only the error type: SMTP messages can contain the address (plan §12.9).
+            logger.error("could not send the %s email: %s", kind, type(error).__name__)

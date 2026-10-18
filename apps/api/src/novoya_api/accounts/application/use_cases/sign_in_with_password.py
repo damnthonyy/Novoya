@@ -52,8 +52,10 @@ class SignInWithPassword:
 
     async def __call__(self, cmd: SignInWithPasswordCommand) -> SessionToken:
         email, password = Email(cmd.email), PlainPassword(cmd.password)
-        await self._rate_limiter.hit(f"login:email:{email}", 10, WINDOW)
+        # Per IP first, then per email *and* IP: a limit on the email alone would let anyone
+        # lock the owner out by failing on purpose (plan §12.2).
         await self._rate_limiter.hit(f"login:ip:{cmd.client.ip_address}", 50, WINDOW)
+        await self._rate_limiter.hit(f"login:{email}:{cmd.client.ip_address}", 10, WINDOW)
 
         user = await self._users.get_by_email(email)
         credential = await self._credentials.get(user.id) if user else None
@@ -70,5 +72,5 @@ class SignInWithPassword:
 
         token = await self._opener.open(user, cmd.client)
         await self._uow.commit()
-        await self._rate_limiter.reset(f"login:email:{email}")
+        await self._rate_limiter.reset(f"login:{email}:{cmd.client.ip_address}")
         return token
