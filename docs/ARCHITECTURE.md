@@ -1,6 +1,6 @@
 # Novoya architecture
 
-Novoya is a travel agency with an AI assistant. A client signs in with Google, describes the trip they want, refines it in a preference panel, and gets a proposed plan built only from partner offers. A human travel agent from the agency then negotiates the prices with the partners and sends the client a PDF quote with the total price. The client accepts or rejects it.
+Novoya is a travel agency with an AI assistant. A client signs in with Google or with an email and password, describes the trip they want, refines it in a preference panel, and gets a proposed plan built only from partner offers. A human travel agent from the agency then negotiates the prices with the partners and sends the client a PDF quote with the total price. The client accepts or rejects it.
 
 Novoya only sells what its partners (prestataires) offer: hotels, guides, transport and activities in the destinations they cover. If no partner covers a destination, Novoya cannot plan a trip there and says so.
 
@@ -15,7 +15,10 @@ This document is the starting proposal. Change it by pull request, like code.
 
 ### Client
 
-1. The client signs in with Google. The first sign-in creates the account. We only ask for `openid email profile`.
+1. The client signs in with Google or with an email and password.
+   - **Google**: the first sign-in creates the account. We only ask for `openid email profile`.
+   - **Email and password**: the client signs up with a form, then clicks the link in a verification email. They cannot sign in until the email is verified. They can reset a forgotten password by email.
+   - A new account always has the `client` role. If someone signs up with a password and later signs in with Google using the same email, they get the same account.
 2. The client types what they want ("a calm week by the sea in May").
 3. The AI checks coverage: is there at least one active partner at that destination? If not (for example Japan with no partner there), it says so and suggests covered destinations close to the wish. The flow stops here.
 4. The AI opens a preference panel: sections, each with tags to pick (style, rhythm, accommodation, activities, food, transport...). The tags come from the partner offers at that destination, so the client can only pick what we can deliver.
@@ -26,7 +29,7 @@ This document is the starting proposal. Change it by pull request, like code.
 
 ### Travel agent (agency staff)
 
-1. The agent signs in with Google. Their account has the `agent` role.
+1. The agent signs in like a client, with Google or with an email and password. An admin has given their account the `agent` role.
 2. The agent sees the list of plans waiting for a quote, with the client's wish, budget, travellers and dates.
 3. The agent takes a plan and negotiates with each partner outside Novoya (phone, email).
 4. For each plan item, the agent enters the negotiated price. They can remove an item a partner cannot deliver.
@@ -34,6 +37,14 @@ This document is the starting proposal. Change it by pull request, like code.
 6. The agent sees when the client accepts or rejects.
 
 Agents also manage partners and offers in the admin pages.
+
+### Admin
+
+1. The admin signs in like everyone else. Their account has the `admin` role, which can do everything an agent can.
+2. The admin lists the users and changes their role (`client`, `agent` or `admin`). They cannot change their own role, and there is always at least one admin.
+3. `agent` and `admin` are only given to accounts with a verified email. Every change is logged.
+
+The first admin is created with a server command (`grant-role`), because no one can call the admin API before an admin exists.
 
 ## 2. System overview
 
@@ -76,7 +87,7 @@ The backend is a modular monolith: one application and one database, split by bu
 
 | Module | Owns |
 |---|---|
-| `accounts` | Users, Google sign-in, client and agent roles, language, deleting an account |
+| `accounts` | Users, sign-in with Google or email and password, sessions, client, agent and admin roles, language, deleting an account |
 | `catalog` | Partners, offers, covered destinations |
 | `wishes` | The wish, the coverage check, the preference panel |
 | `planning` | The plan built from offers, its status machine, the agent's negotiation |
@@ -203,7 +214,13 @@ The PDF exists in English and French, in the client's language (`users.locale`).
 
 | Table | Main columns |
 |---|---|
-| `users` | id, google_sub, email, name, role (`client`, `agent`), locale (`en`, `fr`), created_at |
+| `users` | id, email, name, role (`client`, `agent`, `admin`), locale (`en`, `fr`), status (`active`, `disabled`), email_verified_at, created_at, updated_at |
+| `oauth_identities` | id, user_id, provider (`google`), subject (Google's `sub`), created_at, last_login_at |
+| `password_credentials` | user_id, password_hash (Argon2id), updated_at |
+| `sessions` | id, user_id, token_hash, created_at, last_seen_at, idle_expires_at, absolute_expires_at, revoked_at, user_agent |
+| `one_time_tokens` | id, user_id, purpose (`email_verification`, `password_reset`), token_hash, expires_at, used_at, created_at |
+| `oauth_states` | state_hash, provider, code_verifier, nonce, redirect_to, expires_at |
+| `role_changes` | id, user_id, old_role, new_role, source (`admin_api`, `cmd_grant_role`), changed_by, changed_at |
 | `partners` | id, name, kind (hotel, guide, transport, activity, agency), country, city, contact_email, contact_phone, active, created_at |
 | `offers` | id, partner_id, kind, title, description, country, city, min_persons, max_persons, available_from, available_to, tags, featured, active |
 | `wishes` | id, user_id, text, destination_country, destination_city, status (`draft`, `not_covered`, `panel_shown`, `answered`, `planned`), panel_json (the panel we showed), selected_tags (what the client clicked, for example `[{"section": "style", "tag": "beach"}]`), budget_max, currency, persons, start_date, end_date, created_at, updated_at |
@@ -213,7 +230,9 @@ The PDF exists in English and French, in the client's language (`users.locale`).
 
 `wishes` holds the whole request: the text, the panel we showed, the tags the client clicked, the budget, the number of travellers and the dates. `panel_json` and `selected_tags` are JSONB columns.
 
-Agents are set by email: the first agents come from the `NOVOYA_AGENT_EMAILS` setting, and their role is set to `agent` when they sign in.
+Roles live in the database (`users.role`). A new account is `client`, and signing in never changes a role. Only an admin changes it, through `/admin/users`, and each change is written to `role_changes`. The first admin is set with the `grant-role` command.
+
+An account can have Google, a password, or both: `oauth_identities` and `password_credentials` hold one sign-in method each. Sessions are opaque tokens stored hashed in `sessions`, so signing out, resetting a password or changing a role takes effect at the next request. Sessions expire after 7 days without use and 30 days at most.
 
 ## 7. API (first version)
 
@@ -222,9 +241,17 @@ Client:
 | Method | Path | What it does |
 |---|---|---|
 | GET | `/auth/google/login` | Start Google sign-in |
-| GET | `/auth/google/callback` | Create or load the user, set a session cookie |
+| GET | `/auth/google/callback` | Create, link or load the user, set a session cookie |
+| POST | `/auth/register` | Sign up with an email and password. Sends the verification email |
+| POST | `/auth/email/verify` | Verify the email with the token from the link |
+| POST | `/auth/email/verify/resend` | Send the verification email again |
+| POST | `/auth/login` | Sign in with an email and password, set a session cookie |
+| POST | `/auth/password/forgot` | Send a password reset link |
+| POST | `/auth/password/reset` | Set a new password with the token from the link. Signs out every session |
+| POST | `/auth/password/change` | Change the password. Signs out the other sessions |
 | POST | `/auth/logout` | Sign out |
-| GET | `/me` | The signed-in user and their role |
+| POST | `/auth/logout-all` | Sign out on every device |
+| GET | `/me` | The signed-in user, their role, language and sign-in methods |
 | GET | `/destinations` | Destinations covered by our partners |
 | POST | `/wishes` | Send the wish. Returns the panel, or `not_covered` with suggested destinations |
 | POST | `/wishes/{id}/answers` | Send the selected tags, budget, travellers and dates. Saves them on the wish and returns the proposed plan |
@@ -234,7 +261,7 @@ Client:
 | POST | `/quotes/{id}/accept`, `/quotes/{id}/reject` | The client's answer, with an optional comment |
 | DELETE | `/me` | Delete the account, its wishes, plans and quotes |
 
-Agent (role `agent` only):
+Agent (roles `agent` and `admin`):
 
 | Method | Path | What it does |
 |---|---|---|
@@ -243,6 +270,13 @@ Agent (role `agent` only):
 | PATCH | `/agent/plans/{id}/items/{item_id}` | Set the negotiated price, or remove the item |
 | POST | `/agent/plans/{id}/quote` | Compute the total, render the PDF, status `quoted` |
 | GET, POST, PATCH | `/admin/partners`, `/admin/offers` | Manage partners and their offers |
+
+Admin (role `admin` only; an admin can also use every agent route):
+
+| Method | Path | What it does |
+|---|---|---|
+| GET | `/admin/users` | List users, filtered by email or role |
+| PATCH | `/admin/users/{id}/role` | Change a user's role |
 
 FastAPI generates the OpenAPI file. The frontend generates its TypeScript client and types from it with `@hey-api/openapi-ts`, so both sides agree on types without writing them twice.
 
@@ -275,7 +309,7 @@ novoya/
 
 ## 9. Privacy (GDPR)
 
-- We store only the Google account (email, name), what the client types (wishes, panel answers, budget, travellers, dates), the plans and the quotes. No mailbox, document or social media data.
+- We store only the account (email, name, role, language), a hash of the password if the user has one, the sessions (with the browser's user agent, never the IP address, kept 30 days at most), what the client types (wishes, panel answers, budget, travellers, dates), the plans and the quotes. No mailbox, document or social media data, no avatar and no Google token.
 - A privacy page says what we store, why, and for how long.
 - The client can delete their account and everything linked to it (`DELETE /me`).
 - Agents see client data only for the plans in their queue.
@@ -286,7 +320,7 @@ The team is three developers who use Claude Code as a coding assistant. Sprints 
 
 | Sprint | Days | Backend | Frontend | Done when |
 |---|---|---|---|---|
-| Sprint 1 | Fri 16, Mon 19 Oct | Merge the M0 setup, Google sign-in with roles, `partners` and `offers` with seed data, OpenRouter LLM client and orchestrator, travel tools, `/destinations`, `/wishes` with coverage check | Login and protected routes, wish input, "not covered" message | A signed-in client sends a wish and gets a panel or a polite "not covered" |
+| Sprint 1 | Fri 16, Mon 19 Oct | Merge the M0 setup, sign-in with Google and with email and password, roles, `partners` and `offers` with seed data, OpenRouter LLM client and orchestrator, travel tools, `/destinations`, `/wishes` with coverage check | Sign-in and sign-up pages, protected routes, wish input, "not covered" message | A signed-in client sends a wish and gets a panel or a polite "not covered" |
 | Sprint 2 | Tue 20, Wed 21 Oct | Panel from partner tags, `/answers`, plan generation with the offer-id check, `request-quote`, agent queue and pricing endpoints, admin endpoints | Panel renderer with budget, travellers and dates, plan page without prices, agent queue and pricing page | A client gets a plan from real offers and asks for a quote; an agent enters prices |
 | Sprint 3 | Thu 22 Oct | Quote PDF, email to the client, accept and reject, `DELETE /me` | Quote page with PDF and accept/reject, privacy page | The full flow works end to end for the demo |
 
