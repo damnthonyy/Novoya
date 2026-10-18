@@ -27,6 +27,10 @@ services:
       NOVOYA_DATABASE_URL: postgresql+asyncpg://novoya:novoya@db:5432/novoya
       PYTHONDONTWRITEBYTECODE: "1"
       NOVOYA_CORS_ORIGINS: '["http://localhost:${WEB_PORT:-5173}"]'
+    # NOVOYA_OPENROUTER_API_KEY and the LLM models come from the root .env (not committed).
+    env_file:
+      - path: .env
+        required: false
     command: sh -c "alembic upgrade head && uvicorn novoya_api.main:app --host 0.0.0.0 --port 8000 --reload --reload-dir src"
     ports:
       - "${API_PORT:-8000}:8000"
