@@ -1,14 +1,18 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from novoya_api.accounts.presentation.http.router import router as accounts_router
 from novoya_api.config import get_settings
 from novoya_api.health.presentation.http.router import router as health_router
+from novoya_api.shared.presentation.http.errors import register_error_handlers
+from novoya_api.shared.presentation.http.origin_middleware import OriginCheckMiddleware
 from novoya_api.wishes.presentation.http.router import router as wishes_router
 
 
 def create_app() -> FastAPI:
     settings = get_settings()
     app = FastAPI(title="Novoya API", version="0.1.0")
+    app.add_middleware(OriginCheckMiddleware, allowed_origins=settings.cors_origins)
     app.add_middleware(
         CORSMiddleware,
         allow_origins=settings.cors_origins,
@@ -16,7 +20,9 @@ def create_app() -> FastAPI:
         allow_methods=["*"],
         allow_headers=["*"],
     )
+    register_error_handlers(app)
     app.include_router(health_router)
+    app.include_router(accounts_router)
     app.include_router(wishes_router)
     return app
 

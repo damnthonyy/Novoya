@@ -23,7 +23,9 @@ PACKAGE = Path(__file__).parent.parent / "src" / "novoya_api"
 
 LAYERS = ("domain", "application", "infrastructure", "presentation")
 FRAMEWORKS = {
+    "aiosmtplib",
     "alembic",
+    "argon2",
     "asyncpg",
     "fastapi",
     "httpx",
