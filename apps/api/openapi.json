@@ -41,6 +41,25 @@
         "title": "ChangeRoleRequest",
         "type": "object"
       },
+      "Destination": {
+        "description": "A place Novoya can plan a trip, from listed partner offers.",
+        "properties": {
+          "city": {
+            "title": "City",
+            "type": "string"
+          },
+          "country": {
+            "title": "Country",
+            "type": "string"
+          }
+        },
+        "required": [
+          "country",
+          "city"
+        ],
+        "title": "Destination",
+        "type": "object"
+      },
       "DestinationOut": {
         "properties": {
           "city": {
@@ -1645,6 +1664,32 @@
         "summary": "Register",
         "tags": [
           "auth"
+        ]
+      }
+    },
+    "/destinations": {
+      "get": {
+        "description": "Countries and cities with at least one listed offer. Read from the database each time.",
+        "operationId": "listDestinations",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/Destination"
+                  },
+                  "title": "Response Listdestinations",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "List Destinations",
+        "tags": [
+          "catalog"
         ]
       }
     },
