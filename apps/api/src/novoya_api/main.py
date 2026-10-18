@@ -3,6 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from novoya_api.config import get_settings
 from novoya_api.health.presentation.http.router import router as health_router
+from novoya_api.wishes.presentation.http.router import router as wishes_router
 
 
 def create_app() -> FastAPI:
@@ -16,6 +17,7 @@ def create_app() -> FastAPI:
         allow_headers=["*"],
     )
     app.include_router(health_router)
+    app.include_router(wishes_router)
     return app
 
 

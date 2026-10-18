@@ -77,8 +77,6 @@ class Orchestrator:
         for step in range(1, self._max_steps + 1):
             message = await self._complete(messages, tools)
             if not message.tool_calls:
-                if not message.content:
-                    raise LLMError("the model gave an empty answer")
                 return [*messages, {"role": "assistant", "content": message.content}]
             if step == self._max_steps:
                 break  # no model call is left to read the results: don't run the tools
@@ -101,13 +99,22 @@ class Orchestrator:
                 raise LLMError("OpenRouter rejected the API key") from error
             except openai.APIError as error:
                 # Per model on OpenRouter: rate limits, outages, no tool support. Try the next.
-                logger.warning("LLM model %s failed: %s", model, error)
+                # Type and status only: the error body can quote the prompt (moderation).
+                logger.warning(
+                    "LLM model %s failed: %s %s",
+                    model,
+                    type(error).__name__,
+                    getattr(error, "status_code", ""),
+                )
                 last_error = error
                 continue
-            if response.choices:  # None or empty when OpenRouter returns an error body
-                return response.choices[0].message
-            logger.warning("LLM model %s returned no choices", model)
-        logger.error("Every LLM model failed, last error: %s", last_error)
+            # No choices: OpenRouter returned an error body. No content and no tool call: some
+            # reasoning models answer empty. Both count as a failure of this model.
+            message = response.choices[0].message if response.choices else None
+            if message is not None and (message.tool_calls or message.content):
+                return message
+            logger.warning("LLM model %s returned an empty answer", model)
+        logger.error("Every LLM model failed, last error: %s", type(last_error).__name__)
         raise LLMError("every model failed") from last_error
 
 

@@ -1,0 +1,21 @@
+from typing import Annotated
+from uuid import UUID
+
+from fastapi import APIRouter, Depends, status
+
+from novoya_api.wishes.application.use_cases.send_wish import SendWish, SendWishCommand
+from novoya_api.wishes.presentation.http.dependencies import get_current_user_id, get_send_wish
+from novoya_api.wishes.presentation.http.schemas import SendWishRequest, WishResponse
+
+router = APIRouter(prefix="/wishes", tags=["wishes"])
+
+
+@router.post("", operation_id="sendWish", status_code=status.HTTP_201_CREATED)
+async def send_wish(
+    body: SendWishRequest,
+    user_id: Annotated[UUID, Depends(get_current_user_id)],
+    use_case: Annotated[SendWish, Depends(get_send_wish)],
+) -> WishResponse:
+    """Send the trip the client wants, in their words. Returns the panel when we cover the
+    destination, suggestions when we don't, and asks where when the text names no place."""
+    return WishResponse.of(await use_case(SendWishCommand(user_id=user_id, text=body.text)))
