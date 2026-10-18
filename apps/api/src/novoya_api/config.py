@@ -15,6 +15,21 @@ class Settings(BaseSettings):
     database_url: str = "postgresql+asyncpg://novoya:novoya@localhost:5432/novoya"
     cors_origins: list[str] = ["http://localhost:5173"]
 
+    # Accounts: sessions, passwords, emails
+    frontend_url: str = "http://localhost:5173"  # links in emails point to the web app
+    session_cookie_secure: bool = False  # true in production (HTTPS): Secure + __Host- prefix
+    session_idle_ttl_days: int = 7
+    session_absolute_ttl_days: int = 30
+    require_verified_email: bool = True
+    smtp_host: str = "localhost"  # Mailpit locally
+    smtp_port: int = 1025
+    smtp_username: str | None = None  # a real provider (Brevo, SES...) needs these three
+    smtp_password: SecretStr | None = None
+    smtp_start_tls: bool = False
+    mail_from: str = "Novoya <no-reply@novoya.local>"
+    argon2_time_cost: int = 3
+    argon2_memory_cost_kib: int = 65536
+
     # LLM through OpenRouter (#22). Free models; the fallbacks are tried in order.
     openrouter_api_key: SecretStr | None = None
     llm_model: str = "nvidia/nemotron-3-ultra-550b-a55b:free"

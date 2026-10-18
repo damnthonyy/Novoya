@@ -1,0 +1,131 @@
+"""Domain rules of the accounts module: plain Python, no I/O."""
+
+from datetime import timedelta
+
+import pytest
+
+from novoya_api.accounts.domain.auth_session import AuthSession
+from novoya_api.accounts.domain.errors import (
+    CannotChangeOwnRole,
+    EmailNotVerified,
+    InvalidEmail,
+    InvalidOrExpiredToken,
+    WeakPassword,
+)
+from novoya_api.accounts.domain.one_time_token import OneTimeToken, TokenPurpose
+from novoya_api.accounts.domain.policies import PasswordPolicy
+from novoya_api.accounts.domain.role import Role
+from novoya_api.accounts.domain.value_objects import Email, PlainPassword, UserId
+from novoya_api.shared.domain.value_objects import Locale
+from tests.accounts.fakes import FrozenClock, make_user
+
+NOW = FrozenClock().now()
+
+
+def test_email_is_trimmed_and_lowercased():
+    assert Email("  Alice@Example.COM ").value == "alice@example.com"
+
+
+@pytest.mark.parametrize("value", ["", "alice", "alice@", "@example.com", "a b@example.com"])
+def test_invalid_emails_are_refused(value):
+    with pytest.raises(InvalidEmail):
+        Email(value)
+
+
+@pytest.mark.parametrize(
+    ("hint", "locale"),
+    [("fr-FR,fr;q=0.9", Locale.FR), ("fr", Locale.FR), ("en-US", Locale.EN), ("de", Locale.EN)],
+)
+def test_locale_comes_from_the_language_hint(hint, locale):
+    assert Locale.from_hint(hint) is locale
+
+
+def test_locale_defaults_to_english():
+    assert Locale.from_hint(None) is Locale.EN
+
+
+@pytest.mark.parametrize(
+    "password",
+    ["short", "password1234", "my-alice-password-2026", "x" * 129],
+)
+def test_weak_passwords_are_refused(password):
+    with pytest.raises(WeakPassword):
+        PasswordPolicy().validate(PlainPassword(password), Email("alice@example.com"))
+
+
+def test_a_long_unique_password_is_accepted():
+    PasswordPolicy().validate(PlainPassword("correct horse battery"), Email("alice@example.com"))
+
+
+def test_a_new_user_is_a_client():
+    assert make_user().role is Role.CLIENT
+
+
+def test_role_change_is_logged_with_the_admin():
+    user = make_user()
+    admin_id = UserId.new()
+    change = user.change_role(Role.AGENT, changed_by=admin_id, now=NOW)
+    assert user.role is Role.AGENT
+    assert (change.old_role, change.new_role) == (Role.CLIENT, Role.AGENT)
+    assert change.source == "admin_api"
+    assert change.changed_by == admin_id
+
+
+def test_role_change_by_the_command_has_no_author():
+    change = make_user().change_role(Role.ADMIN, changed_by=None, now=NOW)
+    assert change.source == "cmd_grant_role"
+    assert change.changed_by is None
+
+
+def test_nobody_changes_their_own_role():
+    admin = make_user(role=Role.ADMIN)
+    with pytest.raises(CannotChangeOwnRole):
+        admin.change_role(Role.CLIENT, changed_by=admin.id, now=NOW)
+
+
+def test_agent_and_admin_need_a_verified_email():
+    user = make_user(verified=False)
+    with pytest.raises(EmailNotVerified):
+        user.change_role(Role.AGENT, changed_by=None, now=NOW)
+
+
+def test_same_role_changes_nothing():
+    assert make_user().change_role(Role.CLIENT, changed_by=None, now=NOW) is None
+
+
+def open_session() -> AuthSession:
+    return AuthSession.open(
+        UserId.new(), "hash", NOW, timedelta(days=7), timedelta(days=30), user_agent=None
+    )
+
+
+def test_session_expires_after_idle_and_absolute_ttl():
+    session = open_session()
+    assert session.is_active(NOW + timedelta(days=6))
+    assert not session.is_active(NOW + timedelta(days=7))
+    assert session.touch(NOW + timedelta(days=6), timedelta(days=7))
+    assert session.is_active(NOW + timedelta(days=12))
+    assert not session.is_active(NOW + timedelta(days=30))
+
+
+def test_touch_writes_at_most_every_five_minutes():
+    session = open_session()
+    assert not session.touch(NOW + timedelta(minutes=4), timedelta(days=7))
+    assert session.touch(NOW + timedelta(minutes=6), timedelta(days=7))
+
+
+def test_revoked_session_is_not_active():
+    session = open_session()
+    session.revoke(NOW)
+    assert not session.is_active(NOW)
+
+
+def test_one_time_token_works_once_and_expires():
+    token = OneTimeToken.issue(UserId.new(), TokenPurpose.PASSWORD_RESET, "hash", NOW)
+    token.consume(NOW)
+    with pytest.raises(InvalidOrExpiredToken):
+        token.consume(NOW)
+
+    late = OneTimeToken.issue(UserId.new(), TokenPurpose.PASSWORD_RESET, "hash", NOW)
+    with pytest.raises(InvalidOrExpiredToken):
+        late.consume(NOW + timedelta(minutes=31))

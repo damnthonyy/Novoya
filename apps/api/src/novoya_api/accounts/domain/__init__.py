@@ -1,4 +1,5 @@
-"""Domain: User, Role (client, agent), Locale (en, fr). Pure Python.
+"""Domain: User, Role (client, agent, admin), sessions, passwords, one-time tokens. Pure Python.
 
-Rules: only agents may handle quotes; NOVOYA_AGENT_EMAILS decides who is an agent.
+Rules: a new account is a client; only an admin changes a role, never their own, and only
+for a verified email; signing in never changes the role.
 """

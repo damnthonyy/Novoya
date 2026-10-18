@@ -1,3 +1,5 @@
-"""Ports: UserRepository, IdentityProvider (Google sign-in -> email and name),
-PersonalDataEraser (delete the user's wishes, plans and quotes in the other modules).
+"""Ports: repositories.py (users, role changes, passwords, sessions, one-time tokens),
+security.py (PasswordHasher, TokenGenerator), mailer.py (AuthMailer), rate_limiter.py.
+
+Planned: IdentityProvider and OAuthStateStore (#15), PersonalDataEraser (#46).
 """
