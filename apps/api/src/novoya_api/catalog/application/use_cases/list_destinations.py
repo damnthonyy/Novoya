@@ -8,9 +8,4 @@ class ListDestinations:
         self._offers = offers
 
     async def __call__(self) -> list[tuple[str, str]]:
-        destinations = {
-            (offer.country, offer.city)
-            for offer, partner in await self._offers.list_with_partners()
-            if offer.is_listed_with(partner)
-        }
-        return sorted(destinations)
+        return await self._offers.list_listed_destinations()

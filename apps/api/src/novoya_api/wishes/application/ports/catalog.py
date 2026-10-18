@@ -7,7 +7,7 @@ class Catalog(Protocol):
     """What wishes needs from the partner catalog."""
 
     async def covered_destinations(self) -> list[Destination]:
-        """Destinations with at least one active partner."""
+        """Destinations with at least one listed offer (active offer of an active partner)."""
         ...
 
     async def tags_at(self, destination: Destination) -> list[str]:

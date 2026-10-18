@@ -19,6 +19,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 from sqlalchemy.pool import NullPool
 
 from alembic import command
+from novoya_api.catalog.application.use_cases.list_destinations import ListDestinations
 from novoya_api.catalog.infrastructure.db.models import OfferRow, PartnerRow
 from novoya_api.catalog.infrastructure.db.repositories import SqlOfferRepository
 from novoya_api.catalog.infrastructure.seed.data import OFFERS, PARTNERS
@@ -137,6 +138,24 @@ async def test_sql_tags_at_filters_by_city_and_ignores_case(session):
     assert all(offer.city == "Chania" for offer, _partner in chania)
     assert morocco
     assert all(offer.country == "Morocco" for offer, _partner in morocco)
+
+
+async def test_list_destinations_drops_place_when_partner_is_deactivated(session):
+    await seed_catalog()
+    session.expire_all()
+    offers = SqlOfferRepository(session)
+    listed = await ListDestinations(offers)()
+    assert ("Morocco", "Marrakech") in listed
+
+    riad = await session.scalar(select(PartnerRow).where(PartnerRow.name == "Riad Atlas"))
+    assert riad is not None
+    riad.active = False
+    await session.commit()
+
+    listed = await ListDestinations(offers)()
+    assert ("Morocco", "Marrakech") not in listed
+    assert ("France", "Biarritz") in listed
+    assert ("Greece", "Chania") in listed
 
 
 async def test_public_functions_read_listed_seed_offers(session, database_url):

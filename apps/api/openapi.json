@@ -41,25 +41,6 @@
         "title": "ChangeRoleRequest",
         "type": "object"
       },
-      "Destination": {
-        "description": "A place Novoya can plan a trip, from listed partner offers.",
-        "properties": {
-          "city": {
-            "title": "City",
-            "type": "string"
-          },
-          "country": {
-            "title": "Country",
-            "type": "string"
-          }
-        },
-        "required": [
-          "country",
-          "city"
-        ],
-        "title": "Destination",
-        "type": "object"
-      },
       "DestinationOut": {
         "properties": {
           "city": {
@@ -83,6 +64,25 @@
           "city"
         ],
         "title": "DestinationOut",
+        "type": "object"
+      },
+      "DestinationResponse": {
+        "description": "A place Novoya can plan a trip, from listed partner offers.",
+        "properties": {
+          "city": {
+            "title": "City",
+            "type": "string"
+          },
+          "country": {
+            "title": "Country",
+            "type": "string"
+          }
+        },
+        "required": [
+          "country",
+          "city"
+        ],
+        "title": "DestinationResponse",
         "type": "object"
       },
       "EmailRequest": {
@@ -1677,7 +1677,7 @@
               "application/json": {
                 "schema": {
                   "items": {
-                    "$ref": "#/components/schemas/Destination"
+                    "$ref": "#/components/schemas/DestinationResponse"
                   },
                   "title": "Response Listdestinations",
                   "type": "array"
