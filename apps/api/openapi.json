@@ -41,6 +41,31 @@
         "title": "ChangeRoleRequest",
         "type": "object"
       },
+      "DestinationOut": {
+        "properties": {
+          "city": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "City"
+          },
+          "country": {
+            "title": "Country",
+            "type": "string"
+          }
+        },
+        "required": [
+          "country",
+          "city"
+        ],
+        "title": "DestinationOut",
+        "type": "object"
+      },
       "EmailRequest": {
         "properties": {
           "email": {
@@ -173,6 +198,69 @@
         "title": "MeResponse",
         "type": "object"
       },
+      "PanelOut": {
+        "description": "The preference panel (ARCHITECTURE.md section 3). Render it with generic components.",
+        "properties": {
+          "ask_budget": {
+            "title": "Ask Budget",
+            "type": "boolean"
+          },
+          "ask_dates": {
+            "title": "Ask Dates",
+            "type": "boolean"
+          },
+          "ask_persons": {
+            "title": "Ask Persons",
+            "type": "boolean"
+          },
+          "sections": {
+            "items": {
+              "$ref": "#/components/schemas/PanelSectionOut"
+            },
+            "title": "Sections",
+            "type": "array"
+          }
+        },
+        "required": [
+          "sections",
+          "ask_budget",
+          "ask_persons",
+          "ask_dates"
+        ],
+        "title": "PanelOut",
+        "type": "object"
+      },
+      "PanelSectionOut": {
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "multi": {
+            "title": "Multi",
+            "type": "boolean"
+          },
+          "tags": {
+            "items": {
+              "$ref": "#/components/schemas/TagOut"
+            },
+            "title": "Tags",
+            "type": "array"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "multi",
+          "tags"
+        ],
+        "title": "PanelSectionOut",
+        "type": "object"
+      },
       "RegisterRequest": {
         "properties": {
           "email": {
@@ -242,6 +330,22 @@
         "title": "ResetPasswordRequest",
         "type": "object"
       },
+      "SendWishRequest": {
+        "properties": {
+          "text": {
+            "maxLength": 1000,
+            "minLength": 1,
+            "pattern": "^[^\\x00-\\x08\\x0b\\x0c\\x0e-\\x1f\\x7f]*$",
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "text"
+        ],
+        "title": "SendWishRequest",
+        "type": "object"
+      },
       "SignInRequest": {
         "properties": {
           "email": {
@@ -261,6 +365,29 @@
           "password"
         ],
         "title": "SignInRequest",
+        "type": "object"
+      },
+      "TagOut": {
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "preselected": {
+            "title": "Preselected",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "id",
+          "label",
+          "preselected"
+        ],
+        "title": "TagOut",
         "type": "object"
       },
       "TokenRequest": {
@@ -345,6 +472,61 @@
           "created_at"
         ],
         "title": "UserResponse",
+        "type": "object"
+      },
+      "WishResponse": {
+        "description": "panel_shown: show the panel. not_covered: we don't go there, offer the suggestions.\ndraft: the text names no place, ask where, with the suggestions as choices.",
+        "properties": {
+          "destination": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DestinationOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "panel": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PanelOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "status": {
+            "enum": [
+              "draft",
+              "not_covered",
+              "panel_shown"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "suggestions": {
+            "items": {
+              "$ref": "#/components/schemas/DestinationOut"
+            },
+            "title": "Suggestions",
+            "type": "array"
+          }
+        },
+        "required": [
+          "id",
+          "status",
+          "destination",
+          "panel",
+          "suggestions"
+        ],
+        "title": "WishResponse",
         "type": "object"
       }
     }
@@ -1599,6 +1781,68 @@
         "summary": "Get Me",
         "tags": [
           "me"
+        ]
+      }
+    },
+    "/wishes": {
+      "post": {
+        "description": "Send the trip the client wants, in their words. Returns the panel when we cover the\ndestination, suggestions when we don't, and asks where when the text names no place.",
+        "operationId": "sendWish",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SendWishRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WishResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "summary": "Send Wish",
+        "tags": [
+          "wishes"
         ]
       }
     }

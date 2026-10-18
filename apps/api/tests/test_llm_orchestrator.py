@@ -361,18 +361,23 @@ async def test_response_without_choices_falls_back_to_next_model():
     assert [call["model"] for call in client.completions.calls] == ["model-a", "model-b"]
 
 
-async def test_empty_final_answer_raises_llm_error():
-    client = FakeClient(answer(""))
+async def test_empty_answer_from_every_model_raises_llm_error():
+    client = FakeClient(answer(""), answer(None), answer(""))
 
     with pytest.raises(LLMError):
         await Orchestrator(client, MODELS).run(USER_MESSAGES)
 
+    assert len(client.completions.calls) == 3
 
-async def test_none_final_answer_raises_llm_error():
-    client = FakeClient(answer(None))
 
-    with pytest.raises(LLMError):
-        await Orchestrator(client, MODELS).run(USER_MESSAGES)
+async def test_empty_answer_falls_back_to_next_model():
+    # Seen live: a reasoning model can answer with no content at all.
+    client = FakeClient(answer(None), answer("From model b."))
+
+    result = await Orchestrator(client, MODELS).run(USER_MESSAGES)
+
+    assert result == "From model b."
+    assert [call["model"] for call in client.completions.calls] == ["model-a", "model-b"]
 
 
 async def test_handler_error_text_is_not_sent_to_the_model():
