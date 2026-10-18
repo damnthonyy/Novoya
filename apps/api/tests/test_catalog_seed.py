@@ -1,5 +1,9 @@
+import pytest
+
 from novoya_api.catalog.domain.kinds import OfferKind, PartnerKind
 from novoya_api.catalog.infrastructure.seed.data import OFFERS, PARTNERS
+from novoya_api.catalog.infrastructure.seed.run import seed_catalog
+from novoya_api.config import get_settings
 
 ALLOWED_SECTIONS = {"style", "rhythm", "accommodation", "activities", "food", "transport"}
 
@@ -48,3 +52,13 @@ def test_seed_offers_have_no_price_field():
     for row in OFFERS:
         assert "price" not in row
         assert "negotiated_price" not in row
+
+
+async def test_seed_refuses_non_development(monkeypatch):
+    monkeypatch.setenv("NOVOYA_ENV", "production")
+    get_settings.cache_clear()
+    try:
+        with pytest.raises(RuntimeError, match="development"):
+            await seed_catalog()
+    finally:
+        get_settings.cache_clear()
