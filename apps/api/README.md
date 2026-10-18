@@ -32,6 +32,7 @@ Needs [uv](https://docs.astral.sh/uv/) and a Postgres (`docker compose up db` fr
 cp .env.example .env
 uv sync
 uv run alembic upgrade head
+uv run python -m novoya_api.catalog.infrastructure.seed
 uv run uvicorn novoya_api.main:app --reload
 ```
 
