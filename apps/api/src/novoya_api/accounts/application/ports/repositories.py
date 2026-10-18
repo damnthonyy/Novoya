@@ -4,6 +4,7 @@ from uuid import UUID
 
 from novoya_api.accounts.domain.auth_session import AuthSession
 from novoya_api.accounts.domain.credentials import PasswordCredential
+from novoya_api.accounts.domain.oauth_identity import OAuthIdentity
 from novoya_api.accounts.domain.one_time_token import OneTimeToken, TokenPurpose
 from novoya_api.accounts.domain.role import Role
 from novoya_api.accounts.domain.role_change import RoleChange
@@ -37,6 +38,20 @@ class PasswordCredentialRepository(Protocol):
     async def get(self, user_id: UserId) -> PasswordCredential | None: ...
 
     async def upsert(self, credential: PasswordCredential) -> None: ...
+
+    async def delete(self, user_id: UserId) -> None: ...
+
+
+class OAuthIdentityRepository(Protocol):
+    async def get(self, provider: str, subject: str) -> OAuthIdentity | None: ...
+
+    async def add(self, identity: OAuthIdentity) -> None:
+        """Raise IdentityAlreadyLinked if this provider account is linked already."""
+        ...
+
+    async def save(self, identity: OAuthIdentity) -> None: ...
+
+    async def exists_for_user(self, user_id: UserId) -> bool: ...
 
 
 class SessionRepository(Protocol):

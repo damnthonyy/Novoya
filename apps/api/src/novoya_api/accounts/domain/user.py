@@ -44,6 +44,11 @@ class User:
     def is_active(self) -> bool:
         return self.status is UserStatus.ACTIVE
 
+    def rename(self, name: str | None) -> None:
+        """Take the name the provider knows; keep ours when it sends none."""
+        if name and name.strip():
+            self.name = name.strip()[:200]
+
     def verify_email(self, now: datetime) -> None:
         if self.email_verified_at is None:
             self.email_verified_at = now

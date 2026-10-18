@@ -3,7 +3,17 @@
 from datetime import datetime
 from uuid import UUID
 
-from sqlalchemy import CheckConstraint, DateTime, ForeignKey, Index, String, Uuid, func, text
+from sqlalchemy import (
+    CheckConstraint,
+    DateTime,
+    ForeignKey,
+    Index,
+    String,
+    UniqueConstraint,
+    Uuid,
+    func,
+    text,
+)
 from sqlalchemy.orm import Mapped, mapped_column
 
 from novoya_api.shared.infrastructure.db.base import Base
@@ -94,3 +104,30 @@ class RoleChangeModel(Base):
     source: Mapped[str] = mapped_column(String(20))
     changed_by: Mapped[UUID | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
     changed_at: Mapped[datetime] = mapped_column(Timestamp)
+
+
+class OAuthIdentityModel(Base):
+    __tablename__ = "oauth_identities"
+    __table_args__ = (
+        UniqueConstraint("provider", "subject", name="uq_oauth_identities_provider_subject"),
+    )
+
+    id: Mapped[UUID] = mapped_column(Uuid, primary_key=True)
+    user_id: Mapped[UUID] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    provider: Mapped[str] = mapped_column(String(20))
+    subject: Mapped[str] = mapped_column(String(255))  # Google's "sub"
+    created_at: Mapped[datetime] = mapped_column(Timestamp)
+    last_login_at: Mapped[datetime] = mapped_column(Timestamp)
+
+
+class OAuthStateModel(Base):
+    """A sign-in on its way to the provider and back: 10 minutes at most, read once."""
+
+    __tablename__ = "oauth_states"
+
+    state_hash: Mapped[str] = mapped_column(String(64), primary_key=True)
+    provider: Mapped[str] = mapped_column(String(20))
+    code_verifier: Mapped[str] = mapped_column(String(128))
+    nonce: Mapped[str] = mapped_column(String(128))
+    redirect_to: Mapped[str] = mapped_column(String(512))
+    expires_at: Mapped[datetime] = mapped_column(Timestamp, index=True)

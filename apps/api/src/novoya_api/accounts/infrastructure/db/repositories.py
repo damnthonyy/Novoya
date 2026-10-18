@@ -7,19 +7,23 @@ use case does, through the UnitOfWork that shares their session.
 from datetime import datetime
 from uuid import UUID
 
-from sqlalchemy import or_, select, update
+from sqlalchemy import delete, or_, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from novoya_api.accounts.application.ports.identity_provider import PendingSignIn
 from novoya_api.accounts.domain.auth_session import AuthSession
 from novoya_api.accounts.domain.credentials import PasswordCredential
-from novoya_api.accounts.domain.errors import EmailAlreadyUsed
+from novoya_api.accounts.domain.errors import EmailAlreadyUsed, IdentityAlreadyLinked
+from novoya_api.accounts.domain.oauth_identity import OAuthIdentity
 from novoya_api.accounts.domain.one_time_token import OneTimeToken, TokenPurpose
 from novoya_api.accounts.domain.role import Role
 from novoya_api.accounts.domain.role_change import RoleChange
 from novoya_api.accounts.domain.user import User, UserStatus
 from novoya_api.accounts.domain.value_objects import Email, PasswordHash, UserId
 from novoya_api.accounts.infrastructure.db.models import (
+    OAuthIdentityModel,
+    OAuthStateModel,
     OneTimeTokenModel,
     PasswordCredentialModel,
     RoleChangeModel,
@@ -140,6 +144,105 @@ class SqlPasswordCredentialRepository:
             self._session.add(row)
         row.password_hash = credential.password_hash.value
         row.updated_at = credential.updated_at
+
+    async def delete(self, user_id: UserId) -> None:
+        await self._session.execute(
+            delete(PasswordCredentialModel).where(PasswordCredentialModel.user_id == user_id.value)
+        )
+
+
+def identity_to_entity(row: OAuthIdentityModel) -> OAuthIdentity:
+    return OAuthIdentity(
+        id=row.id,
+        user_id=UserId(row.user_id),
+        provider=row.provider,
+        subject=row.subject,
+        created_at=row.created_at,
+        last_login_at=row.last_login_at,
+    )
+
+
+class SqlOAuthIdentityRepository:
+    def __init__(self, session: AsyncSession) -> None:
+        self._session = session
+
+    async def get(self, provider: str, subject: str) -> OAuthIdentity | None:
+        row = await self._session.scalar(
+            select(OAuthIdentityModel).where(
+                OAuthIdentityModel.provider == provider, OAuthIdentityModel.subject == subject
+            )
+        )
+        return identity_to_entity(row) if row else None
+
+    async def add(self, identity: OAuthIdentity) -> None:
+        self._session.add(
+            OAuthIdentityModel(
+                id=identity.id,
+                user_id=identity.user_id.value,
+                provider=identity.provider,
+                subject=identity.subject,
+                created_at=identity.created_at,
+                last_login_at=identity.last_login_at,
+            )
+        )
+        try:
+            await self._session.flush()  # two first sign-ins at once: the unique index decides
+        except IntegrityError as exc:
+            raise IdentityAlreadyLinked("this account is already linked to another user") from exc
+
+    async def save(self, identity: OAuthIdentity) -> None:
+        row = await self._session.get(OAuthIdentityModel, identity.id)
+        if row is not None:
+            row.last_login_at = identity.last_login_at
+
+    async def exists_for_user(self, user_id: UserId) -> bool:
+        found = await self._session.scalar(
+            select(OAuthIdentityModel.id)
+            .where(OAuthIdentityModel.user_id == user_id.value)
+            .limit(1)
+        )
+        return found is not None
+
+
+class SqlOAuthStateStore:
+    def __init__(self, session: AsyncSession) -> None:
+        self._session = session
+
+    async def put(
+        self, state_hash: str, pending: PendingSignIn, expires_at: datetime, now: datetime
+    ) -> None:
+        # No worker cleans the table: each new sign-in removes the expired ones.
+        await self._session.execute(
+            delete(OAuthStateModel).where(OAuthStateModel.expires_at <= now)
+        )
+        self._session.add(
+            OAuthStateModel(
+                state_hash=state_hash,
+                provider=pending.provider,
+                code_verifier=pending.code_verifier,
+                nonce=pending.nonce,
+                redirect_to=pending.redirect_to,
+                expires_at=expires_at,
+            )
+        )
+
+    async def pop(self, state_hash: str, now: datetime) -> PendingSignIn | None:
+        # One statement, so reading and deleting are atomic: a state is used once.
+        row = (
+            await self._session.execute(
+                delete(OAuthStateModel)
+                .where(OAuthStateModel.state_hash == state_hash, OAuthStateModel.expires_at > now)
+                .returning(
+                    OAuthStateModel.provider,
+                    OAuthStateModel.code_verifier,
+                    OAuthStateModel.nonce,
+                    OAuthStateModel.redirect_to,
+                )
+            )
+        ).first()
+        if row is None:
+            return None
+        return PendingSignIn(row.provider, row.code_verifier, row.nonce, row.redirect_to)
 
 
 def session_to_entity(row: SessionModel) -> AuthSession:

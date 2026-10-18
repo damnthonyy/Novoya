@@ -30,6 +30,7 @@ FRAMEWORKS = {
     "fastapi",
     "httpx",
     "jinja2",
+    "joserfc",
     "openai",
     "pydantic",
     "pydantic_settings",

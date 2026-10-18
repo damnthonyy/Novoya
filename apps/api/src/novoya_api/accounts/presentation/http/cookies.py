@@ -39,3 +39,39 @@ def clear_session_cookie(response: Response, settings: Settings) -> None:
         httponly=True,
         samesite="lax",
     )
+
+
+# The OAuth state cookie ties a provider sign-in to the browser that started it (login CSRF).
+# SameSite=Lax is enough: the provider sends the browser back with a top-level GET.
+
+STATE_COOKIE_SECONDS = 600  # as long as the state itself
+
+
+def state_cookie_name(settings: Settings) -> str:
+    return "__Host-novoya_oauth_state" if settings.session_cookie_secure else "novoya_oauth_state"
+
+
+def read_state_cookie(request: Request, settings: Settings) -> str | None:
+    return request.cookies.get(state_cookie_name(settings)) or None
+
+
+def set_state_cookie(response: Response, state: str, settings: Settings) -> None:
+    response.set_cookie(
+        state_cookie_name(settings),
+        state,
+        max_age=STATE_COOKIE_SECONDS,
+        path="/",
+        secure=settings.session_cookie_secure,
+        httponly=True,
+        samesite="lax",
+    )
+
+
+def clear_state_cookie(response: Response, settings: Settings) -> None:
+    response.delete_cookie(
+        state_cookie_name(settings),
+        path="/",
+        secure=settings.session_cookie_secure,
+        httponly=True,
+        samesite="lax",
+    )
