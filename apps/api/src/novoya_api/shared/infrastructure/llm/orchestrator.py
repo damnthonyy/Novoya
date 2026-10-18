@@ -41,7 +41,9 @@ class Orchestrator:
     results back, until it answers in text.
 
     Limits: max_steps model calls, and deadline_seconds for the whole loop, since it runs
-    inside an HTTP request. Each call tries the models in order until one answers."""
+    inside an HTTP request. Each call tries the models in order until one answers. A prompt
+    injection can make the model ask for hundreds of tool calls: only max_tool_calls_per_step
+    of them run per answer, and max_tool_calls in the whole loop; the others get an error."""
 
     def __init__(
         self,
@@ -49,11 +51,15 @@ class Orchestrator:
         models: Sequence[str],
         max_steps: int = 6,
         deadline_seconds: float = 90,
+        max_tool_calls_per_step: int = 5,
+        max_tool_calls: int = 15,
     ) -> None:
         self._client = client
         self._models = list(models)
         self._max_steps = max_steps
         self._deadline = deadline_seconds
+        self.max_tool_calls_per_step = max_tool_calls_per_step
+        self.max_tool_calls = max_tool_calls
 
     async def run(self, messages: list[dict[str, Any]], tools: Sequence[Tool] = ()) -> str:
         """The model's final text answer."""
@@ -74,6 +80,7 @@ class Orchestrator:
         self, messages: list[dict[str, Any]], tools: Sequence[Tool]
     ) -> list[dict[str, Any]]:
         by_name = {tool.name: tool for tool in tools}
+        calls_run = 0
         for step in range(1, self._max_steps + 1):
             message = await self._complete(messages, tools)
             if not message.tool_calls:
@@ -81,8 +88,13 @@ class Orchestrator:
             if step == self._max_steps:
                 break  # no model call is left to read the results: don't run the tools
             messages.append(_assistant_message(message))
-            for call in message.tool_calls:
-                result = await _run_tool(by_name, call.function.name, call.function.arguments)
+            for index, call in enumerate(message.tool_calls):
+                # Every call needs a tool message (one per tool_call_id), even one not run.
+                if index >= self.max_tool_calls_per_step or calls_run >= self.max_tool_calls:
+                    result = _error("too many tool calls, ask for fewer")
+                else:
+                    calls_run += 1
+                    result = await _run_tool(by_name, call.function.name, call.function.arguments)
                 messages.append({"role": "tool", "tool_call_id": call.id, "content": result})
         raise LLMError(f"the model still wanted tools after {self._max_steps} steps")
 
@@ -144,7 +156,9 @@ async def _run_tool(tools: dict[str, Tool], name: str, arguments: str) -> str:
         return _error(f"unknown tool {name!r}")
     try:
         kwargs = json.loads(arguments or "{}")
-    except json.JSONDecodeError:
+    except (ValueError, RecursionError):
+        # ValueError covers JSONDecodeError and integers over 4300 digits; RecursionError,
+        # arrays nested too deep.
         return _error("arguments are not valid JSON")
     if not isinstance(kwargs, dict):
         return _error("arguments must be a JSON object")
