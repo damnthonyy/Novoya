@@ -1,6 +1,6 @@
 """Repositories of the catalog module. They map rows to entities: no ORM object leaves this file."""
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from novoya_api.catalog.domain import Offer, OfferKind, Partner, PartnerKind
@@ -52,13 +52,18 @@ class SqlOfferRepository:
     def __init__(self, session: AsyncSession) -> None:
         self._session = session
 
+    async def list_with_partners(self) -> list[tuple[Offer, Partner]]:
+        stmt = select(OfferRow, PartnerRow).join(PartnerRow, OfferRow.partner_id == PartnerRow.id)
+        rows = (await self._session.execute(stmt)).all()
+        return [(offer_to_entity(offer), partner_to_entity(partner)) for offer, partner in rows]
+
     async def list_at(self, country: str, city: str | None) -> list[tuple[Offer, Partner]]:
         stmt = (
             select(OfferRow, PartnerRow)
             .join(PartnerRow, OfferRow.partner_id == PartnerRow.id)
-            .where(OfferRow.country == country)
+            .where(func.lower(OfferRow.country) == country.lower())
         )
         if city is not None:
-            stmt = stmt.where(OfferRow.city == city)
+            stmt = stmt.where(func.lower(OfferRow.city) == city.lower())
         rows = (await self._session.execute(stmt)).all()
         return [(offer_to_entity(offer), partner_to_entity(partner)) for offer, partner in rows]

@@ -54,6 +54,11 @@ def upgrade() -> None:
         sa.Column("featured", sa.Boolean(), nullable=False),
         sa.Column("active", sa.Boolean(), nullable=False),
         sa.ForeignKeyConstraint(["partner_id"], ["partners.id"]),
+        sa.CheckConstraint(
+            "min_persons >= 1 AND max_persons >= min_persons",
+            name="offers_person_limits",
+        ),
+        sa.CheckConstraint("available_from <= available_to", name="offers_availability_dates"),
     )
 
 

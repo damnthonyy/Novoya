@@ -38,7 +38,7 @@ def _offer(**overrides: object) -> Offer:
         "max_persons": 4,
         "available_from": SEASON_START,
         "available_to": SEASON_END,
-        "tags": ("style:beach", "rythm:calm"),
+        "tags": ("style:beach", "rhythm:calm"),
         "featured": False,
         "active": True,
     }
@@ -82,6 +82,16 @@ def test_invalid_person_limits_are_rejected():
         _offer(min_persons=4, max_persons=2)
 
 
+def test_min_persons_below_one_is_rejected():
+    with pytest.raises(InvalidOffer):
+        _offer(min_persons=0, max_persons=2)
+
+
+def test_invalid_availability_dates_are_rejected():
+    with pytest.raises(InvalidOffer):
+        _offer(available_from=SEASON_END, available_to=SEASON_START)
+
+
 def test_inactive_partner_hides_offers():
     partner = _partner(active=False)
     offer = _offer(partner_id=partner.id, active=True)
@@ -93,3 +103,11 @@ def test_inactive_offer_is_not_listed():
     offer = _offer(partner_id=partner.id, active=False)
     assert offer.is_listed_with(partner) is False
     assert offer.fits(persons=2, start=date(2026, 5, 1), end=date(2026, 5, 8)) is True
+
+
+def test_is_listed_with_rejects_another_partner():
+    partner = _partner()
+    other = _partner()
+    offer = _offer(partner_id=partner.id)
+    with pytest.raises(InvalidOffer):
+        offer.is_listed_with(other)

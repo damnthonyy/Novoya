@@ -3,7 +3,17 @@
 from datetime import date, datetime
 from uuid import UUID, uuid4
 
-from sqlalchemy import Boolean, Date, DateTime, ForeignKey, Integer, String, Text, func
+from sqlalchemy import (
+    Boolean,
+    CheckConstraint,
+    Date,
+    DateTime,
+    ForeignKey,
+    Integer,
+    String,
+    Text,
+    func,
+)
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.dialects.postgresql import UUID as PgUUID
 from sqlalchemy.orm import Mapped, mapped_column
@@ -46,3 +56,11 @@ class OfferRow(Base):
     tags: Mapped[list[str]] = mapped_column(JSONB, nullable=False)
     featured: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+
+    __table_args__ = (
+        CheckConstraint(
+            "min_persons >= 1 AND max_persons >= min_persons",
+            name="offers_person_limits",
+        ),
+        CheckConstraint("available_from <= available_to", name="offers_availability_dates"),
+    )

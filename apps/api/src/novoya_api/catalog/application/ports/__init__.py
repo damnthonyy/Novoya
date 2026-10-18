@@ -10,6 +10,10 @@ class PartnerRepository(Protocol):
 
 
 class OfferRepository(Protocol):
+    async def list_with_partners(self) -> list[tuple[Offer, Partner]]:
+        """Every offer with its partner. The use case decides which are listed."""
+        ...
+
     async def list_at(self, country: str, city: str | None) -> list[tuple[Offer, Partner]]:
         """Offers at this destination, with their partner. city None means the whole country."""
         ...

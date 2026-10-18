@@ -1,9 +1,7 @@
-import re
-
 from novoya_api.catalog.domain.kinds import OfferKind, PartnerKind
 from novoya_api.catalog.infrastructure.seed.data import OFFERS, PARTNERS
 
-SECTION_TAG = re.compile(r"^[a-z]+:[a-z0-9-]+$")
+ALLOWED_SECTIONS = {"style", "rhythm", "accommodation", "activities", "food", "transport"}
 
 
 def test_seed_covers_at_least_three_destinations():
@@ -20,9 +18,13 @@ def test_seed_offers_all_have_tags():
     assert all(row["tags"] for row in OFFERS)
 
 
-def test_seed_tags_use_section_prefix():
+def test_seed_tags_use_allowed_sections():
     for row in OFFERS:
-        assert all(SECTION_TAG.match(tag) for tag in row["tags"]), row["tags"]
+        for tag in row["tags"]:
+            assert ":" in tag, tag
+            section, name = tag.split(":", 1)
+            assert section in ALLOWED_SECTIONS, tag
+            assert name, tag
 
 
 def test_seed_places_are_english_title_case():

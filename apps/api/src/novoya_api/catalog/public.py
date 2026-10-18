@@ -1,7 +1,10 @@
 """What other modules may use from catalog. Nothing else in catalog may be imported.
 
-- covered_destinations() -> destinations with at least one active partner
+- covered_destinations() -> destinations with at least one listed offer
 - tags_at(country, city) -> tags of listed offers there (city None = the whole country)
+
+Country and city matching is case-insensitive. Prefer the names returned by
+covered_destinations() (English Title Case) so the LLM and the panel stay consistent.
 
 Planned:
 - search_offers(destination, tags, persons, dates) -> list of OfferView
@@ -11,17 +14,14 @@ OfferView carries partner name and contact; other modules decide who may see the
 
 from novoya_api.catalog.application.use_cases.list_destinations import ListDestinations
 from novoya_api.catalog.application.use_cases.list_tags_at import ListTagsAt
-from novoya_api.catalog.infrastructure.db.repositories import (
-    SqlOfferRepository,
-    SqlPartnerRepository,
-)
+from novoya_api.catalog.infrastructure.db.repositories import SqlOfferRepository
 from novoya_api.shared.infrastructure.db.session import get_sessionmaker
 
 
 async def covered_destinations() -> list[tuple[str, str]]:
-    """Destinations where at least one partner is active. Names are English Title Case."""
+    """Destinations with at least one listed offer. Names are English Title Case."""
     async with get_sessionmaker()() as session:
-        return await ListDestinations(SqlPartnerRepository(session))()
+        return await ListDestinations(SqlOfferRepository(session))()
 
 
 async def tags_at(country: str, city: str | None) -> list[str]:

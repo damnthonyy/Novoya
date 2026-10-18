@@ -25,3 +25,8 @@ async def get_session() -> AsyncIterator[AsyncSession]:
     """One session per request."""
     async with get_sessionmaker()() as session:
         yield session
+
+
+async def close_db() -> None:
+    """Close the pool so a CLI command can leave without 'Event loop is closed'."""
+    await get_engine().dispose()
