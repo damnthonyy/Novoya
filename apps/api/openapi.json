@@ -1667,29 +1667,6 @@
         ]
       }
     },
-    "/destinations": {
-      "get": {
-        "description": "Countries and cities with at least one listed offer. Read from the database each time.",
-        "operationId": "listDestinations",
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "items": {
-                    "$ref": "#/components/schemas/DestinationResponse"
-                  },
-                  "title": "Response Listdestinations",
-                  "type": "array"
-                }
-              }
-            },
-            "description": "Successful Response"
-          }
-        },
-        "summary": "List Destinations",
-        "tags": [
-          "catalog"
     "/auth/{provider}/callback": {
       "get": {
         "description": "Where the provider sends the browser back. Creates, links or loads the account, sets\nthe session cookie and goes to the page asked at the start.",
@@ -1939,6 +1916,32 @@
         "summary": "Start Sign In",
         "tags": [
           "auth"
+        ]
+      }
+    },
+    "/destinations": {
+      "get": {
+        "description": "Countries and cities with at least one listed offer. Read from the database each time.",
+        "operationId": "listDestinations",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/DestinationResponse"
+                  },
+                  "title": "Response Listdestinations",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "List Destinations",
+        "tags": [
+          "catalog"
         ]
       }
     },
