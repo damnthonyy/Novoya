@@ -286,3 +286,17 @@ async def test_blank_text_raises_before_reading_and_saves_nothing(text):
     assert setup.reader.calls == []
     assert setup.catalog.calls == 0
     assert setup.events == []
+
+
+async def test_country_wide_coverage_keeps_the_city_of_the_wish():
+    # A partner covering all of Morocco: the catalog entry has no city.
+    morocco = Destination("Morocco")
+    setup = Setup(
+        DestinationReading(destination=Destination("morocco", "Fes"), suggestions=[]),
+        covered=[morocco],
+    )
+
+    result = await send(setup)
+
+    assert result.wish.destination == Destination("Morocco", "Fes")
+    assert setup.catalog.tags_asked == [Destination("Morocco", "Fes")]

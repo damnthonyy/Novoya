@@ -57,9 +57,9 @@ class SendWish:
             suggestions = list(covered)
         elif match := find_covered(reading.destination, covered):
             # The catalog's spelling, so later steps find the offers; keep the wish's precision.
-            destination = Destination(
-                match.country, match.city if reading.destination.city else None
-            )
+            # A country-wide entry has no city: then the wish's own city is kept.
+            city = (match.city or reading.destination.city) if reading.destination.city else None
+            destination = Destination(match.country, city)
             panel = Panel.from_tags(await self._catalog.tags_at(destination))
             wish.show_panel(destination, panel, self._clock.now())
         else:

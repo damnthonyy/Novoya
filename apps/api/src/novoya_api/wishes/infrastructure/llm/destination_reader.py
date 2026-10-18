@@ -1,3 +1,4 @@
+import asyncio
 import json
 import logging
 import re
@@ -60,8 +61,9 @@ class LlmDestinationReader:
     """DestinationReader with the LLM. If the model fails, falls back to finding a covered
     city or country name in the text, so a wish is never lost because of the model."""
 
-    def __init__(self, orchestrator: Orchestrator) -> None:
+    def __init__(self, orchestrator: Orchestrator, deadline_seconds: float = 20) -> None:
         self._orchestrator = orchestrator
+        self._deadline = deadline_seconds  # the answer and its retry together
 
     async def read(self, text: str, covered: Sequence[Destination]) -> DestinationReading:
         places = [{"country": d.country, "city": d.city} for d in covered]
@@ -70,9 +72,10 @@ class LlmDestinationReader:
             {"role": "user", "content": text},
         ]
         try:
-            answer = await run_structured(self._orchestrator, messages, _Answer)
-        except LLMError as error:
-            logger.warning("Reading the destination with the LLM failed: %s", error)
+            async with asyncio.timeout(self._deadline):
+                answer = await run_structured(self._orchestrator, messages, _Answer)
+        except (LLMError, TimeoutError) as error:
+            logger.warning("Reading the destination with the LLM failed: %s", type(error).__name__)
             return DestinationReading(match_by_name(text, covered), [])
         return DestinationReading(
             _destination(answer.destination) if answer.destination else None,

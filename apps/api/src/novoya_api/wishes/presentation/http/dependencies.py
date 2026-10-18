@@ -33,8 +33,9 @@ def get_current_user_id(user: Annotated[CurrentUserView, Depends(require_client)
 
 def get_destination_reader() -> DestinationReader:
     try:
-        # Short: the client waits for this answer, and name matching is the fallback.
-        return LlmDestinationReader(get_orchestrator(deadline_seconds=20))
+        # Short: the client waits for this answer, and name matching is the fallback. The
+        # reader's deadline covers the answer and its retry.
+        return LlmDestinationReader(get_orchestrator(deadline_seconds=20), deadline_seconds=20)
     except LLMError:
         return NameMatchingReader()  # no API key: the app still works
 

@@ -208,3 +208,12 @@ async def test_only_clients_and_admins_send_wishes(app, wishes, client, role, st
 
     assert response.status_code == status
     assert [wish.user_id for wish in wishes.added] == ([USER_ID] if status == 201 else [])
+
+
+def test_send_wish_documents_the_shared_error_responses(app):
+    schema = app.openapi()
+    responses = schema["paths"]["/wishes"]["post"]["responses"]
+
+    for status in ("401", "403", "422"):
+        ref = responses[status]["content"]["application/json"]["schema"]["$ref"]
+        assert ref == "#/components/schemas/ErrorResponse", status

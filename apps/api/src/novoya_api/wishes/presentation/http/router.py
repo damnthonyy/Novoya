@@ -3,11 +3,15 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, status
 
+from novoya_api.shared.presentation.http.errors import ErrorResponse
 from novoya_api.wishes.application.use_cases.send_wish import SendWish, SendWishCommand
 from novoya_api.wishes.presentation.http.dependencies import get_current_user_id, get_send_wish
 from novoya_api.wishes.presentation.http.schemas import SendWishRequest, WishResponse
 
-router = APIRouter(prefix="/wishes", tags=["wishes"])
+# Every error body is {code, detail} (shared handler), not FastAPI's default 422 list.
+ERRORS = {status_code: {"model": ErrorResponse} for status_code in (401, 403, 422)}
+
+router = APIRouter(prefix="/wishes", tags=["wishes"], responses=ERRORS)
 
 
 @router.post("", operation_id="sendWish", status_code=status.HTTP_201_CREATED)

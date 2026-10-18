@@ -1,6 +1,9 @@
 """The destination reader and the static catalog are tested without a model: a fake
 orchestrator scripts the answers."""
 
+import asyncio
+import time
+
 import pytest
 
 from novoya_api.shared.infrastructure.llm.errors import LLMError
@@ -151,6 +154,36 @@ async def test_name_matching_reader_finds_a_covered_name():
     reading = await NameMatchingReader().read("A riad in Marrakech", COVERED)
 
     assert reading == DestinationReading(destination=MARRAKECH, suggestions=[])
+
+
+async def test_truncated_answer_falls_back_to_name_matching():
+    reading = await read("A week in Porto", 'Sure: {"destination":', 'Sure: {"destination":')
+
+    assert reading == DestinationReading(destination=PORTO, suggestions=[])
+
+
+class SlowOrchestrator:
+    """Each answer takes `delay` seconds and is invalid, so run_structured retries."""
+
+    def __init__(self, delay: float) -> None:
+        self.delay = delay
+        self.calls = 0
+
+    async def converse(self, messages, tools=()):
+        self.calls += 1
+        await asyncio.sleep(self.delay)
+        return [*messages, {"role": "assistant", "content": "not json"}]
+
+
+async def test_one_deadline_covers_the_answer_and_its_retry():
+    # Each answer fits the deadline, but the answer plus its retry do not.
+    reader = LlmDestinationReader(SlowOrchestrator(delay=0.3), deadline_seconds=0.5)
+    started = time.monotonic()
+
+    reading = await reader.read("A week in Porto", COVERED)
+
+    assert time.monotonic() - started < 0.55
+    assert reading == DestinationReading(destination=PORTO, suggestions=[])
 
 
 # Static catalog
