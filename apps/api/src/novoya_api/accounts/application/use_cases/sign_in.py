@@ -96,8 +96,6 @@ class SignIn:
         external = await provider.fetch_identity(
             cmd.code, pending.code_verifier, cmd.redirect_uri, pending.nonce
         )
-        if not external.email_verified:
-            raise OAuthEmailNotVerified("the provider has not verified this email address")
 
         try:
             user, is_new = await self._resolve_user(external, cmd.locale_hint, self._clock.now())
@@ -121,9 +119,13 @@ class SignIn:
                 raise UserNotFound("the linked account no longer exists")
             identity.touch(now)
             await self._identities.save(identity)
-            user.rename(external.name)
+            user.fill_in_name(external.name)
             await self._users.save(user)
             return user, False
+
+        # Linking and creating rely on the email: the provider must vouch for it.
+        if not external.email_verified:
+            raise OAuthEmailNotVerified("the provider has not verified this email address")
 
         # 2. An account has this email: link it, if the provider proves who holds the address
         # today. A Google account on a company address may belong to a former employee.
@@ -133,7 +135,7 @@ class SignIn:
                 raise OAuthLinkNotAllowed(
                     "an account already uses this email: sign in with your password"
                 )
-            if await self._identities.exists_for_user(user.id):
+            if external.provider in await self._identities.providers_for_user(user.id):
                 raise OAuthLinkNotAllowed(
                     "this account is already linked to another Google account"
                 )
@@ -144,7 +146,7 @@ class SignIn:
                 await self._credentials.delete(user.id)
                 await self._sessions.revoke_all_for_user(user.id, now)
                 user.verify_email(now)
-            user.rename(external.name)
+            user.fill_in_name(external.name)
             await self._users.save(user)
             await self._identities.add(OAuthIdentity.link(user.id, external, now))
             return user, False
@@ -153,7 +155,7 @@ class SignIn:
         user = User.register(
             external.email, None, Locale.from_hint(locale_hint or external.locale), now
         )
-        user.rename(external.name)
+        user.fill_in_name(external.name)
         user.verify_email(now)
         await self._users.add(user)
         await self._identities.add(OAuthIdentity.link(user.id, external, now))

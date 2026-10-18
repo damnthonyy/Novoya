@@ -1,3 +1,4 @@
+import logging
 from typing import Annotated
 from urllib.parse import urlencode
 from uuid import UUID
@@ -78,6 +79,8 @@ from novoya_api.accounts.presentation.http.schemas import (
 from novoya_api.config import Settings
 from novoya_api.shared.domain.errors import DomainError
 from novoya_api.shared.presentation.http.errors import ErrorResponse
+
+logger = logging.getLogger(__name__)
 
 ERRORS = {
     401: {"model": ErrorResponse},
@@ -200,6 +203,9 @@ async def start_sign_in(
         )
     except DomainError as error:
         return login_page(settings, error.code)
+    except Exception:
+        logger.exception("Starting a %s sign-in failed", provider)
+        return login_page(settings, "oauth_failed")
     response = RedirectResponse(started.url, status_code=302)
     set_state_cookie(response, started.state, settings)
     return response
@@ -225,7 +231,7 @@ async def finish_sign_in(
     """Where the provider sends the browser back. Creates, links or loads the account, sets
     the session cookie and goes to the page asked at the start."""
     response = await _finish(provider, request, client, settings, use_case, code, state, error)
-    clear_state_cookie(response, settings)  # used once, whatever the outcome
+    clear_state_cookie(response, settings, state)  # used once, whatever the outcome
     return response
 
 
@@ -254,11 +260,15 @@ async def _finish(
                 callback_url(settings, provider),
                 request.headers.get("accept-language"),
                 client,
-                read_state_cookie(request, settings),
+                read_state_cookie(request, settings, state),
             )
         )
     except DomainError as failure:
         return login_page(settings, failure.code)
+    except Exception:
+        # A database error, for example: still a page for the browser, never a JSON 500.
+        logger.exception("Finishing a %s sign-in failed", provider)
+        return login_page(settings, "oauth_failed")
     response = RedirectResponse(
         f"{settings.frontend_url.rstrip('/')}{result.redirect_to}", status_code=302
     )

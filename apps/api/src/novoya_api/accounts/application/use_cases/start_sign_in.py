@@ -57,7 +57,10 @@ class StartSignIn:
         self._redirects = redirects
 
     async def __call__(self, cmd: StartSignInCommand) -> StartedSignIn:
-        await self._rate_limiter.hit(f"oauth_start:ip:{cmd.ip_address}", START_LIMIT, START_WINDOW)
+        if cmd.ip_address:  # without one, the key would be shared by every caller
+            await self._rate_limiter.hit(
+                f"oauth_start:ip:{cmd.ip_address}", START_LIMIT, START_WINDOW
+            )
         provider = self._providers.get(cmd.provider)
         request = provider.build_authorization_request(cmd.redirect_uri)
         pending = PendingSignIn(

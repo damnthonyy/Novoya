@@ -119,8 +119,8 @@ class InMemoryOAuthIdentityRepository:
     async def save(self, identity: OAuthIdentity) -> None:
         self.rows[(identity.provider, identity.subject)] = replace(identity)
 
-    async def exists_for_user(self, user_id: UserId) -> bool:
-        return any(identity.user_id == user_id for identity in self.rows.values())
+    async def providers_for_user(self, user_id: UserId) -> set[str]:
+        return {i.provider for i in self.rows.values() if i.user_id == user_id}
 
 
 class InMemoryOAuthStateStore:

@@ -226,9 +226,9 @@ async def test_signing_in_keeps_an_agent_an_agent(client, store):
 async def test_login_sets_a_short_lived_state_cookie(client):
     response = await client.get("/auth/google/login")
 
-    state = cookie(response, "novoya_oauth_state")
+    state = cookie(response, "novoya_oauth_state_state-1")
     assert state is not None
-    assert state.startswith("novoya_oauth_state=state-1;")
+    assert state.startswith("novoya_oauth_state_state-1=state-1;")
     assert "HttpOnly" in state
     assert "SameSite=lax" in state
     assert "Max-Age=600" in state
@@ -237,9 +237,62 @@ async def test_login_sets_a_short_lived_state_cookie(client):
 async def test_the_state_cookie_is_removed_by_the_callback(client):
     response = await sign_in(client)
 
-    removed = cookie(response, "novoya_oauth_state")
+    removed = cookie(response, "novoya_oauth_state_state-1")
     assert removed is not None
     assert "Max-Age=0" in removed
+
+
+async def test_two_sign_ins_started_in_one_browser_both_work(client):
+    """A double click or a second tab: each sign-in has its own state cookie."""
+    first = await client.get("/auth/google/login", params={"redirect_to": "/one"})
+    second = await client.get("/auth/google/login", params={"redirect_to": "/two"})
+    states = [parse_qs(urlsplit(r.headers["location"]).query)["state"][0] for r in (first, second)]
+
+    done_first = await client.get("/auth/google/callback", params={"code": "c", "state": states[0]})
+    done_second = await client.get(
+        "/auth/google/callback", params={"code": "c", "state": states[1]}
+    )
+
+    assert done_first.headers["location"] == f"{FRONTEND}/one"
+    assert done_second.headers["location"] == f"{FRONTEND}/two"
+
+
+@pytest.mark.parametrize("state", ["a;b", "x" * 300, "é", "a b"])
+async def test_a_strange_state_in_the_url_is_refused_without_a_crash(client, state):
+    response = await client.get("/auth/google/callback", params={"code": "c", "state": state})
+
+    assert error_of(response) == "oauth_state_invalid"
+
+
+async def test_an_unexpected_failure_in_the_callback_still_redirects(app, client):
+    """A database error during the browser navigation: the login page, not a JSON 500."""
+    from novoya_api.accounts.presentation.http.dependencies import get_sign_in
+
+    class Broken:
+        async def __call__(self, command):
+            raise RuntimeError("database is gone")
+
+    await client.get("/auth/google/login")
+    app.dependency_overrides[get_sign_in] = Broken
+
+    response = await client.get("/auth/google/callback", params={"code": "c", "state": "state-1"})
+
+    assert error_of(response) == "oauth_failed"
+    assert "Max-Age=0" in cookie(response, "novoya_oauth_state_state-1")
+
+
+async def test_an_unexpected_failure_at_login_still_redirects(app, client):
+    from novoya_api.accounts.presentation.http.dependencies import get_start_sign_in
+
+    class Broken:
+        async def __call__(self, command):
+            raise RuntimeError("database is gone")
+
+    app.dependency_overrides[get_start_sign_in] = Broken
+
+    response = await client.get("/auth/google/login")
+
+    assert error_of(response) == "oauth_failed"
 
 
 async def test_a_callback_link_opened_in_another_browser_signs_nobody_in(app, provider):

@@ -216,7 +216,7 @@ async def test_sign_in_opens_a_session_that_authenticates(google):
     assert current.email == Email("alice@example.com")
 
 
-async def test_second_sign_in_loads_the_same_user_and_updates_the_name(google):
+async def test_second_sign_in_loads_the_same_user_and_keeps_the_name(google):
     first = await google.full()
     google.provider.identity = google_identity(name="Alice M.")
     google.clock.advance(timedelta(days=2))
@@ -225,7 +225,7 @@ async def test_second_sign_in_loads_the_same_user_and_updates_the_name(google):
 
     assert not second.is_new_user
     [user] = google.store.users.rows.values()
-    assert user.name == "Alice M."
+    assert user.name == "Alice Martin"  # the name we have wins over Google's
     identity = google.store.identities.rows[("google", "google-sub-1")]
     assert identity.last_login_at == google.clock.now()
     assert first.token != second.token
@@ -255,6 +255,26 @@ async def test_existing_verified_password_account_is_linked_and_keeps_its_passwo
     assert len(google.store.users.rows) == 1
     assert google.store.identities.rows[("google", "google-sub-1")].user_id == user.id
     assert user.id in google.store.credentials.rows
+
+
+async def test_linking_keeps_the_name_chosen_at_sign_up(google):
+    user = make_user("alice@example.com")
+    user.name = "Ali"
+    await google.store.users.add(user)
+
+    await google.full()
+
+    assert (await google.store.users.get(user.id)).name == "Ali"
+
+
+async def test_an_account_without_a_name_takes_googles(google):
+    user = make_user("alice@example.com")
+    user.name = None
+    await google.store.users.add(user)
+
+    await google.full()
+
+    assert (await google.store.users.get(user.id)).name == "Alice Martin"
 
 
 async def test_unverified_account_is_taken_back_from_whoever_set_its_password(google):
@@ -295,6 +315,16 @@ async def test_disabled_account_cannot_sign_in(google):
         await google.full()
 
     assert google.store.sessions.rows == {}
+
+
+async def test_a_linked_user_signs_in_even_if_google_no_longer_vouches_for_the_email(google):
+    """The email is only needed to link or create an account: a linked one is found by sub."""
+    await google.full()
+    google.provider.identity = google_identity(email_verified=False)
+
+    result = await google.full()
+
+    assert not result.is_new_user
 
 
 async def test_unverified_google_email_is_refused_and_nothing_is_created(google):
@@ -432,6 +462,12 @@ async def test_too_many_starts_from_one_address_are_refused(google):
 
     with pytest.raises(TooManyAttempts):
         await google.start(command())
+
+
+async def test_without_a_client_address_there_is_no_shared_limit(google):
+    """No IP (no client info): a key "oauth_start:ip:None" would be shared by everyone."""
+    for _ in range(START_LIMIT + 1):
+        await google.start(StartSignInCommand("google", REDIRECT_URI, None, ip_address=None))
 
 
 # Linking by email only when Google speaks for the address

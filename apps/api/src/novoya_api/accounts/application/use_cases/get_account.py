@@ -29,5 +29,5 @@ class GetAccount:
         return AccountView(
             user,
             has_password=credential is not None,
-            has_google=await self._identities.exists_for_user(user_id),
+            has_google="google" in await self._identities.providers_for_user(user_id),
         )

@@ -7,7 +7,6 @@ Any failure becomes OAuthProviderError, so the use case never sees httpx or jose
 
 import base64
 import hashlib
-import json
 import logging
 import secrets
 from datetime import datetime, timedelta
@@ -15,7 +14,7 @@ from typing import Any
 from urllib.parse import urlencode
 
 import httpx
-from joserfc import jwt
+from joserfc import jws, jwt
 from joserfc.errors import JoseError
 from joserfc.jwk import KeySet
 from joserfc.jwt import JWTClaimsRegistry
@@ -157,11 +156,8 @@ class GoogleIdentityProvider:
 
 
 def _key_id(id_token: str) -> str | None:
-    """The kid of a compact JWT's header, read before checking the signature."""
-    header = id_token.split(".", 1)[0]
-    padded = header + "=" * (-len(header) % 4)
-    header_fields = json.loads(base64.urlsafe_b64decode(padded))
-    value = header_fields.get("kid") if isinstance(header_fields, dict) else None
+    """The kid of the token's header, read before checking the signature."""
+    value = jws.extract_compact(id_token.encode()).headers().get("kid")
     return value if isinstance(value, str) else None
 
 

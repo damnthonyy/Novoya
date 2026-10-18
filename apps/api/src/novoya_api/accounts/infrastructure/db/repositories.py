@@ -151,6 +151,9 @@ class SqlPasswordCredentialRepository:
         )
 
 
+IDENTITY_UNIQUE = "uq_oauth_identities_provider_subject"
+
+
 def identity_to_entity(row: OAuthIdentityModel) -> OAuthIdentity:
     return OAuthIdentity(
         id=row.id,
@@ -188,6 +191,9 @@ class SqlOAuthIdentityRepository:
         try:
             await self._session.flush()  # two first sign-ins at once: the unique index decides
         except IntegrityError as exc:
+            # Only that index means "already linked"; any other violation is a bug to surface.
+            if IDENTITY_UNIQUE not in str(exc.orig):
+                raise
             raise IdentityAlreadyLinked("this account is already linked to another user") from exc
 
     async def save(self, identity: OAuthIdentity) -> None:
@@ -195,13 +201,11 @@ class SqlOAuthIdentityRepository:
         if row is not None:
             row.last_login_at = identity.last_login_at
 
-    async def exists_for_user(self, user_id: UserId) -> bool:
-        found = await self._session.scalar(
-            select(OAuthIdentityModel.id)
-            .where(OAuthIdentityModel.user_id == user_id.value)
-            .limit(1)
+    async def providers_for_user(self, user_id: UserId) -> set[str]:
+        rows = await self._session.scalars(
+            select(OAuthIdentityModel.provider).where(OAuthIdentityModel.user_id == user_id.value)
         )
-        return found is not None
+        return set(rows)
 
 
 class SqlOAuthStateStore:

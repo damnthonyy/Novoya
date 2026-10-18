@@ -258,8 +258,8 @@ async def test_oauth_identities_are_found_by_provider_and_subject(session):
     found = await identities.get("google", "google-sub-1")
     assert found == identity
     assert await identities.get("google", "another-sub") is None
-    assert await identities.exists_for_user(alice.id)
-    assert not await identities.exists_for_user(make_user("bob@example.com").id)
+    assert await identities.providers_for_user(alice.id) == {"google"}
+    assert await identities.providers_for_user(make_user("bob@example.com").id) == set()
 
     found.touch(NOW + timedelta(days=1))
     await identities.save(found)
@@ -276,6 +276,19 @@ async def test_a_google_account_is_linked_to_one_user_only(session):
 
     with pytest.raises(IdentityAlreadyLinked):
         await identities.add(OAuthIdentity.link(bob.id, google_identity(), NOW))
+
+
+async def test_an_identity_for_a_missing_user_is_not_reported_as_already_linked(session):
+    """Only the (provider, subject) unique index means "already linked"; a foreign key
+    failure is a bug and must surface as it is."""
+    from sqlalchemy.exc import IntegrityError
+
+    ghost = make_user("ghost@example.com")  # never added
+
+    with pytest.raises(IntegrityError):
+        await SqlOAuthIdentityRepository(session).add(
+            OAuthIdentity.link(ghost.id, google_identity(), NOW)
+        )
 
 
 PENDING = PendingSignIn("google", "verifier", "nonce", "/wishes/new")
@@ -440,5 +453,5 @@ async def test_a_failed_google_sign_in_changes_nothing_but_the_used_state(sessio
 
     assert await store.credentials.get(squatter.id) is not None
     assert not (await store.users.get(squatter.id)).is_email_verified
-    assert not await store.identities.exists_for_user(squatter.id)
+    assert await store.identities.providers_for_user(squatter.id) == set()
     assert await store.oauth_states.pop(tokens.hash("the-state"), NOW) is None  # used up

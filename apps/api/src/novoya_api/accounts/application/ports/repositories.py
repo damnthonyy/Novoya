@@ -51,7 +51,9 @@ class OAuthIdentityRepository(Protocol):
 
     async def save(self, identity: OAuthIdentity) -> None: ...
 
-    async def exists_for_user(self, user_id: UserId) -> bool: ...
+    async def providers_for_user(self, user_id: UserId) -> set[str]:
+        """The providers linked to this user, e.g. {"google"}."""
+        ...
 
 
 class SessionRepository(Protocol):
