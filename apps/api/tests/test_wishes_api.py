@@ -7,7 +7,11 @@ from uuid import UUID
 import pytest
 from httpx import ASGITransport, AsyncClient
 
+from novoya_api.accounts.domain.role import Role
+from novoya_api.accounts.domain.value_objects import Email, UserId
+from novoya_api.accounts.public import CurrentUserView, current_user
 from novoya_api.main import create_app
+from novoya_api.shared.domain.value_objects import Locale
 from novoya_api.shared.infrastructure.llm.errors import LLMError
 from novoya_api.wishes.application.ports.destination_reader import DestinationReading
 from novoya_api.wishes.application.use_cases.send_wish import SendWish
@@ -19,6 +23,13 @@ from novoya_api.wishes.presentation.http.dependencies import get_current_user_id
 
 USER_ID = UUID("00000000-0000-0000-0000-000000000001")
 NOW = datetime(2026, 10, 18, 9, 0, tzinfo=UTC)
+
+
+class FixedClock:
+    def now(self) -> datetime:
+        return NOW
+
+
 LISBON = Destination("Portugal", "Lisbon")
 
 
@@ -61,7 +72,7 @@ def app(reader, wishes):
         catalog=StaticCatalog(),
         reader=reader,
         uow=FakeUnitOfWork(),
-        now=lambda: NOW,
+        clock=FixedClock(),
     )
     app.dependency_overrides[get_send_wish] = lambda: send_wish
     app.dependency_overrides[get_current_user_id] = lambda: USER_ID
@@ -173,3 +184,27 @@ def test_without_an_api_key_the_reader_matches_names(monkeypatch):
     monkeypatch.setattr(dependencies, "get_orchestrator", no_key)
 
     assert isinstance(dependencies.get_destination_reader(), NameMatchingReader)
+
+
+def signed_in_as(role: Role) -> CurrentUserView:
+    return CurrentUserView(
+        user_id=UserId(USER_ID),
+        email=Email("someone@example.com"),
+        name=None,
+        role=role,
+        locale=Locale.EN,
+        session_id=USER_ID,
+    )
+
+
+@pytest.mark.parametrize(
+    ("role", "status"), [(Role.CLIENT, 201), (Role.ADMIN, 201), (Role.AGENT, 403)]
+)
+async def test_only_clients_and_admins_send_wishes(app, wishes, client, role, status):
+    del app.dependency_overrides[get_current_user_id]
+    app.dependency_overrides[current_user] = lambda: signed_in_as(role)
+
+    response = await client.post("/wishes", json={"text": "A week in Lisbon"})
+
+    assert response.status_code == status
+    assert [wish.user_id for wish in wishes.added] == ([USER_ID] if status == 201 else [])

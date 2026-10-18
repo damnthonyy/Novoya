@@ -15,7 +15,7 @@ from alembic import op
 
 # revision identifiers, used by Alembic.
 revision: str = "92f81d9a6b75"
-down_revision: str | Sequence[str] | None = None
+down_revision: str | Sequence[str] | None = "e329ac9e242a"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 
@@ -44,6 +44,7 @@ def upgrade() -> None:
             "status IN ('draft', 'not_covered', 'panel_shown', 'answered', 'planned')",
             name="ck_wishes_status",
         ),
+        sa.ForeignKeyConstraint(["user_id"], ["users.id"]),
         sa.PrimaryKeyConstraint("id"),
     )
     op.create_index("ix_wishes_status", "wishes", ["status"], unique=False)

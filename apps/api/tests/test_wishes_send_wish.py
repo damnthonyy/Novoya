@@ -18,6 +18,12 @@ from novoya_api.wishes.domain.wish import Destination, WishStatus
 USER_ID = UUID("00000000-0000-0000-0000-000000000001")
 NOW = datetime(2026, 10, 18, 9, 0, tzinfo=UTC)
 
+
+class FixedClock:
+    def now(self) -> datetime:
+        return NOW
+
+
 LISBON = Destination("Portugal", "Lisbon")
 PORTO = Destination("Portugal", "Porto")
 MARRAKECH = Destination("Morocco", "Marrakech")
@@ -85,7 +91,7 @@ class Setup:
             catalog=self.catalog,
             reader=self.reader,
             uow=self.uow,
-            now=lambda: NOW,
+            clock=FixedClock(),
         )
 
 

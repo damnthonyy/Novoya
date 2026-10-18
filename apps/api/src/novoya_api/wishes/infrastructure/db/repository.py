@@ -24,13 +24,3 @@ class SqlWishRepository:
                 updated_at=wish.updated_at,
             )
         )
-
-
-class SqlUnitOfWork:
-    """UnitOfWork on the request's session. Moves to shared/infrastructure with #63."""
-
-    def __init__(self, session: AsyncSession) -> None:
-        self._session = session
-
-    async def commit(self) -> None:
-        await self._session.commit()

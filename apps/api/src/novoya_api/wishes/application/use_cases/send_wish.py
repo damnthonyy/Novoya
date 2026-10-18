@@ -1,11 +1,10 @@
-from collections.abc import Callable
 from dataclasses import dataclass
-from datetime import datetime
 from uuid import UUID
 
+from novoya_api.shared.application.clock import Clock
+from novoya_api.shared.application.unit_of_work import UnitOfWork
 from novoya_api.wishes.application.ports.catalog import Catalog
 from novoya_api.wishes.application.ports.destination_reader import DestinationReader
-from novoya_api.wishes.application.ports.unit_of_work import UnitOfWork
 from novoya_api.wishes.application.ports.wish_repository import WishRepository
 from novoya_api.wishes.domain.panel import Panel
 from novoya_api.wishes.domain.wish import Destination, Wish, find_covered
@@ -40,16 +39,16 @@ class SendWish:
         catalog: Catalog,
         reader: DestinationReader,
         uow: UnitOfWork,
-        now: Callable[[], datetime],
+        clock: Clock,
     ) -> None:
         self._wishes = wishes
         self._catalog = catalog
         self._reader = reader
         self._uow = uow
-        self._now = now
+        self._clock = clock
 
     async def __call__(self, cmd: SendWishCommand) -> SendWishResult:
-        wish = Wish.create(cmd.user_id, cmd.text, self._now())
+        wish = Wish.create(cmd.user_id, cmd.text, self._clock.now())
         covered = await self._catalog.covered_destinations()
         reading = await self._reader.read(wish.text, covered)
 
@@ -62,9 +61,9 @@ class SendWish:
                 match.country, match.city if reading.destination.city else None
             )
             panel = Panel.from_tags(await self._catalog.tags_at(destination))
-            wish.show_panel(destination, panel, self._now())
+            wish.show_panel(destination, panel, self._clock.now())
         else:
-            wish.mark_not_covered(reading.destination, self._now())
+            wish.mark_not_covered(reading.destination, self._clock.now())
             suggestions = _covered_suggestions(reading.suggestions, covered)
 
         await self._wishes.add(wish)

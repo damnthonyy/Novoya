@@ -4,7 +4,7 @@ from datetime import date, datetime
 from decimal import Decimal
 from uuid import UUID
 
-from sqlalchemy import CheckConstraint, Date, DateTime, Index, Numeric, String, Text
+from sqlalchemy import CheckConstraint, Date, DateTime, ForeignKey, Index, Numeric, String, Text
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -26,8 +26,8 @@ class WishModel(Base):
     )
 
     id: Mapped[UUID] = mapped_column(primary_key=True)
-    # The foreign key to users comes with the accounts tables (#63).
-    user_id: Mapped[UUID]
+    # No cascade: DELETE /me erases wishes first (#46), so a forgotten step fails loudly.
+    user_id: Mapped[UUID] = mapped_column(ForeignKey("users.id"))
     text: Mapped[str] = mapped_column(Text)
     destination_country: Mapped[str | None] = mapped_column(String(100))
     destination_city: Mapped[str | None] = mapped_column(String(100))
