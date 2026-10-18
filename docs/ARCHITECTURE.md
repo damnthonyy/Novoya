@@ -117,9 +117,11 @@ A test (`tests/test_architecture.py`) reads every import and fails in CI if a la
 The agent orchestrator gives the LLM two tools through the `tools` parameter (tool calling). They are plain Python functions in the `planning` module (`infrastructure/llm/tools.py`) that read the catalog through `catalog.public`:
 
 - `covered_destinations()`: the countries and cities with at least one listed offer (an active offer of an active partner).
-- `search_offers(destination, tags, persons, dates)`: active offers that match.
-
+- `search_offers(country, city, tags, persons, start_date, end_date)`: the active offers of active partners at that destination that fit the group size and the whole trip. `city` and `tags` are optional. With tags, an offer needs at least one of them, and offers matching more tags come first, then `featured` ones. There is no budget argument: offers have no price.
 When the LLM asks for a tool, the orchestrator runs the function and sends the result back. The LLM never touches the database directly.
+
+- The model chooses the arguments, so each tool checks them. Bad arguments, dates in the wrong order or an uncovered destination give the model an error it can act on, for example "call covered_destinations".
+- `search_offers` returns at most 20 offers, each with its `offer_id`, and never the partner's name or contact: the model and its provider are third parties.
 
 ### The LLM: OpenRouter
 

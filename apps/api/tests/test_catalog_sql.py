@@ -22,9 +22,15 @@ from alembic import command
 from novoya_api.catalog.application.use_cases.list_destinations import ListDestinations
 from novoya_api.catalog.infrastructure.db.models import OfferRow, PartnerRow
 from novoya_api.catalog.infrastructure.db.repositories import SqlOfferRepository
-from novoya_api.catalog.infrastructure.seed.data import OFFERS, PARTNERS
+from novoya_api.catalog.infrastructure.seed.data import (
+    O_CRETE_STAY,
+    O_CRETE_WALK,
+    O_MARRAKECH_RIAD,
+    OFFERS,
+    PARTNERS,
+)
 from novoya_api.catalog.infrastructure.seed.run import seed_catalog
-from novoya_api.catalog.public import covered_destinations, tags_at
+from novoya_api.catalog.public import covered_destinations, search_offers, tags_at
 from novoya_api.config import get_settings
 from novoya_api.shared.infrastructure.db.session import close_db, get_engine, get_sessionmaker
 
@@ -169,6 +175,27 @@ async def test_public_functions_read_listed_seed_offers(session, database_url):
     tags = await tags_at("morocco", "marrakech")
     assert "accommodation:riad" in tags
     assert "style:package" not in tags
+
+
+async def test_public_search_offers_reads_listed_seed_offers(session, database_url):
+    await seed_catalog()
+    inactive = await session.get(OfferRow, O_CRETE_WALK)
+    inactive.active = False
+    await session.commit()
+    trip = (date(2026, 5, 10), date(2026, 5, 17))
+
+    in_chania = await search_offers("greece", "chania", [], 2, *trip)
+    beach = await search_offers("Greece", None, ["style:beach"], 2, *trip)
+    marrakech = await search_offers("Morocco", "Marrakech", [], 2, *trip)
+    too_many = await search_offers("Greece", "Chania", [], 4, *trip)
+    winter = await search_offers("Greece", "Chania", [], 2, date(2026, 12, 1), date(2026, 12, 8))
+
+    assert [offer.id for offer in in_chania] == [O_CRETE_STAY]
+    assert [offer.id for offer in beach] == [O_CRETE_STAY]
+    assert beach[0].partner_name == "Elounda Bay House"
+    assert [offer.id for offer in marrakech] == [O_MARRAKECH_RIAD]  # the agency is inactive
+    assert too_many == []
+    assert winter == []
 
 
 async def test_database_rejects_invalid_person_limits(session):

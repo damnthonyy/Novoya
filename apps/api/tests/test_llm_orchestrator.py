@@ -482,3 +482,61 @@ async def test_converse_returns_the_whole_conversation():
 
     assert [m["role"] for m in conversation] == ["user", "assistant", "tool", "assistant"]
     assert conversation[-1] == {"role": "assistant", "content": "Sunny."}
+
+
+@pytest.mark.parametrize(
+    "arguments",
+    ['{"city": ' + "9" * 5000 + "}", "[" * 100_000 + "]" * 100_000],
+    ids=["integer_over_4300_digits", "deeply_nested"],
+)
+async def test_arguments_python_cannot_parse_send_error_back(arguments):
+    client = FakeClient(tool_calls(("call-1", "get_weather", arguments)), answer("Sorry."))
+    handler = RecordingHandler({})
+
+    result = await Orchestrator(client, MODELS).run(USER_MESSAGES, tools=[weather_tool(handler)])
+
+    assert result == "Sorry."
+    assert handler.calls == []
+    tool_message = client.completions.calls[1]["messages"][-1]
+    assert json.loads(tool_message["content"]) == {"error": "arguments are not valid JSON"}
+
+
+async def test_tool_calls_over_the_step_limit_are_not_run():
+    calls = [(f"call-{i}", "get_weather", '{"city": "Lisbon"}') for i in range(7)]
+    client = FakeClient(tool_calls(*calls), answer("Done."))
+    handler = RecordingHandler({"sky": "clear"})
+
+    await Orchestrator(client, MODELS, max_tool_calls_per_step=5).run(
+        USER_MESSAGES, tools=[weather_tool(handler)]
+    )
+
+    assert len(handler.calls) == 5
+    tool_messages = [m for m in client.completions.calls[1]["messages"] if m["role"] == "tool"]
+    # Every call gets an answer (the API needs one per tool_call_id), the extra ones an error.
+    assert [m["tool_call_id"] for m in tool_messages] == [f"call-{i}" for i in range(7)]
+    assert all("too many tool calls" in m["content"] for m in tool_messages[5:])
+
+
+async def test_tool_calls_over_the_run_limit_are_not_run():
+    step = [(f"call-{i}", "get_weather", '{"city": "Lisbon"}') for i in range(4)]
+    client = FakeClient(
+        tool_calls(*[(f"a{i}", n, a) for i, (_, n, a) in enumerate(step)]),
+        tool_calls(*[(f"b{i}", n, a) for i, (_, n, a) in enumerate(step)]),
+        answer("Done."),
+    )
+    handler = RecordingHandler({"sky": "clear"})
+
+    await Orchestrator(client, MODELS, max_tool_calls=6).run(
+        USER_MESSAGES, tools=[weather_tool(handler)]
+    )
+
+    assert len(handler.calls) == 6
+    last = [m for m in client.completions.calls[2]["messages"] if m["role"] == "tool"][-2:]
+    assert all("too many tool calls" in m["content"] for m in last)
+
+
+def test_default_limits_allow_a_normal_plan_and_stop_a_flood():
+    orchestrator = Orchestrator(FakeClient(), MODELS)
+
+    assert orchestrator.max_tool_calls_per_step == 5
+    assert orchestrator.max_tool_calls == 15
