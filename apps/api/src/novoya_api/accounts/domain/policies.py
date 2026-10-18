@@ -1,3 +1,4 @@
+import re
 from dataclasses import dataclass
 
 from novoya_api.accounts.domain.errors import WeakPassword
@@ -40,3 +41,26 @@ class PasswordPolicy:
         local_part = email.value.split("@")[0]
         if len(local_part) >= 4 and local_part in value.lower():
             raise WeakPassword("the password must not contain the email address")
+
+
+@dataclass(frozen=True, slots=True)
+class RedirectPolicy:
+    """Where the browser may land after signing in: a path of the web app, nothing else.
+
+    A full URL, "//host" (protocol-relative) or "/\\host" (read as "//" by browsers) would make
+    the sign-in an open redirect, so they all become the home page."""
+
+    max_length: int = 512
+    default: str = "/"
+
+    def safe(self, target: str | None) -> str:
+        if not target or len(target) > self.max_length:
+            return self.default
+        if not target.startswith("/") or target.startswith(("//", "/\\")):
+            return self.default
+        if _CONTROL.search(target):
+            return self.default
+        return target
+
+
+_CONTROL = re.compile(r"[\x00-\x1f\x7f]")

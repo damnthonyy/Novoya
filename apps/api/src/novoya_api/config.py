@@ -15,8 +15,11 @@ class Settings(BaseSettings):
     database_url: str = "postgresql+asyncpg://novoya:novoya@localhost:5432/novoya"
     cors_origins: list[str] = ["http://localhost:5173"]
 
-    # Accounts: sessions, passwords, emails
+    # Accounts: sessions, passwords, emails, Google
     frontend_url: str = "http://localhost:5173"  # links in emails point to the web app
+    api_public_url: str = "http://localhost:8000"  # builds the Google redirect URI
+    google_client_id: str | None = None  # without both, sign-in with Google is off (#15)
+    google_client_secret: SecretStr | None = None
     session_cookie_secure: bool = False  # true in production (HTTPS): Secure + __Host- prefix
     session_idle_ttl_days: int = 7
     session_absolute_ttl_days: int = 30

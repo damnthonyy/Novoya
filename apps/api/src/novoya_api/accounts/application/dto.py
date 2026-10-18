@@ -38,3 +38,4 @@ class AccountView:
 
     user: User
     has_password: bool
+    has_google: bool = False
