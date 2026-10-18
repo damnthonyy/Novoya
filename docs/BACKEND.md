@@ -86,7 +86,7 @@ flowchart LR
     WI[infrastructure<br/>adapter: catalog.py] -. implements .-> WA
   end
   subgraph C[catalog]
-    CP[public.py<br/>tags_at, covered_destinations]
+    CP[public.py<br/>tags_at, covered_destinations,<br/>search_offers]
     CA[application<br/>use cases]
     CP --> CA
   end
@@ -155,7 +155,7 @@ Every module also uses the shared `UnitOfWork` port: one use case is one transac
 | all | `infrastructure/db/` repositories and tables | SQLAlchemy 2 (async) + PostgreSQL |
 | accounts | `google_oauth.py`, `security.py`, `email/` | Google OpenID Connect with Authlib (`openid email profile`, PKCE), Argon2id password hashes, SMTP (Mailpit locally) |
 | wishes | `llm/panel_builder.py` | OpenRouter, through `shared/infrastructure/llm` |
-| planning | `llm/plan_generator.py`, `llm/tools.py` | OpenRouter tool calling; the tools read offers through `catalog.public` |
+| planning | `llm/plan_generator.py`, `llm/tools.py` | OpenRouter tool calling; `travel_tools()` reads offers through `catalog.public` and sends them without partner name or contact |
 | quoting | `pdf/`, `email/` | Jinja2 + WeasyPrint, SMTP (Mailpit locally) |
 
 ORM models are not entities. A repository maps rows to entities and back, so no SQLAlchemy object leaves a module's `infrastructure/`.
