@@ -1,1 +1,0 @@
-import{t as e}from"./index-CaRmWHNV.js";var t=e();function n(){return(0,t.jsx)(`main`,{children:(0,t.jsx)(`h1`,{children:`Novoya`})})}export{n as component};

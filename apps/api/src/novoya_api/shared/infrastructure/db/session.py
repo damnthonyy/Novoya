@@ -32,4 +32,7 @@ async def get_session() -> AsyncIterator[AsyncSession]:
 
 async def close_db() -> None:
     """Close the pool so a CLI command can leave without 'Event loop is closed'."""
-    await get_engine().dispose()
+    if get_engine.cache_info().currsize:
+        await get_engine().dispose()
+    get_engine.cache_clear()
+    get_sessionmaker.cache_clear()

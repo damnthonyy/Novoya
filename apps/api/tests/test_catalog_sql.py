@@ -25,7 +25,7 @@ from novoya_api.catalog.infrastructure.seed.data import OFFERS, PARTNERS
 from novoya_api.catalog.infrastructure.seed.run import seed_catalog
 from novoya_api.catalog.public import covered_destinations, tags_at
 from novoya_api.config import get_settings
-from novoya_api.shared.infrastructure.db.session import get_engine, get_sessionmaker
+from novoya_api.shared.infrastructure.db.session import close_db, get_engine, get_sessionmaker
 
 API_DIR = Path(__file__).parent.parent
 TABLES = "offers, partners"
@@ -91,12 +91,15 @@ def database_url() -> Iterator[str]:
 
 @pytest.fixture
 async def session(database_url) -> AsyncIterator[AsyncSession]:
+    # seed_catalog / public.py use a process-wide engine; pytest-asyncio uses one loop per test.
+    await close_db()
     engine = create_async_engine(database_url, poolclass=NullPool)
     async with engine.begin() as connection:
         await connection.execute(text(f"TRUNCATE {TABLES} CASCADE"))
     async with async_sessionmaker(engine, expire_on_commit=False)() as session:
         yield session
     await engine.dispose()
+    await close_db()
 
 
 async def test_seed_can_run_twice_without_wiping_other_rows(session, database_url):
@@ -182,6 +185,43 @@ async def test_database_rejects_invalid_person_limits(session):
     )
     with pytest.raises(IntegrityError):
         await session.flush()
+    await session.rollback()
+
+
+async def test_database_rejects_inverted_availability_dates(session):
+    partner = PartnerRow(
+        id=uuid4(),
+        name="Dates",
+        kind="hotel",
+        country="Greece",
+        city="Chania",
+        contact_email="d@example.com",
+        contact_phone="+30 000",
+        active=True,
+    )
+    session.add(partner)
+    await session.flush()
+    session.add(
+        OfferRow(
+            id=uuid4(),
+            partner_id=partner.id,
+            kind="hotel",
+            title="Bad dates",
+            description="x",
+            country="Greece",
+            city="Chania",
+            min_persons=1,
+            max_persons=2,
+            available_from=date(2026, 10, 31),
+            available_to=date(2026, 4, 1),
+            tags=["style:beach"],
+            featured=False,
+            active=True,
+        )
+    )
+    with pytest.raises(IntegrityError):
+        await session.flush()
+    await session.rollback()
 
 
 def test_catalog_migration_up_and_down(database_url):
