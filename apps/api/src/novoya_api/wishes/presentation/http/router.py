@@ -4,9 +4,19 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, status
 
 from novoya_api.shared.presentation.http.errors import ErrorResponse
+from novoya_api.wishes.application.use_cases.answer_panel import AnswerPanel, AnswerPanelCommand
 from novoya_api.wishes.application.use_cases.send_wish import SendWish, SendWishCommand
-from novoya_api.wishes.presentation.http.dependencies import get_current_user_id, get_send_wish
-from novoya_api.wishes.presentation.http.schemas import SendWishRequest, WishResponse
+from novoya_api.wishes.presentation.http.dependencies import (
+    get_answer_panel,
+    get_current_user_id,
+    get_send_wish,
+)
+from novoya_api.wishes.presentation.http.schemas import (
+    AnsweredWishResponse,
+    AnswerPanelRequest,
+    SendWishRequest,
+    WishResponse,
+)
 
 # Every error body is {code, detail} (shared handler), not FastAPI's default 422 list.
 ERRORS = {status_code: {"model": ErrorResponse} for status_code in (401, 403, 422)}
@@ -23,3 +33,23 @@ async def send_wish(
     """Send the trip the client wants, in their words. Returns the panel when we cover the
     destination, suggestions when we don't, and asks where when the text names no place."""
     return WishResponse.of(await use_case(SendWishCommand(user_id=user_id, text=body.text)))
+
+
+# TEMPORARY until #29: returns the answered wish, not the proposed plan that ARCHITECTURE.md
+# describes. #29 builds the plan here and changes the response to it.
+@router.post(
+    "/{wish_id}/answers",
+    operation_id="answerPanel",
+    responses={status_code: {"model": ErrorResponse} for status_code in (404, 409)},
+)
+async def answer_panel(
+    wish_id: UUID,
+    body: AnswerPanelRequest,
+    user_id: Annotated[UUID, Depends(get_current_user_id)],
+    use_case: Annotated[AnswerPanel, Depends(get_answer_panel)],
+) -> AnsweredWishResponse:
+    """Save the tags the client picked, their budget in EUR, travellers and dates. 404 if the
+    wish is not theirs, 409 if it is already answered or shows no panel, 422 for a tag the
+    panel did not show."""
+    command = AnswerPanelCommand(user_id=user_id, wish_id=wish_id, answers=body.to_answers())
+    return AnsweredWishResponse.of(await use_case(command))
