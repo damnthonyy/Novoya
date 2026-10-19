@@ -1,10 +1,11 @@
 import { createFileRoute, redirect } from '@tanstack/react-router'
+import { useTranslation } from 'react-i18next'
 
 import { googleSignInUrl } from '../api/auth'
 import { isUnauthenticated } from '../api/errors'
 import { getMeOptions } from '../api/generated/@tanstack/react-query.gen'
 import { ButtonLink } from '../components/atoms/Button'
-import { signInErrorMessage } from '../domain/auth/errors'
+import { signInErrorKey } from '../domain/auth/errors'
 import { safeRedirect } from '../domain/auth/session'
 
 type LoginSearch = {
@@ -35,18 +36,20 @@ export const Route = createFileRoute('/login')({
 
 function LoginPage() {
   const { redirect: target, error } = Route.useSearch()
-  const message = signInErrorMessage(error)
+  const { t } = useTranslation('auth')
+  const { t: tErrors } = useTranslation('errors')
+  const errorKey = signInErrorKey(error)
 
   return (
     <section className="login">
-      <h1>Sign in</h1>
-      <p>Sign in to describe your trip and follow your plans and quotes.</p>
-      {message && (
+      <h1>{t('title')}</h1>
+      <p>{t('intro')}</p>
+      {errorKey && (
         <p role="alert" className="login__error">
-          {message}
+          {tErrors(errorKey)}
         </p>
       )}
-      <ButtonLink href={googleSignInUrl(safeRedirect(target))}>Continue with Google</ButtonLink>
+      <ButtonLink href={googleSignInUrl(safeRedirect(target))}>{t('continueWithGoogle')}</ButtonLink>
     </section>
   )
 }

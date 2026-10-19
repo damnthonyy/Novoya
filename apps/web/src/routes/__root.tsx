@@ -7,12 +7,16 @@ import {
   useRouterState,
 } from '@tanstack/react-router'
 import { TanStackRouterDevtools } from '@tanstack/react-router-devtools'
+import { useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 
 import { getMeQueryKey, signOutMutation } from '../api/generated/@tanstack/react-query.gen'
 import { ErrorNote } from '../components/molecules/ErrorNote'
 import { AppHeader } from '../components/organisms/AppHeader'
 import { displayName } from '../domain/auth/session'
+import { resolveLocale } from '../domain/i18n/locale'
 import { useActivityGap } from '../hooks/ui/useActivityGap'
+import i18n from '../i18n'
 
 // After this long without any action on the page, check the session again on the next navigation.
 const IDLE_MS = 3 * 60_000
@@ -37,7 +41,15 @@ function RootLayout() {
     // On failure the session cookie may still be valid: stay here and say so.
   })
 
+  const { t } = useTranslation('header')
+
   useActivityGap(IDLE_MS, () => queryClient.removeQueries({ queryKey: getMeQueryKey() }))
+
+  // The signed-in user's locale wins; signed out (e.g. on /login), the browser's language.
+  const locale = resolveLocale(me?.locale, navigator.languages)
+  useEffect(() => {
+    if (i18n.language !== locale) void i18n.changeLanguage(locale)
+  }, [locale])
 
   return (
     <>
@@ -45,7 +57,7 @@ function RootLayout() {
         userName={me ? displayName(me) : undefined}
         onSignOut={() => signOut.mutate({})}
         signingOut={signOut.isPending}
-        signOutError={signOut.isError ? 'Sign out failed. Please try again.' : undefined}
+        signOutError={signOut.isError ? t('signOutFailed') : undefined}
       />
       <main className="app-main">
         <Outlet />
@@ -63,9 +75,10 @@ function RootLayout() {
 /** The page shown when a route fails for another reason than a missing session. */
 export function RouteError() {
   const router = useRouter()
+  const { t } = useTranslation('errors')
   return (
     <ErrorNote
-      message="Novoya can't reach the server right now. Please try again in a moment."
+      message={t('serverUnreachable')}
       onRetry={() => router.invalidate()}
     />
   )

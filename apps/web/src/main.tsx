@@ -1,4 +1,5 @@
 import './api/client'
+import './i18n'
 import './index.css'
 
 import { QueryClientProvider } from '@tanstack/react-query'
