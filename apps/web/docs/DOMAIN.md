@@ -47,6 +47,7 @@ domain  ──►  routes      INTERDIT
 
 components ──► domain    INTERDIT   (un bouton ne connaît pas un “wish”)
 components ──► api       INTERDIT
+i18n       ──► domain    oui, pour la règle de langue (domain/i18n)
 api        ──► domain    oui, si on transforme une réponse serveur
 api        ──► components INTERDIT
 ```
@@ -68,7 +69,11 @@ apps/web/src/domain/
   constraints/    # budget, voyageurs, dates
   plan/           # itinéraire jour par jour
   quote/          # le devis de l’agence
+  auth/           # session : nom affiché, redirection sûre, clés des erreurs de connexion
+  i18n/           # quelle langue afficher (resolveLocale)
 ```
+
+Le domaine ne contient **aucun texte affiché** : il renvoie une clé de traduction, et la page la traduit ([I18N.md](I18N.md)).
 
 ### `wish/`
 

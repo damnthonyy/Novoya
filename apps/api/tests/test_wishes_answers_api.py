@@ -10,9 +10,12 @@ from httpx import ASGITransport, AsyncClient
 from novoya_api.accounts.domain.role import Role
 from novoya_api.accounts.public import current_user
 from novoya_api.main import create_app
+from novoya_api.planning.domain.errors import NoOfferFits
+from novoya_api.wishes.application.ports.planner import ProposedItem, ProposedPlan
 from novoya_api.wishes.application.use_cases.answer_panel import AnswerPanel
 from novoya_api.wishes.domain.panel import Panel, PanelSection, Tag
 from novoya_api.wishes.domain.wish import Destination, Wish, WishStatus
+from novoya_api.wishes.infrastructure.answers_in_progress import InMemoryAnswersInProgress
 from novoya_api.wishes.presentation.http.dependencies import get_answer_panel, get_current_user_id
 from tests.test_wishes_api import signed_in_as
 
@@ -57,6 +60,40 @@ class FakeWishes:
         self.saved.append(wish)
 
 
+PLAN_ID = UUID("00000000-0000-0000-0000-0000000000c1")
+ITEM_ID = UUID("00000000-0000-0000-0000-0000000000d1")
+OFFER_ID = UUID("00000000-0000-0000-0000-0000000000e1")
+
+
+class FakePlanner:
+    """Proposes a one-item plan for the wish, or raises `error`."""
+
+    def __init__(self) -> None:
+        self.error: Exception | None = None
+
+    async def propose(self, wish: Wish) -> ProposedPlan:
+        if self.error is not None:
+            raise self.error
+        item = ProposedItem(
+            id=ITEM_ID,
+            offer_id=OFFER_ID,
+            day=1,
+            quantity=7,
+            note="Sea view",
+            kind="hotel",
+            title="Sea view hotel",
+            description="Rooms over the bay",
+        )
+        return ProposedPlan(
+            id=PLAN_ID,
+            wish_id=wish.id,
+            status="proposed",
+            based_on_preferences=True,
+            summary="A week by the sea",
+            items=(item,),
+        )
+
+
 class FakeUnitOfWork:
     async def commit(self) -> None:
         pass
@@ -74,9 +111,20 @@ def wishes() -> FakeWishes:
 
 
 @pytest.fixture
-def app(wishes):
+def planner() -> FakePlanner:
+    return FakePlanner()
+
+
+@pytest.fixture
+def app(wishes, planner):
     app = create_app()
-    use_case = AnswerPanel(wishes=wishes, uow=FakeUnitOfWork(), clock=FixedClock())
+    use_case = AnswerPanel(
+        wishes=wishes,
+        planner=planner,
+        in_progress=InMemoryAnswersInProgress(),
+        uow=FakeUnitOfWork(),
+        clock=FixedClock(),
+    )
     app.dependency_overrides[get_answer_panel] = lambda: use_case
     app.dependency_overrides[get_current_user_id] = lambda: USER_ID
     return app
@@ -92,20 +140,56 @@ async def answer(client: AsyncClient, wish_id: UUID, **changes):
     return await client.post(f"/wishes/{wish_id}/answers", json=BODY | changes)
 
 
-async def test_answers_are_saved_and_the_wish_is_returned_answered(wishes, client):
+async def test_answers_are_saved_and_the_proposed_plan_is_returned(wishes, client):
     wish = wishes.put(shown_wish())
 
     response = await answer(client, wish.id)
 
-    assert response.status_code == 200
+    assert response.status_code == 201
     assert response.json() == {
-        "id": str(wish.id),
-        "status": "answered",
-        "destination": {"country": "Portugal", "city": "Lisbon"},
-        "answers": BODY,
+        "id": str(PLAN_ID),
+        "wish_id": str(wish.id),
+        "status": "proposed",
+        "based_on_preferences": True,
+        "summary": "A week by the sea",
+        "items": [
+            {
+                "id": str(ITEM_ID),
+                "offer_id": str(OFFER_ID),
+                "day": 1,
+                "quantity": 7,
+                "note": "Sea view",
+                "kind": "hotel",
+                "title": "Sea view hotel",
+                "description": "Rooms over the bay",
+            }
+        ],
     }
     assert wishes.saved == [wish]
-    assert wish.status is WishStatus.ANSWERED
+    assert wish.status is WishStatus.PLANNED
+    assert wish.answers is not None
+
+
+async def test_the_plan_has_no_price_and_no_partner(wishes, client):
+    wish = wishes.put(shown_wish())
+
+    response = await answer(client, wish.id)
+
+    keys = set(response.json()) | {key for item in response.json()["items"] for key in item}
+    assert not [key for key in keys if "price" in key or "partner" in key]
+
+
+async def test_when_no_offer_fits_returns_422_no_offer_fits_and_nothing_is_saved(
+    wishes, planner, client
+):
+    wish = wishes.put(shown_wish())
+    planner.error = NoOfferFits("no listed offer fits the travellers and dates")
+
+    response = await answer(client, wish.id)
+
+    assert response.status_code == 422
+    assert response.json()["code"] == "no_offer_fits"
+    assert wishes.saved == []
 
 
 async def test_no_tags_is_a_valid_answer(wishes, client):
@@ -113,8 +197,8 @@ async def test_no_tags_is_a_valid_answer(wishes, client):
 
     response = await answer(client, wish.id, selected_tags=[])
 
-    assert response.status_code == 200
-    assert response.json()["answers"]["selected_tags"] == []
+    assert response.status_code == 201
+    assert wish.answers.selected_tags == ()
 
 
 async def test_currency_defaults_to_eur(wishes, client):
@@ -123,8 +207,8 @@ async def test_currency_defaults_to_eur(wishes, client):
 
     response = await client.post(f"/wishes/{wish.id}/answers", json=body)
 
-    assert response.status_code == 200
-    assert response.json()["answers"]["currency"] == "EUR"
+    assert response.status_code == 201
+    assert wish.answers.currency == "EUR"
 
 
 @pytest.mark.parametrize(
@@ -228,7 +312,7 @@ async def test_without_a_signed_in_user_returns_401(app, wishes, client):
 
 
 @pytest.mark.parametrize(
-    ("role", "status"), [(Role.CLIENT, 200), (Role.ADMIN, 200), (Role.AGENT, 403)]
+    ("role", "status"), [(Role.CLIENT, 201), (Role.ADMIN, 201), (Role.AGENT, 403)]
 )
 async def test_only_clients_and_admins_answer(app, wishes, client, role, status):
     del app.dependency_overrides[get_current_user_id]
@@ -245,7 +329,8 @@ def test_answer_panel_route_is_documented_with_the_shared_error_responses(app):
 
     assert operation["operationId"] == "answerPanel"
     assert operation["tags"] == ["wishes"]
-    assert "200" in operation["responses"]
+    created = operation["responses"]["201"]["content"]["application/json"]["schema"]["$ref"]
+    assert created == "#/components/schemas/PlanResponse"
     for status in ("401", "403", "404", "409", "422"):
         ref = operation["responses"][status]["content"]["application/json"]["schema"]["$ref"]
         assert ref == "#/components/schemas/ErrorResponse", status
