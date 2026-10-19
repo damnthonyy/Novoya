@@ -17,6 +17,7 @@ from novoya_api.shared.infrastructure.llm.client import get_orchestrator
 from novoya_api.shared.infrastructure.llm.errors import LLMError
 from novoya_api.shared.infrastructure.system_clock import SystemClock
 from novoya_api.wishes.application.ports.destination_reader import DestinationReader
+from novoya_api.wishes.application.use_cases.answer_panel import AnswerPanel
 from novoya_api.wishes.application.use_cases.send_wish import SendWish
 from novoya_api.wishes.infrastructure.catalog import PartnerCatalog
 from novoya_api.wishes.infrastructure.db.repository import SqlWishRepository
@@ -48,6 +49,14 @@ def get_send_wish(
         wishes=SqlWishRepository(session),
         catalog=PartnerCatalog(session),
         reader=reader,
+        uow=SqlAlchemyUnitOfWork(session),
+        clock=SystemClock(),
+    )
+
+
+def get_answer_panel(session: Annotated[AsyncSession, Depends(get_session)]) -> AnswerPanel:
+    return AnswerPanel(
+        wishes=SqlWishRepository(session),
         uow=SqlAlchemyUnitOfWork(session),
         clock=SystemClock(),
     )
