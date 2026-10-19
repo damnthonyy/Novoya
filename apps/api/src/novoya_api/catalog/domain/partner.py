@@ -1,6 +1,7 @@
 from dataclasses import dataclass
 from uuid import UUID
 
+from novoya_api.catalog.domain.errors import InvalidPartner
 from novoya_api.catalog.domain.kinds import PartnerKind
 
 
@@ -17,5 +18,21 @@ class Partner:
     contact_phone: str
     active: bool
 
+    def __post_init__(self) -> None:
+        if not self.name.strip():
+            raise InvalidPartner("name is empty")
+        if not self.contact_email.strip() or "@" not in self.contact_email:
+            raise InvalidPartner("contact email is invalid")
+        if not self.contact_phone.strip():
+            raise InvalidPartner("contact phone is empty")
+
     def lists_offers(self) -> bool:
         return self.active
+
+
+def normalize_place(name: str) -> str:
+    """English Title Case so destinations stay one spelling (greece -> Greece)."""
+    parts = name.strip().split()
+    if not parts:
+        raise InvalidPartner("place is empty")
+    return " ".join(part[:1].upper() + part[1:].lower() for part in parts)

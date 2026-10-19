@@ -1,5 +1,7 @@
 """Repositories of the catalog module. They map rows to entities: no ORM object leaves this file."""
 
+from uuid import UUID
+
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -39,13 +41,54 @@ def offer_to_entity(row: OfferRow) -> Offer:
     )
 
 
+def _apply_partner(row: PartnerRow, partner: Partner) -> None:
+    row.name = partner.name
+    row.kind = partner.kind.value
+    row.country = partner.country
+    row.city = partner.city
+    row.contact_email = partner.contact_email
+    row.contact_phone = partner.contact_phone
+    row.active = partner.active
+
+
+def _apply_offer(row: OfferRow, offer: Offer) -> None:
+    row.partner_id = offer.partner_id
+    row.kind = offer.kind.value
+    row.title = offer.title
+    row.description = offer.description
+    row.country = offer.country
+    row.city = offer.city
+    row.min_persons = offer.min_persons
+    row.max_persons = offer.max_persons
+    row.available_from = offer.available_from
+    row.available_to = offer.available_to
+    row.tags = list(offer.tags)
+    row.featured = offer.featured
+    row.active = offer.active
+
+
 class SqlPartnerRepository:
     def __init__(self, session: AsyncSession) -> None:
         self._session = session
 
     async def list_all(self) -> list[Partner]:
-        rows = (await self._session.scalars(select(PartnerRow))).all()
+        stmt = select(PartnerRow).order_by(PartnerRow.name, PartnerRow.id)
+        rows = (await self._session.scalars(stmt)).all()
         return [partner_to_entity(row) for row in rows]
+
+    async def get(self, partner_id: UUID) -> Partner | None:
+        row = await self._session.get(PartnerRow, partner_id)
+        return partner_to_entity(row) if row is not None else None
+
+    async def add(self, partner: Partner) -> None:
+        row = PartnerRow(id=partner.id)
+        _apply_partner(row, partner)
+        self._session.add(row)
+
+    async def save(self, partner: Partner) -> None:
+        row = await self._session.get(PartnerRow, partner.id)
+        assert row is not None
+        _apply_partner(row, partner)
 
 
 class SqlOfferRepository:
@@ -53,7 +96,11 @@ class SqlOfferRepository:
         self._session = session
 
     async def list_with_partners(self) -> list[tuple[Offer, Partner]]:
-        stmt = select(OfferRow, PartnerRow).join(PartnerRow, OfferRow.partner_id == PartnerRow.id)
+        stmt = (
+            select(OfferRow, PartnerRow)
+            .join(PartnerRow, OfferRow.partner_id == PartnerRow.id)
+            .order_by(OfferRow.title, OfferRow.id)
+        )
         rows = (await self._session.execute(stmt)).all()
         return [(offer_to_entity(offer), partner_to_entity(partner)) for offer, partner in rows]
 
@@ -77,3 +124,17 @@ class SqlOfferRepository:
             stmt = stmt.where(func.lower(OfferRow.city) == city.lower())
         rows = (await self._session.execute(stmt)).all()
         return [(offer_to_entity(offer), partner_to_entity(partner)) for offer, partner in rows]
+
+    async def get(self, offer_id: UUID) -> Offer | None:
+        row = await self._session.get(OfferRow, offer_id)
+        return offer_to_entity(row) if row is not None else None
+
+    async def add(self, offer: Offer) -> None:
+        row = OfferRow(id=offer.id)
+        _apply_offer(row, offer)
+        self._session.add(row)
+
+    async def save(self, offer: Offer) -> None:
+        row = await self._session.get(OfferRow, offer.id)
+        assert row is not None
+        _apply_offer(row, offer)
