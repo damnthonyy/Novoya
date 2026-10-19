@@ -653,6 +653,50 @@
         "title": "PartnerResponse",
         "type": "object"
       },
+      "Plan": {
+        "description": "The plan day by day. No price until it is quoted, and never a partner name.",
+        "properties": {
+          "based_on_preferences": {
+            "title": "Based On Preferences",
+            "type": "boolean"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/PlanItemResponse"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "summary": {
+            "title": "Summary",
+            "type": "string"
+          },
+          "wish_id": {
+            "format": "uuid",
+            "title": "Wish Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "wish_id",
+          "status",
+          "based_on_preferences",
+          "summary",
+          "items"
+        ],
+        "title": "Plan",
+        "type": "object"
+      },
       "PlanItemOut": {
         "properties": {
           "day": {
@@ -765,6 +809,51 @@
           "description"
         ],
         "title": "PlanItemResponse",
+        "type": "object"
+      },
+      "PlanResponse": {
+        "description": "The proposed plan, day by day. No price until it is quoted and no partner name.\nbased_on_preferences is false when the client picked no tag.",
+        "properties": {
+          "based_on_preferences": {
+            "title": "Based On Preferences",
+            "type": "boolean"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/PlanItemOut"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "status": {
+            "const": "proposed",
+            "title": "Status",
+            "type": "string"
+          },
+          "summary": {
+            "title": "Summary",
+            "type": "string"
+          },
+          "wish_id": {
+            "format": "uuid",
+            "title": "Wish Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "wish_id",
+          "status",
+          "based_on_preferences",
+          "summary",
+          "items"
+        ],
+        "title": "PlanResponse",
         "type": "object"
       },
       "RegisterRequest": {
@@ -1359,95 +1448,6 @@
           "suggestions"
         ],
         "title": "WishResponse",
-        "type": "object"
-      },
-      "novoya_api__planning__presentation__http__schemas__PlanResponse": {
-        "description": "The plan day by day. No price until it is quoted, and never a partner name.",
-        "properties": {
-          "based_on_preferences": {
-            "title": "Based On Preferences",
-            "type": "boolean"
-          },
-          "id": {
-            "format": "uuid",
-            "title": "Id",
-            "type": "string"
-          },
-          "items": {
-            "items": {
-              "$ref": "#/components/schemas/PlanItemResponse"
-            },
-            "title": "Items",
-            "type": "array"
-          },
-          "status": {
-            "title": "Status",
-            "type": "string"
-          },
-          "summary": {
-            "title": "Summary",
-            "type": "string"
-          },
-          "wish_id": {
-            "format": "uuid",
-            "title": "Wish Id",
-            "type": "string"
-          }
-        },
-        "required": [
-          "id",
-          "wish_id",
-          "status",
-          "based_on_preferences",
-          "summary",
-          "items"
-        ],
-        "title": "Plan",
-        "type": "object"
-      },
-      "novoya_api__wishes__presentation__http__schemas__PlanResponse": {
-        "description": "The proposed plan, day by day. No price until it is quoted and no partner name.\nbased_on_preferences is false when the client picked no tag.",
-        "properties": {
-          "based_on_preferences": {
-            "title": "Based On Preferences",
-            "type": "boolean"
-          },
-          "id": {
-            "format": "uuid",
-            "title": "Id",
-            "type": "string"
-          },
-          "items": {
-            "items": {
-              "$ref": "#/components/schemas/PlanItemOut"
-            },
-            "title": "Items",
-            "type": "array"
-          },
-          "status": {
-            "const": "proposed",
-            "title": "Status",
-            "type": "string"
-          },
-          "summary": {
-            "title": "Summary",
-            "type": "string"
-          },
-          "wish_id": {
-            "format": "uuid",
-            "title": "Wish Id",
-            "type": "string"
-          }
-        },
-        "required": [
-          "id",
-          "wish_id",
-          "status",
-          "based_on_preferences",
-          "summary",
-          "items"
-        ],
-        "title": "PlanResponse",
         "type": "object"
       }
     }
@@ -3444,7 +3444,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/novoya_api__planning__presentation__http__schemas__PlanResponse"
+                  "$ref": "#/components/schemas/Plan"
                 }
               }
             },
@@ -3590,7 +3590,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/novoya_api__wishes__presentation__http__schemas__PlanResponse"
+                  "$ref": "#/components/schemas/PlanResponse"
                 }
               }
             },

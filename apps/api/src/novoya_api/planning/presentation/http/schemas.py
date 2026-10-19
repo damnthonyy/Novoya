@@ -1,6 +1,6 @@
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel
 
 from novoya_api.planning.application.dto import PlanView
 
@@ -16,10 +16,8 @@ class PlanItemResponse(BaseModel):
     description: str
 
 
-class PlanResponse(BaseModel):
+class Plan(BaseModel):
     """The plan day by day. No price until it is quoted, and never a partner name."""
-
-    model_config = ConfigDict(title="Plan")
 
     id: UUID
     wish_id: UUID
@@ -29,7 +27,7 @@ class PlanResponse(BaseModel):
     items: list[PlanItemResponse]
 
     @classmethod
-    def of(cls, plan: PlanView) -> "PlanResponse":
+    def of(cls, plan: PlanView) -> "Plan":
         return cls(
             id=plan.id,
             wish_id=plan.wish_id,

@@ -124,9 +124,15 @@ async def test_an_unknown_plan_gets_404(client):
 
 
 def test_get_plan_documents_the_shared_error_responses(app):
-    responses = app.openapi()["paths"]["/plans/{plan_id}"]["get"]["responses"]
-    assert responses["200"]
+    spec = app.openapi()
+    responses = spec["paths"]["/plans/{plan_id}"]["get"]["responses"]
+    created = responses["200"]["content"]["application/json"]["schema"]["$ref"]
+    assert created == "#/components/schemas/Plan"
     for status in ("401", "403", "404"):
         ref = responses[status]["content"]["application/json"]["schema"]["$ref"]
         assert ref == "#/components/schemas/ErrorResponse", status
-    assert app.openapi()["paths"]["/plans/{plan_id}"]["get"]["operationId"] == "getPlan"
+    assert spec["paths"]["/plans/{plan_id}"]["get"]["operationId"] == "getPlan"
+    answers = spec["paths"]["/wishes/{wish_id}/answers"]["post"]["responses"]["201"]
+    assert answers["content"]["application/json"]["schema"]["$ref"] == (
+        "#/components/schemas/PlanResponse"
+    )
