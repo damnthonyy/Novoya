@@ -18,7 +18,7 @@ from novoya_api.shared.infrastructure.llm.errors import LLMError
 from novoya_api.shared.infrastructure.system_clock import SystemClock
 from novoya_api.wishes.application.ports.destination_reader import DestinationReader
 from novoya_api.wishes.application.use_cases.send_wish import SendWish
-from novoya_api.wishes.infrastructure.catalog import StaticCatalog
+from novoya_api.wishes.infrastructure.catalog import PartnerCatalog
 from novoya_api.wishes.infrastructure.db.repository import SqlWishRepository
 from novoya_api.wishes.infrastructure.llm.destination_reader import (
     LlmDestinationReader,
@@ -46,7 +46,7 @@ def get_send_wish(
 ) -> SendWish:
     return SendWish(
         wishes=SqlWishRepository(session),
-        catalog=StaticCatalog(),
+        catalog=PartnerCatalog(session),
         reader=reader,
         uow=SqlAlchemyUnitOfWork(session),
         clock=SystemClock(),

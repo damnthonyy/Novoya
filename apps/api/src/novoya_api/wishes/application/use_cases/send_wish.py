@@ -50,6 +50,8 @@ class SendWish:
     async def __call__(self, cmd: SendWishCommand) -> SendWishResult:
         wish = Wish.create(cmd.user_id, cmd.text, self._clock.now())
         covered = await self._catalog.covered_destinations()
+        # Nothing to save yet: end the read so the connection is not held while the model reads.
+        await self._uow.rollback()
         reading = await self._reader.read(wish.text, covered)
 
         suggestions: list[Destination] = []

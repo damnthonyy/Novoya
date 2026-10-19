@@ -1,44 +1,19 @@
-from novoya_api.wishes.domain.wish import Destination, find_covered
+from sqlalchemy.ext.asyncio import AsyncSession
 
-# Until the partner catalog exists (#17): a few destinations so POST /wishes works end to end.
-# Same names and tag format ("section:tag") as the seed planned in #17.
-_TAGS = {
-    Destination("Portugal", "Lisbon"): [
-        "style:beach",
-        "style:culture",
-        "rhythm:calm",
-        "food:seafood",
-        "accommodation:hotel",
-    ],
-    Destination("Portugal", "Porto"): [
-        "style:culture",
-        "style:city",
-        "food:wine",
-        "accommodation:guesthouse",
-    ],
-    Destination("Morocco", "Marrakech"): [
-        "style:culture",
-        "style:desert",
-        "rhythm:active",
-        "food:street_food",
-        "accommodation:riad",
-    ],
-}
+from novoya_api.catalog.public import covered_destinations, tags_at
+from novoya_api.wishes.domain.wish import Destination
 
 
-class StaticCatalog:
-    """Catalog with fixed data. Replaced by an adapter over catalog.public when #17 lands."""
+class PartnerCatalog:
+    """The partner catalog, read through catalog.public with the request's session, so a
+    wish takes one connection from the pool, not one per catalog call."""
+
+    def __init__(self, session: AsyncSession) -> None:
+        self._session = session
 
     async def covered_destinations(self) -> list[Destination]:
-        return list(_TAGS)
+        covered = await covered_destinations(session=self._session)
+        return [Destination(country, city) for country, city in covered]
 
     async def tags_at(self, destination: Destination) -> list[str]:
-        if destination.city is None:
-            return [
-                tag
-                for place, tags in _TAGS.items()
-                if find_covered(destination, [place])
-                for tag in tags
-            ]
-        match = find_covered(destination, list(_TAGS))
-        return list(_TAGS[match]) if match else []
+        return await tags_at(destination.country, destination.city, session=self._session)

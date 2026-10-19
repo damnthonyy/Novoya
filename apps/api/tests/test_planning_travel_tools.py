@@ -8,6 +8,7 @@ from uuid import uuid4
 import pytest
 
 from novoya_api.catalog.domain import OfferKind
+from novoya_api.planning.infrastructure.llm import tools as tools_module
 from novoya_api.planning.infrastructure.llm.tools import (
     MAX_OFFERS,
     SEARCH_OFFERS,
@@ -213,6 +214,67 @@ async def test_search_offers_rejects_bad_arguments_with_a_message_for_the_model(
     with pytest.raises(ToolError):
         await tools_by_name(catalog)["search_offers"].handler(**{**SEARCH, **change})
     assert catalog.searches == []
+
+
+# A caller's session
+
+
+class SessionCatalog:
+    """Stands in for catalog.public: records the session each call gets."""
+
+    def __init__(self, offers=()) -> None:
+        self.offers = list(offers)
+        self.sessions: list[object] = []
+
+    async def covered_destinations(self, *, session=None):
+        self.sessions.append(session)
+        return list(COVERED)
+
+    async def search_offers(self, country, city, tags, persons, start, end, *, session=None):
+        self.sessions.append(session)
+        return list(self.offers)
+
+
+@pytest.fixture
+def public_catalog(monkeypatch) -> SessionCatalog:
+    catalog = SessionCatalog([offer_view()])
+    monkeypatch.setattr(tools_module, "catalog_destinations", catalog.covered_destinations)
+    monkeypatch.setattr(tools_module, "catalog_search", catalog.search_offers)
+    return catalog
+
+
+async def test_covered_destinations_with_a_session_reads_the_catalog_through_it(public_catalog):
+    caller_session = object()
+    tools = {tool.name: tool for tool in travel_tools(session=caller_session)}
+
+    result = await tools["covered_destinations"].handler()
+
+    assert result["destinations"][0] == {"country": "Greece", "city": "Chania"}
+    assert public_catalog.sessions == [caller_session]
+
+
+async def test_search_offers_with_a_session_reads_the_catalog_through_it(public_catalog):
+    caller_session = object()
+    tools = {tool.name: tool for tool in travel_tools(session=caller_session)}
+
+    result = await tools["search_offers"].handler(**SEARCH)
+
+    assert len(result["offers"]) == 1
+    assert public_catalog.sessions == [caller_session, caller_session]
+
+
+async def test_injected_catalog_functions_still_win_over_the_session(public_catalog):
+    injected = FakeCatalog([offer_view()])
+    tools = travel_tools(
+        covered_destinations=injected.covered_destinations,
+        search_offers=injected.search_offers,
+        session=object(),
+    )
+
+    await {tool.name: tool for tool in tools}["search_offers"].handler(**SEARCH)
+
+    assert len(injected.searches) == 1
+    assert public_catalog.sessions == []
 
 
 # With the orchestrator
