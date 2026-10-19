@@ -1,0 +1,27 @@
+{
+  "area": "Espace agence",
+  "nav": {
+    "queue": "File des demandes",
+    "files": "Mes dossiers",
+    "sent": "Devis envoyés",
+    "partners": "Partenaires & offres"
+  },
+  "eyebrow": "File agence",
+  "title": "Demandes de devis",
+  "toTake": "à prendre",
+  "filters": {
+    "unassigned": "À assigner",
+    "in_progress": "En cours",
+    "decided": "Décidés"
+  },
+  "filterTab": "{{label}} · {{count}}",
+  "emptySoon": "Aucune demande dans cet onglet.",
+  "request": {
+    "meta": "{{received}} · Devis demandé · {{client}}",
+    "budgetMax": "Budget max",
+    "datesTravellers_one": "{{dates}} · {{count}} voyageur",
+    "datesTravellers_other": "{{dates}} · {{count}} voyageurs",
+    "take": "Prendre le plan",
+    "takeSoon": "Bientôt disponible"
+  }
+}

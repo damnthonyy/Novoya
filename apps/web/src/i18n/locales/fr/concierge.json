@@ -1,0 +1,13 @@
+{
+  "you": "Vous :",
+  "novoya": "Novoya :",
+  "send": "Envoyer",
+  "dockLabel": "Conversation avec le concierge",
+  "name": "Concierge Novoya",
+  "activeThread": "Fil actif · aperçu v{{version}}",
+  "collapse": "Réduire la conversation",
+  "expand": "Ouvrir la conversation",
+  "messages": "Messages",
+  "placeholder": "Affiner, poser une question…",
+  "unavailable": "La conversation avec le concierge arrive bientôt : les messages ne peuvent pas encore être envoyés."
+}

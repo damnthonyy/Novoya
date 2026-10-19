@@ -97,6 +97,162 @@
         "title": "ChangeRoleRequest",
         "type": "object"
       },
+      "CreateOfferRequest": {
+        "properties": {
+          "active": {
+            "default": true,
+            "title": "Active",
+            "type": "boolean"
+          },
+          "available_from": {
+            "format": "date",
+            "title": "Available From",
+            "type": "string"
+          },
+          "available_to": {
+            "format": "date",
+            "title": "Available To",
+            "type": "string"
+          },
+          "city": {
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "City",
+            "type": "string"
+          },
+          "country": {
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Country",
+            "type": "string"
+          },
+          "description": {
+            "minLength": 1,
+            "title": "Description",
+            "type": "string"
+          },
+          "featured": {
+            "default": false,
+            "title": "Featured",
+            "type": "boolean"
+          },
+          "kind": {
+            "enum": [
+              "hotel",
+              "guide",
+              "transport",
+              "activity",
+              "agency"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "max_persons": {
+            "minimum": 1.0,
+            "title": "Max Persons",
+            "type": "integer"
+          },
+          "min_persons": {
+            "minimum": 1.0,
+            "title": "Min Persons",
+            "type": "integer"
+          },
+          "partner_id": {
+            "format": "uuid",
+            "title": "Partner Id",
+            "type": "string"
+          },
+          "tags": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 50,
+            "title": "Tags",
+            "type": "array"
+          },
+          "title": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "partner_id",
+          "kind",
+          "title",
+          "description",
+          "country",
+          "city",
+          "min_persons",
+          "max_persons",
+          "available_from",
+          "available_to"
+        ],
+        "title": "CreateOfferRequest",
+        "type": "object"
+      },
+      "CreatePartnerRequest": {
+        "properties": {
+          "active": {
+            "default": true,
+            "title": "Active",
+            "type": "boolean"
+          },
+          "city": {
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "City",
+            "type": "string"
+          },
+          "contact_email": {
+            "maxLength": 255,
+            "minLength": 3,
+            "pattern": "^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$",
+            "title": "Contact Email",
+            "type": "string"
+          },
+          "contact_phone": {
+            "maxLength": 32,
+            "minLength": 1,
+            "title": "Contact Phone",
+            "type": "string"
+          },
+          "country": {
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Country",
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "hotel",
+              "guide",
+              "transport",
+              "activity",
+              "agency"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "name": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "kind",
+          "country",
+          "city",
+          "contact_email",
+          "contact_phone"
+        ],
+        "title": "CreatePartnerRequest",
+        "type": "object"
+      },
       "DestinationOut": {
         "properties": {
           "city": {
@@ -273,6 +429,98 @@
         "title": "MeResponse",
         "type": "object"
       },
+      "OfferResponse": {
+        "properties": {
+          "active": {
+            "title": "Active",
+            "type": "boolean"
+          },
+          "available_from": {
+            "format": "date",
+            "title": "Available From",
+            "type": "string"
+          },
+          "available_to": {
+            "format": "date",
+            "title": "Available To",
+            "type": "string"
+          },
+          "city": {
+            "title": "City",
+            "type": "string"
+          },
+          "country": {
+            "title": "Country",
+            "type": "string"
+          },
+          "description": {
+            "title": "Description",
+            "type": "string"
+          },
+          "featured": {
+            "title": "Featured",
+            "type": "boolean"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "hotel",
+              "guide",
+              "transport",
+              "activity",
+              "agency"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "max_persons": {
+            "title": "Max Persons",
+            "type": "integer"
+          },
+          "min_persons": {
+            "title": "Min Persons",
+            "type": "integer"
+          },
+          "partner_id": {
+            "format": "uuid",
+            "title": "Partner Id",
+            "type": "string"
+          },
+          "tags": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Tags",
+            "type": "array"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "partner_id",
+          "kind",
+          "title",
+          "description",
+          "country",
+          "city",
+          "min_persons",
+          "max_persons",
+          "available_from",
+          "available_to",
+          "tags",
+          "featured",
+          "active"
+        ],
+        "title": "OfferResponse",
+        "type": "object"
+      },
       "PanelOut": {
         "description": "The preference panel (ARCHITECTURE.md section 3). Render it with generic components.",
         "properties": {
@@ -334,6 +582,62 @@
           "tags"
         ],
         "title": "PanelSectionOut",
+        "type": "object"
+      },
+      "PartnerResponse": {
+        "properties": {
+          "active": {
+            "title": "Active",
+            "type": "boolean"
+          },
+          "city": {
+            "title": "City",
+            "type": "string"
+          },
+          "contact_email": {
+            "title": "Contact Email",
+            "type": "string"
+          },
+          "contact_phone": {
+            "title": "Contact Phone",
+            "type": "string"
+          },
+          "country": {
+            "title": "Country",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "hotel",
+              "guide",
+              "transport",
+              "activity",
+              "agency"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "kind",
+          "country",
+          "city",
+          "contact_email",
+          "contact_phone",
+          "active"
+        ],
+        "title": "PartnerResponse",
         "type": "object"
       },
       "PlanItemOut": {
@@ -604,6 +908,269 @@
         "title": "TokenRequest",
         "type": "object"
       },
+      "UpdateOfferRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "active": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Active"
+          },
+          "available_from": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Available From"
+          },
+          "available_to": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Available To"
+          },
+          "city": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "City"
+          },
+          "country": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Country"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "featured": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Featured"
+          },
+          "kind": {
+            "anyOf": [
+              {
+                "enum": [
+                  "hotel",
+                  "guide",
+                  "transport",
+                  "activity",
+                  "agency"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Kind"
+          },
+          "max_persons": {
+            "anyOf": [
+              {
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Persons"
+          },
+          "min_persons": {
+            "anyOf": [
+              {
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Min Persons"
+          },
+          "tags": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "maxItems": 50,
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tags"
+          },
+          "title": {
+            "anyOf": [
+              {
+                "maxLength": 255,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
+          }
+        },
+        "title": "UpdateOfferRequest",
+        "type": "object"
+      },
+      "UpdatePartnerRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "active": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Active"
+          },
+          "city": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "City"
+          },
+          "contact_email": {
+            "anyOf": [
+              {
+                "maxLength": 255,
+                "minLength": 3,
+                "pattern": "^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Contact Email"
+          },
+          "contact_phone": {
+            "anyOf": [
+              {
+                "maxLength": 32,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Contact Phone"
+          },
+          "country": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Country"
+          },
+          "kind": {
+            "anyOf": [
+              {
+                "enum": [
+                  "hotel",
+                  "guide",
+                  "transport",
+                  "activity",
+                  "agency"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Kind"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "maxLength": 255,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          }
+        },
+        "title": "UpdatePartnerRequest",
+        "type": "object"
+      },
       "UserResponse": {
         "properties": {
           "created_at": {
@@ -737,6 +1304,446 @@
   },
   "openapi": "3.1.0",
   "paths": {
+    "/admin/offers": {
+      "get": {
+        "description": "All offers, including inactive ones. Agents only.",
+        "operationId": "listOffers",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/OfferResponse"
+                  },
+                  "title": "Response Listoffers",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "summary": "List Offers",
+        "tags": [
+          "admin"
+        ]
+      },
+      "post": {
+        "description": "Add an offer for an existing partner. Agents only.",
+        "operationId": "createOffer",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateOfferRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OfferResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "summary": "Create Offer",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/admin/offers/{offer_id}": {
+      "patch": {
+        "description": "Change an offer. Agents only.",
+        "operationId": "updateOffer",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "offer_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Offer Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateOfferRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OfferResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "summary": "Update Offer",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/admin/partners": {
+      "get": {
+        "description": "All partners, including inactive ones. Agents only.",
+        "operationId": "listPartners",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/PartnerResponse"
+                  },
+                  "title": "Response Listpartners",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "summary": "List Partners",
+        "tags": [
+          "admin"
+        ]
+      },
+      "post": {
+        "description": "Add a partner. Agents only.",
+        "operationId": "createPartner",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreatePartnerRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PartnerResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "summary": "Create Partner",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/admin/partners/{partner_id}": {
+      "patch": {
+        "description": "Change a partner. Deactivating it hides its offers from search. Agents only.",
+        "operationId": "updatePartner",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "partner_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Partner Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdatePartnerRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PartnerResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "summary": "Update Partner",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
     "/admin/users": {
       "get": {
         "description": "The users, newest first. Admin only.",

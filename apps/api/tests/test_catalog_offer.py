@@ -3,7 +3,17 @@ from uuid import uuid4
 
 import pytest
 
-from novoya_api.catalog.domain import InvalidOffer, Offer, OfferKind, Partner, PartnerKind
+from novoya_api.catalog.domain import (
+    InvalidOffer,
+    InvalidPartner,
+    Offer,
+    OfferKind,
+    Partner,
+    PartnerKind,
+    normalize_place,
+    normalize_tags,
+)
+from novoya_api.shared.domain.errors import InvalidInput
 
 SEASON_START = date(2026, 4, 1)
 SEASON_END = date(2026, 10, 31)
@@ -111,3 +121,47 @@ def test_is_listed_with_rejects_another_partner():
     offer = _offer(partner_id=partner.id)
     with pytest.raises(InvalidOffer):
         offer.is_listed_with(other)
+
+
+def test_invalid_offer_is_a_422_input_error():
+    assert issubclass(InvalidOffer, InvalidInput)
+
+
+def test_offer_rejects_a_tag_that_is_not_section_tag():
+    with pytest.raises(InvalidOffer):
+        _offer(tags=("beach",))
+
+
+def test_normalize_tags_lowercases_and_drops_duplicates():
+    assert normalize_tags([" STYLE:Beach ", "style:beach", "food:local"]) == (
+        "style:beach",
+        "food:local",
+    )
+
+
+def test_normalize_place_title_cases_english_names():
+    assert normalize_place("  greece ") == "Greece"
+    assert normalize_place("CHANIA") == "Chania"
+
+
+@pytest.mark.parametrize("tag", ["style:café", "food:fish&chips", "a:b:c", "style:", ":beach"])
+def test_normalize_tags_refuses_ids_the_panel_cannot_use(tag):
+    with pytest.raises(InvalidOffer):
+        normalize_tags([tag])
+
+
+def test_normalize_tags_keeps_slug_ids():
+    assert normalize_tags(["Style:Sea_View", "food:street-food"]) == (
+        "style:sea_view",
+        "food:street-food",
+    )
+
+
+def test_normalize_place_capitalises_after_hyphens_and_apostrophes():
+    assert normalize_place("saint-tropez") == "Saint-Tropez"
+    assert normalize_place("l'isle-sur-la-sorgue") == "L'Isle-Sur-La-Sorgue"
+
+
+def test_empty_partner_name_is_rejected():
+    with pytest.raises(InvalidPartner):
+        _partner(name="  ")

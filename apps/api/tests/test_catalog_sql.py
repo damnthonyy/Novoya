@@ -20,19 +20,28 @@ from sqlalchemy.pool import NullPool
 
 from alembic import command
 from novoya_api.catalog.application.use_cases.list_destinations import ListDestinations
+from novoya_api.catalog.application.use_cases.update_partner import (
+    UpdatePartner,
+    UpdatePartnerCommand,
+)
 from novoya_api.catalog.infrastructure.db.models import OfferRow, PartnerRow
-from novoya_api.catalog.infrastructure.db.repositories import SqlOfferRepository
+from novoya_api.catalog.infrastructure.db.repositories import (
+    SqlOfferRepository,
+    SqlPartnerRepository,
+)
 from novoya_api.catalog.infrastructure.seed.data import (
     O_CRETE_STAY,
     O_CRETE_WALK,
     O_MARRAKECH_RIAD,
     OFFERS,
+    P_MARRAKECH_HOTEL,
     PARTNERS,
 )
 from novoya_api.catalog.infrastructure.seed.run import seed_catalog
 from novoya_api.catalog.public import covered_destinations, search_offers, tags_at
 from novoya_api.config import get_settings
 from novoya_api.shared.infrastructure.db.session import close_db, get_engine, get_sessionmaker
+from novoya_api.shared.infrastructure.db.unit_of_work import SqlAlchemyUnitOfWork
 
 API_DIR = Path(__file__).parent.parent
 TABLES = "offers, partners"
@@ -162,6 +171,22 @@ async def test_list_destinations_drops_place_when_partner_is_deactivated(session
     assert ("Morocco", "Marrakech") not in listed
     assert ("France", "Biarritz") in listed
     assert ("Greece", "Chania") in listed
+
+
+async def test_update_partner_hides_destinations_from_search(session):
+    await seed_catalog()
+    update = UpdatePartner(SqlPartnerRepository(session), SqlAlchemyUnitOfWork(session))
+
+    await update(UpdatePartnerCommand(partner_id=P_MARRAKECH_HOTEL, active=False))
+
+    listed = await ListDestinations(SqlOfferRepository(session))()
+    assert ("Morocco", "Marrakech") not in listed
+    trip = (date(2026, 5, 10), date(2026, 5, 17))
+    assert await search_offers("Morocco", "Marrakech", [], 2, *trip) == []
+    still = await SqlPartnerRepository(session).get(P_MARRAKECH_HOTEL)
+    assert still is not None and still.active is False
+    riad = await SqlOfferRepository(session).get(O_MARRAKECH_RIAD)
+    assert riad is not None and riad.active is True
 
 
 async def test_public_functions_read_listed_seed_offers(session, database_url):

@@ -9,12 +9,50 @@ from typing import Annotated
 from fastapi import Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from novoya_api.catalog.application.use_cases.create_offer import CreateOffer
+from novoya_api.catalog.application.use_cases.create_partner import CreatePartner
 from novoya_api.catalog.application.use_cases.list_destinations import ListDestinations
-from novoya_api.catalog.infrastructure.db.repositories import SqlOfferRepository
+from novoya_api.catalog.application.use_cases.list_offers import ListOffers
+from novoya_api.catalog.application.use_cases.list_partners import ListPartners
+from novoya_api.catalog.application.use_cases.update_offer import UpdateOffer
+from novoya_api.catalog.application.use_cases.update_partner import UpdatePartner
+from novoya_api.catalog.infrastructure.db.repositories import (
+    SqlOfferRepository,
+    SqlPartnerRepository,
+)
 from novoya_api.shared.infrastructure.db.session import get_session
+from novoya_api.shared.infrastructure.db.unit_of_work import SqlAlchemyUnitOfWork
 
 
 def get_list_destinations(
     session: Annotated[AsyncSession, Depends(get_session)],
 ) -> ListDestinations:
     return ListDestinations(SqlOfferRepository(session))
+
+
+def get_list_partners(session: Annotated[AsyncSession, Depends(get_session)]) -> ListPartners:
+    return ListPartners(SqlPartnerRepository(session))
+
+
+def get_create_partner(session: Annotated[AsyncSession, Depends(get_session)]) -> CreatePartner:
+    return CreatePartner(SqlPartnerRepository(session), SqlAlchemyUnitOfWork(session))
+
+
+def get_update_partner(session: Annotated[AsyncSession, Depends(get_session)]) -> UpdatePartner:
+    return UpdatePartner(SqlPartnerRepository(session), SqlAlchemyUnitOfWork(session))
+
+
+def get_list_offers(session: Annotated[AsyncSession, Depends(get_session)]) -> ListOffers:
+    return ListOffers(SqlOfferRepository(session))
+
+
+def get_create_offer(session: Annotated[AsyncSession, Depends(get_session)]) -> CreateOffer:
+    return CreateOffer(
+        SqlOfferRepository(session),
+        SqlPartnerRepository(session),
+        SqlAlchemyUnitOfWork(session),
+    )
+
+
+def get_update_offer(session: Annotated[AsyncSession, Depends(get_session)]) -> UpdateOffer:
+    return UpdateOffer(SqlOfferRepository(session), SqlAlchemyUnitOfWork(session))
