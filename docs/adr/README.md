@@ -16,3 +16,4 @@ below. An accepted ADR is never rewritten to change the decision: a new ADR repl
 | [0008](0008-account-linking.md) | One account per email, linked across Google and password | Accepted |
 | [0009](0009-roles.md) | Three roles stored on the user: client, agent, admin | Accepted |
 | [0010](0010-email-password-sign-in.md) | Sign-in with email and password, next to Google | Accepted |
+| [0011](0011-same-origin-api-proxy.md) | The browser reaches the API under /api on the web app's origin | Accepted |

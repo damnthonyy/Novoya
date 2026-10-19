@@ -1,9 +1,11 @@
 import { toApiError } from './errors'
 import { client } from './generated/client.gen'
 
-// Point the generated client at the backend. Set VITE_API_URL to override.
+// The API is served under /api on the web app's own origin, through a proxy (Vite in
+// development, the host's rewrites in production), so the session cookie is first-party.
+// Set VITE_API_URL to override.
 client.setConfig({
-  baseUrl: import.meta.env.VITE_API_URL ?? 'http://localhost:8000',
+  baseUrl: import.meta.env.VITE_API_URL ?? '/api',
   credentials: 'include',
 })
 
