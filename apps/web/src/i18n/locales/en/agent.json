@@ -1,0 +1,27 @@
+{
+  "area": "Agency",
+  "nav": {
+    "queue": "Request queue",
+    "files": "My files",
+    "sent": "Quotes sent",
+    "partners": "Partners & offers"
+  },
+  "eyebrow": "Agency queue",
+  "title": "Quote requests",
+  "toTake": "to take",
+  "filters": {
+    "unassigned": "To assign",
+    "in_progress": "In progress",
+    "decided": "Decided"
+  },
+  "filterTab": "{{label}} · {{count}}",
+  "emptySoon": "No requests in this tab.",
+  "request": {
+    "meta": "{{received}} · Quote requested · {{client}}",
+    "budgetMax": "Max budget",
+    "datesTravellers_one": "{{dates}} · {{count}} traveller",
+    "datesTravellers_other": "{{dates}} · {{count}} travellers",
+    "take": "Take the plan",
+    "takeSoon": "Coming soon"
+  }
+}

@@ -1,0 +1,13 @@
+{
+  "you": "You:",
+  "novoya": "Novoya:",
+  "send": "Send",
+  "dockLabel": "Conversation with the concierge",
+  "name": "Novoya concierge",
+  "activeThread": "Active thread · preview v{{version}}",
+  "collapse": "Collapse the conversation",
+  "expand": "Open the conversation",
+  "messages": "Messages",
+  "placeholder": "Refine, ask a question…",
+  "unavailable": "Chatting with the concierge is coming soon: messages can't be sent yet."
+}
