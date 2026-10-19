@@ -516,6 +516,39 @@ def test_invalid_answers_raise_invalid_answers(changes):
         answers(**changes)
 
 
+def test_mark_planned_sets_status_and_updated_at():
+    wish = shown_wish()
+    wish.answer(answers(), CREATED)
+
+    wish.mark_planned(LATER)
+
+    assert wish.status is WishStatus.PLANNED
+    assert wish.updated_at == LATER
+    assert wish.answers == answers()
+
+
+@pytest.mark.parametrize(
+    "status",
+    [WishStatus.DRAFT, WishStatus.NOT_COVERED, WishStatus.PANEL_SHOWN, WishStatus.PLANNED],
+)
+def test_mark_planned_a_wish_that_is_not_answered_raises_invalid_transition(status):
+    wish = Wish(
+        id=uuid4(),
+        user_id=USER_ID,
+        text="A week in Lisbon",
+        status=status,
+        destination=LISBON,
+        panel=ANSWER_PANEL,
+        created_at=CREATED,
+        updated_at=CREATED,
+    )
+
+    with pytest.raises(InvalidTransition):
+        wish.mark_planned(LATER)
+    assert wish.status is status
+    assert wish.updated_at == CREATED
+
+
 def test_invalid_answers_is_a_422_input_error():
     assert issubclass(InvalidAnswers, DomainError)
     assert InvalidAnswers.code == "invalid_answers"

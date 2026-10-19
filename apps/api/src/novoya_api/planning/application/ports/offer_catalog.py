@@ -1,0 +1,22 @@
+from collections.abc import Sequence
+from datetime import date
+from typing import Protocol
+
+from novoya_api.planning.application.dto import OfferSummary
+
+
+class OfferCatalog(Protocol):
+    """What planning needs from the partner catalog."""
+
+    async def fitting_offers(
+        self,
+        country: str,
+        city: str | None,
+        tags: Sequence[str],
+        persons: int,
+        start: date,
+        end: date,
+    ) -> list[OfferSummary]:
+        """Listed offers there that fit the group and the whole trip, best first. With tags,
+        only offers matching at least one; featured offers come first among equals."""
+        ...

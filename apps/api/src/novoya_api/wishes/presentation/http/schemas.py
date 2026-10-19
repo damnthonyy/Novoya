@@ -5,10 +5,11 @@ from uuid import UUID
 
 from pydantic import BaseModel, Field, StringConstraints
 
+from novoya_api.wishes.application.ports.planner import ProposedPlan
 from novoya_api.wishes.application.use_cases.send_wish import SendWishResult
 from novoya_api.wishes.domain.answers import Answers, SelectedTag
 from novoya_api.wishes.domain.panel import Panel
-from novoya_api.wishes.domain.wish import Destination, Wish
+from novoya_api.wishes.domain.wish import Destination
 
 
 class SendWishRequest(BaseModel):
@@ -113,50 +114,35 @@ class AnswerPanelRequest(BaseModel):
         )
 
 
-class SelectedTagOut(BaseModel):
-    section: str
-    tag: str
+class PlanItemOut(BaseModel):
+    id: UUID
+    offer_id: UUID
+    day: int
+    quantity: int
+    note: str | None
+    kind: str
+    title: str
+    description: str
 
 
-class AnswersOut(BaseModel):
-    selected_tags: list[SelectedTagOut]
-    budget_max: Decimal
-    currency: str
-    persons: int
-    start_date: date
-    end_date: date
-
-    @classmethod
-    def of(cls, answers: Answers) -> "AnswersOut":
-        return cls(
-            selected_tags=[
-                SelectedTagOut(section=t.section, tag=t.tag) for t in answers.selected_tags
-            ],
-            budget_max=answers.budget_max,
-            currency=answers.currency,
-            persons=answers.persons,
-            start_date=answers.start_date,
-            end_date=answers.end_date,
-        )
-
-
-# TEMPORARY until #29: ARCHITECTURE.md says POST /wishes/{id}/answers returns the proposed
-# plan, but plan generation is #29. Until then the route returns the answered wish; #29
-# replaces this response with the plan.
-class AnsweredWishResponse(BaseModel):
-    """The wish with the answers saved. The plan is built from it (#29)."""
+class PlanResponse(BaseModel):
+    """The proposed plan, day by day. No price until it is quoted and no partner name.
+    based_on_preferences is false when the client picked no tag."""
 
     id: UUID
-    status: Literal["answered"]
-    destination: DestinationOut
-    answers: AnswersOut
+    wish_id: UUID
+    status: Literal["proposed"]
+    based_on_preferences: bool
+    summary: str
+    items: list[PlanItemOut]
 
     @classmethod
-    def of(cls, wish: Wish) -> "AnsweredWishResponse":
-        assert wish.destination is not None and wish.answers is not None  # answered
+    def of(cls, plan: ProposedPlan) -> "PlanResponse":
         return cls(
-            id=wish.id,
-            status=wish.status.value,
-            destination=DestinationOut.of(wish.destination),
-            answers=AnswersOut.of(wish.answers),
+            id=plan.id,
+            wish_id=plan.wish_id,
+            status=plan.status,
+            based_on_preferences=plan.based_on_preferences,
+            summary=plan.summary,
+            items=[PlanItemOut.model_validate(item, from_attributes=True) for item in plan.items],
         )
