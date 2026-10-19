@@ -39,6 +39,7 @@ Pages         l’écran réel (la route)
 - un organisme n’importe **jamais** une page ;
 - `components/` n’importe **jamais** `domain/` ni `api/` ni les hooks produit (`hooks/wish`, etc.) ;
 - `components/` peut importer `hooks/ui/` (motion, media query) ;
+- `components/` peut appeler `useTranslation` (`react-i18next`) : un texte relève de la présentation. Voir [I18N.md](I18N.md) ;
 - **seule la page** (`routes/`) colle UI + hooks produit + métier + API.
 
 Un organisme ne “va pas chercher” les données. Il reçoit des **props** (`label`, `selected`, `onClick`, `sections`). On peut le montrer avec du JSON fictif.

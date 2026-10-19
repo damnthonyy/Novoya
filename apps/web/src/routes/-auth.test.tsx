@@ -14,7 +14,7 @@ const LEA: MeResponse = {
   email: 'lea@example.com',
   name: 'Léa Martin',
   role: 'client',
-  locale: 'fr',
+  locale: 'en',
   status: 'active',
   email_verified: true,
   created_at: '2026-10-01T10:00:00Z',
@@ -282,6 +282,57 @@ describe('sign-in and sign-out', () => {
     expect(router.state.location.pathname).toBe('/login')
     expect(screen.queryByText(/Sign out failed/)).not.toBeInTheDocument()
     expect(logoutCalls()).toBe(2)
+  })
+
+  describe('language', () => {
+    const browserLanguages = (languages: string[]) =>
+      vi.spyOn(navigator, 'languages', 'get').mockReturnValue(languages)
+
+    it("shows the app in the signed-in user's language", async () => {
+      signedIn = { ...LEA, locale: 'fr' }
+      browserLanguages(['en-US'])
+      renderAt('/')
+
+      expect(await screen.findByRole('heading', { name: 'Planifiez votre prochain voyage' })).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: 'Se déconnecter' })).toBeInTheDocument()
+      expect(document.documentElement).toHaveAttribute('lang', 'fr')
+    })
+
+    it("prefers the user's locale to the browser's language", async () => {
+      signedIn = { ...LEA, locale: 'en' }
+      browserLanguages(['fr-FR'])
+      renderAt('/')
+
+      expect(await screen.findByRole('heading', { name: 'Plan your next trip' })).toBeInTheDocument()
+      expect(document.documentElement).toHaveAttribute('lang', 'en')
+    })
+
+    it("uses the browser's language when signed out", async () => {
+      browserLanguages(['fr-FR', 'en'])
+      renderAt('/login')
+
+      expect(await screen.findByRole('heading', { name: 'Se connecter' })).toBeInTheDocument()
+      expect(screen.getByRole('link', { name: 'Continuer avec Google' })).toBeInTheDocument()
+      expect(document.documentElement).toHaveAttribute('lang', 'fr')
+    })
+
+    it('translates the sign-in error sent by the API', async () => {
+      browserLanguages(['fr-FR'])
+      renderAt('/login?error=oauth_cancelled')
+
+      expect(await screen.findByRole('alert')).toHaveTextContent('Vous avez annulé la connexion avec Google.')
+    })
+
+    it("goes back to the browser's language after signing out", async () => {
+      signedIn = { ...LEA, locale: 'fr' }
+      browserLanguages(['en-US'])
+      renderAt('/')
+
+      fireEvent.click(await screen.findByRole('button', { name: 'Se déconnecter' }))
+
+      expect(await screen.findByRole('heading', { name: 'Sign in' })).toBeInTheDocument()
+      expect(document.documentElement).toHaveAttribute('lang', 'en')
+    })
   })
 
   describe('after 3 minutes without any action', () => {

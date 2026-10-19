@@ -1,4 +1,5 @@
 import { createFileRoute } from '@tanstack/react-router'
+import { useTranslation } from 'react-i18next'
 
 import { ApiStatus } from '../../components/ApiStatus'
 import { WishForm } from '../../components/WishForm'
@@ -8,10 +9,11 @@ export const Route = createFileRoute('/_authenticated/')({
 })
 
 function HomePage() {
+  const { t } = useTranslation('home')
   return (
     <section>
-      <h1>Plan your next trip</h1>
-      <p>Tell us what you want and we build the trip around it.</p>
+      <h1>{t('title')}</h1>
+      <p>{t('intro')}</p>
       <WishForm  />
       <ApiStatus />
     </section>

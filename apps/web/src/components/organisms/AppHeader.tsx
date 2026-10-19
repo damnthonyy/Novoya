@@ -1,4 +1,5 @@
 import { Link } from '@tanstack/react-router'
+import { useTranslation } from 'react-i18next'
 
 import { Button } from '../atoms/Button'
 
@@ -12,6 +13,7 @@ type Props = {
 }
 
 export function AppHeader({ userName, onSignOut, signingOut = false, signOutError }: Props) {
+  const { t } = useTranslation('header')
   return (
     <header className="app-header">
       <Link to="/" className="brand">
@@ -21,7 +23,7 @@ export function AppHeader({ userName, onSignOut, signingOut = false, signOutErro
         <div className="app-header__account">
           <span className="app-header__user">{userName}</span>
           <Button variant="quiet" onClick={onSignOut} disabled={signingOut}>
-            {signingOut ? 'Signing out…' : 'Sign out'}
+            {signingOut ? t('signingOut') : t('signOut')}
           </Button>
         </div>
       )}
