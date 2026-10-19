@@ -10,6 +10,7 @@ import { LandingHero } from '../components/organisms/LandingHero'
 import { Closing, Manifesto, Method, PopularTrips, Trust } from '../components/organisms/LandingSections'
 import { SiteFooter } from '../components/organisms/SiteFooter'
 
+
 export const Route = createFileRoute('/')({
   component: LandingPage,
 })
