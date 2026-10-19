@@ -3,6 +3,7 @@ export function initials(name: string): string {
   const words = name.split(/[\s@._-]+/).filter(Boolean)
   return words
     .slice(0, 2)
-    .map((word) => word[0]!.toUpperCase())
+    // Array.from splits by code point, so an emoji or other astral character stays whole.
+    .map((word) => Array.from(word)[0]!.toUpperCase())
     .join('')
 }

@@ -296,6 +296,59 @@ describe('sign-in and sign-out', () => {
     expect(logoutCalls()).toBe(2)
   })
 
+  it('keeps a way home on the error page when the session check fails', async () => {
+    meAnswer = 'server_error'
+    renderAt('/wish')
+
+    expect(await screen.findByRole('alert')).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Novoya, accueil' })).toHaveAttribute('href', '/')
+  })
+
+  describe('the public landing page', () => {
+    it('lets a visitor in without a session and offers to sign in', async () => {
+      const { router } = renderAt('/')
+
+      expect(await screen.findByRole('link', { name: 'Se connecter' })).toHaveAttribute('href', '/login')
+      expect(router.state.location.pathname).toBe('/')
+    })
+
+    it('sends a signed-in user to their space instead', async () => {
+      signedIn = LEA
+      renderAt('/')
+
+      expect(await screen.findByRole('link', { name: 'Mon espace' })).toHaveAttribute('href', '/wish')
+      expect(screen.queryByRole('link', { name: 'Se connecter' })).not.toBeInTheDocument()
+    })
+  })
+
+  describe('header links by role', () => {
+    const navLinks = async () => {
+      const nav = await screen.findByRole('navigation', { name: 'Navigation principale' })
+      return Array.from(nav.querySelectorAll('a')).map((link) => link.textContent)
+    }
+
+    it('shows a client only the composer and their trips', async () => {
+      signedIn = LEA
+      renderAt('/wish')
+
+      expect(await navLinks()).toEqual(['Composer', 'Mes voyages'])
+    })
+
+    it('adds the agency space for an agent', async () => {
+      signedIn = { ...LEA, role: 'agent' }
+      renderAt('/wish')
+
+      expect(await navLinks()).toEqual(['Composer', 'Mes voyages', 'Espace agence'])
+    })
+
+    it('adds the agency space and administration for an admin', async () => {
+      signedIn = { ...LEA, role: 'admin' }
+      renderAt('/wish')
+
+      expect(await navLinks()).toEqual(['Composer', 'Mes voyages', 'Espace agence', 'Administration'])
+    })
+  })
+
   describe('after 3 minutes without any action', () => {
     beforeEach(() => {
       vi.useFakeTimers({ toFake: ['Date'] })
