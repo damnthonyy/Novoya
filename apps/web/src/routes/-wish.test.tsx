@@ -14,7 +14,7 @@ const CAMILLE: MeResponse = {
   email: 'camille@exemple.fr',
   name: 'Camille Martin',
   role: 'client',
-  locale: 'fr',
+  locale: 'en',
   status: 'active',
   email_verified: true,
   created_at: '2026-10-01T10:00:00Z',
@@ -122,8 +122,8 @@ afterEach(() => {
 describe('signing in with an e-mail and a password', () => {
   async function fillAndSend(password: string) {
     fireEvent.change(await screen.findByLabelText('E-mail'), { target: { value: ' camille@exemple.fr ' } })
-    fireEvent.change(screen.getByLabelText('Mot de passe'), { target: { value: password } })
-    fireEvent.click(screen.getByRole('button', { name: /^Se connecter/ }))
+    fireEvent.change(screen.getByLabelText('Password'), { target: { value: password } })
+    fireEvent.click(screen.getByRole('button', { name: /^Sign in/ }))
   }
 
   it('signs in and goes to the requested page', async () => {
@@ -136,7 +136,7 @@ describe('signing in with an e-mail and a password', () => {
 
     await fillAndSend('correct horse')
 
-    expect(await screen.findByRole('heading', { name: /De quoi avez-vous/ })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: /What would you/ })).toBeInTheDocument()
     expect(router.state.location.pathname).toBe('/wish')
     expect(posts('/auth/login')[0]!.body).toEqual({ email: 'camille@exemple.fr', password: 'correct horse' })
   })
@@ -148,7 +148,7 @@ describe('signing in with an e-mail and a password', () => {
 
     await fillAndSend('wrong')
 
-    expect(await screen.findByRole('alert')).toHaveTextContent('E-mail ou mot de passe incorrect.')
+    expect(await screen.findByRole('alert')).toHaveTextContent('Wrong e-mail or password.')
     expect(router.state.location.pathname).toBe('/login')
   })
 
@@ -159,19 +159,29 @@ describe('signing in with an e-mail and a password', () => {
 
     await fillAndSend('correct horse')
 
-    expect(await screen.findByRole('alert')).toHaveTextContent('Confirmez d’abord votre adresse e-mail')
+    expect(await screen.findByRole('alert')).toHaveTextContent('Please confirm your e-mail address first')
   })
 })
 
 describe('sending a wish', () => {
   async function writeAndSend(text: string) {
-    fireEvent.change(await screen.findByLabelText('Votre envie de voyage'), { target: { value: text } })
-    fireEvent.click(screen.getByRole('button', { name: 'Envoyer' }))
+    fireEvent.change(await screen.findByLabelText('Your travel wish'), { target: { value: text } })
+    fireEvent.click(screen.getByRole('button', { name: 'Send' }))
   }
 
   it('greets the client by first name', async () => {
     renderAt('/wish')
-    expect(await screen.findByText('Bonjour Camille')).toBeInTheDocument()
+    expect(await screen.findByText('Hello Camille')).toBeInTheDocument()
+  })
+
+  it("speaks French to a client whose locale is French", async () => {
+    signedIn = { ...CAMILLE, locale: 'fr' }
+    renderAt('/wish')
+
+    expect(await screen.findByRole('heading', { name: /De quoi avez-vous/ })).toBeInTheDocument()
+    expect(screen.getByText('Bonjour Camille')).toBeInTheDocument()
+    expect(screen.getByLabelText('Votre envie de voyage')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Envoyer' })).toBeInTheDocument()
   })
 
   it('does not send an empty wish', async () => {
@@ -179,13 +189,13 @@ describe('sending a wish', () => {
 
     await writeAndSend('   ')
 
-    expect(await screen.findByRole('alert')).toHaveTextContent('Décrivez votre envie')
+    expect(await screen.findByRole('alert')).toHaveTextContent('Describe what you')
     expect(posts('/wishes')).toHaveLength(0)
   })
 
   it('sends with Ctrl + Enter', async () => {
     renderAt('/wish')
-    const box = await screen.findByLabelText('Votre envie de voyage')
+    const box = await screen.findByLabelText('Your travel wish')
     fireEvent.change(box, { target: { value: 'La Crète en mai' } })
 
     fireEvent.keyDown(box, { key: 'Enter', ctrlKey: true })
@@ -199,7 +209,7 @@ describe('sending a wish', () => {
 
     await writeAndSend('  Une semaine calme à Chania  ')
 
-    expect(await screen.findByRole('heading', { name: /Ce qui compte/ })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: /What matters/ })).toBeInTheDocument()
     expect(router.state.location.pathname).toBe(`/wish/${WISH_ID}/preferences`)
     expect(queryClient.getQueryData<CachedWish>(wishQueryKey(WISH_ID))?.text).toBe('Une semaine calme à Chania')
     expect(screen.getByText('“Une semaine calme à Chania”')).toBeInTheDocument()
@@ -211,7 +221,7 @@ describe('sending a wish', () => {
 
     await writeAndSend('Le Japon au printemps')
 
-    expect(await screen.findByRole('heading', { name: /Kyoto nous fait rêver aussi/ })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: /Kyoto makes us dream too/ })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /Chania · Greece/ })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /Marrakech · Morocco/ })).toBeInTheDocument()
   })
@@ -223,7 +233,7 @@ describe('sending a wish', () => {
 
     fireEvent.click(await screen.findByRole('button', { name: /Marrakech · Morocco/ }))
 
-    expect(await screen.findByLabelText('Votre envie de voyage')).toHaveValue('Quelques jours à Marrakech, ')
+    expect(await screen.findByLabelText('Your travel wish')).toHaveValue('A few days in Marrakech, ')
   })
 
   it('asks where when the wish names no place', async () => {
@@ -233,7 +243,7 @@ describe('sending a wish', () => {
 
     await writeAndSend('Quelque part au calme')
 
-    expect(await screen.findByRole('status')).toHaveTextContent('Où aimeriez-vous partir ?')
+    expect(await screen.findByRole('status')).toHaveTextContent('Where would you like to go?')
   })
 
   it('explains a failure and lets the client try again', async () => {
@@ -242,8 +252,8 @@ describe('sending a wish', () => {
 
     await writeAndSend('La Crète en mai')
 
-    expect(await screen.findByRole('alert')).toHaveTextContent('n’a pas pu être envoyée')
-    expect(screen.getByLabelText('Votre envie de voyage')).toHaveValue('La Crète en mai')
+    expect(await screen.findByRole('alert')).toHaveTextContent('couldn\'t be sent')
+    expect(screen.getByLabelText('Your travel wish')).toHaveValue('La Crète en mai')
   })
 })
 
@@ -252,9 +262,9 @@ describe('the preferences panel', () => {
     queryClient.setQueryData<CachedWish>(wishQueryKey(WISH_ID), { ...PANEL_WISH, text: 'Une semaine à Chania' })
 
   function fillConstraints() {
-    fireEvent.change(screen.getByLabelText(/Budget maximum/), { target: { value: '3 500 €' } })
-    fireEvent.change(screen.getByLabelText('Départ'), { target: { value: '2026-05-12' } })
-    fireEvent.change(screen.getByLabelText('Retour'), { target: { value: '2026-05-19' } })
+    fireEvent.change(screen.getByLabelText(/Maximum budget/), { target: { value: '3 500 €' } })
+    fireEvent.change(screen.getByLabelText('Departure'), { target: { value: '2026-05-12' } })
+    fireEvent.change(screen.getByLabelText('Return'), { target: { value: '2026-05-19' } })
   }
 
   it('starts from the preselected tags and sends the chosen tags and constraints', async () => {
@@ -264,9 +274,9 @@ describe('the preferences panel', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Culture' }))
     fireEvent.click(screen.getByRole('button', { name: 'Très doux' }))
     fireEvent.click(screen.getByRole('button', { name: 'Dynamique' })) // single choice: replaces "Très doux"
-    fireEvent.click(screen.getByRole('button', { name: 'Un voyageur de plus' }))
+    fireEvent.click(screen.getByRole('button', { name: 'One more traveller' }))
     fillConstraints()
-    fireEvent.click(screen.getByRole('button', { name: /Composer mon aperçu/ }))
+    fireEvent.click(screen.getByRole('button', { name: /Compose my preview/ }))
 
     await waitFor(() => expect(router.state.location.pathname).toBe(`/wish/${WISH_ID}/building`))
     expect(posts(`/wishes/${WISH_ID}/answers`)[0]!.body).toEqual({
@@ -281,39 +291,39 @@ describe('the preferences panel', () => {
       start_date: '2026-05-12',
       end_date: '2026-05-19',
     })
-    expect(await screen.findByRole('heading', { name: /On cale les soirées/ })).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: /Voir mes voyages/ })).toHaveAttribute('href', '/trips')
+    expect(await screen.findByRole('heading', { name: /Setting the evenings/ })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: /See my trips/ })).toHaveAttribute('href', '/trips')
   })
 
   it('checks the constraints before sending', async () => {
     renderAt(`/wish/${WISH_ID}/preferences`, withWish)
-    await screen.findByRole('heading', { name: /Ce qui compte/ })
+    await screen.findByRole('heading', { name: /What matters/ })
     fillConstraints()
-    fireEvent.change(screen.getByLabelText('Retour'), { target: { value: '2026-05-01' } })
+    fireEvent.change(screen.getByLabelText('Return'), { target: { value: '2026-05-01' } })
 
-    fireEvent.click(screen.getByRole('button', { name: /Composer mon aperçu/ }))
+    fireEvent.click(screen.getByRole('button', { name: /Compose my preview/ }))
 
-    expect(await screen.findByText('Le retour doit être après le départ.')).toBeInTheDocument()
-    expect(screen.getByLabelText('Retour')).toHaveAttribute('aria-invalid', 'true')
+    expect(await screen.findByText('The return must be after the departure.')).toBeInTheDocument()
+    expect(screen.getByLabelText('Return')).toHaveAttribute('aria-invalid', 'true')
     expect(posts(`/wishes/${WISH_ID}/answers`)).toHaveLength(0)
   })
 
   it('explains an answer the API refuses', async () => {
     answersAnswer = () => Response.json({ code: 'invalid_answers', detail: 'bad tag' }, { status: 422 })
     renderAt(`/wish/${WISH_ID}/preferences`, withWish)
-    await screen.findByRole('heading', { name: /Ce qui compte/ })
+    await screen.findByRole('heading', { name: /What matters/ })
     fillConstraints()
 
-    fireEvent.click(screen.getByRole('button', { name: /Composer mon aperçu/ }))
+    fireEvent.click(screen.getByRole('button', { name: /Compose my preview/ }))
 
-    expect(await screen.findByRole('alert')).toHaveTextContent('Vérifiez les dates et le budget')
+    expect(await screen.findByRole('alert')).toHaveTextContent('Check the dates and the budget')
   })
 
   it('sends back to the wish when the panel is no longer known (page reloaded)', async () => {
     renderAt(`/wish/${WISH_ID}/preferences`)
 
-    expect(await screen.findByRole('heading', { name: 'Reprenons depuis votre envie.' })).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: 'Décrire mon voyage' })).toHaveAttribute('href', '/wish')
+    expect(await screen.findByRole('heading', { name: "Let's start again from your wish." })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Describe my trip' })).toHaveAttribute('href', '/wish')
   })
 })
 
@@ -322,9 +332,9 @@ describe('the landing page', () => {
     signedIn = null
     renderAt('/')
 
-    expect(await screen.findByRole('heading', { name: /Votre envie/ })).toBeInTheDocument()
-    expect(await screen.findByRole('link', { name: 'Se connecter' })).toHaveAttribute('href', '/login')
-    expect(screen.getByRole('link', { name: /Continuer avec Google/ })).toHaveAttribute(
+    expect(await screen.findByRole('heading', { name: /Your wish/ })).toBeInTheDocument()
+    expect(await screen.findByRole('link', { name: 'Sign in' })).toHaveAttribute('href', '/login')
+    expect(screen.getByRole('link', { name: /Continue with Google/ })).toHaveAttribute(
       'href',
       'http://api.test/auth/google/login?redirect_to=%2Fwish',
     )
@@ -333,7 +343,7 @@ describe('the landing page', () => {
   it('offers the client space to a signed-in visitor', async () => {
     renderAt('/')
 
-    expect(await screen.findByRole('link', { name: 'Mon espace' })).toHaveAttribute('href', '/wish')
-    expect(screen.queryByRole('link', { name: /Continuer avec Google/ })).not.toBeInTheDocument()
+    expect(await screen.findByRole('link', { name: 'My space' })).toHaveAttribute('href', '/wish')
+    expect(screen.queryByRole('link', { name: /Continue with Google/ })).not.toBeInTheDocument()
   })
 })

@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 import { createFileRoute, Link } from '@tanstack/react-router'
+import { useTranslation } from 'react-i18next'
 
 import { googleSignInUrl } from '../api/auth'
 import { getMeOptions } from '../api/generated/@tanstack/react-query.gen'
@@ -13,48 +14,31 @@ export const Route = createFileRoute('/')({
   component: LandingPage,
 })
 
-// Three partner offers from the seed catalogue, shown as inspirations.
+// Three partner offers from the seed catalogue, shown as inspirations. Texts in home.json, trips.<id>.
 const TRIPS = [
-  {
-    image: '/images/elounda-sea-view.jpg',
-    place: 'Grèce · Chania',
-    title: 'Chambre vue mer, Elounda',
-    copy: 'Une semaine calme au bord de l’eau, petit-déjeuner inclus.',
-    tags: ['mer', 'calme', 'plage'],
-  },
-  {
-    image: '/images/biarritz-surf.jpg',
-    place: 'France · Biarritz',
-    title: 'Cours de surf, Grande Plage',
-    copy: 'Une demi-journée face à l’Atlantique, planche incluse.',
-    tags: ['plage', 'sport', 'mer'],
-  },
-  {
-    image: '/images/marrakech-riad.jpg',
-    place: 'Maroc · Marrakech',
-    title: 'Chambre de riad dans la médina',
-    copy: 'Une maison à cour confidentielle, séjour de 2 nuits minimum.',
-    tags: ['culture', 'calme', 'riad'],
-  },
-]
+  { id: 'elounda', image: '/images/elounda-sea-view.jpg', tags: ['sea', 'calm', 'beach'] },
+  { id: 'biarritz', image: '/images/biarritz-surf.jpg', tags: ['beach', 'sport', 'sea'] },
+  { id: 'marrakech', image: '/images/marrakech-riad.jpg', tags: ['culture', 'calm', 'riad'] },
+] as const
 
 function LandingPage() {
   // Visitors are welcome: a 401 here only means "not signed in".
   const me = useQuery({ ...getMeOptions(), retry: false })
   const signedIn = me.isSuccess
+  const { t } = useTranslation('home')
 
   return (
     <>
       <main>
         <LandingHero
           image="/images/crete-coast.jpg"
-          imageAlt="Côte rocheuse de Crète baignée par une eau turquoise"
+          imageAlt={t('heroImageAlt')}
           signedIn={signedIn}
           actions={
             <>
               <Button asChild variant="coral" size="lg">
                 <Link to="/wish">
-                  Décrire mon voyage <span aria-hidden="true">↗</span>
+                  {t('describeTrip')} <span aria-hidden="true">↗</span>
                 </Link>
               </Button>
               {!signedIn && (
@@ -63,7 +47,7 @@ function LandingPage() {
                     <span aria-hidden="true" className="font-[Arial] font-bold">
                       G
                     </span>
-                    Continuer avec Google
+                    {t('continueWithGoogle')}
                   </a>
                 </Button>
               )}
@@ -74,10 +58,14 @@ function LandingPage() {
         <PopularTrips>
           {TRIPS.map((trip, index) => (
             <TripCard
-              key={trip.title}
-              {...trip}
-              imageAlt={trip.title}
-              badge={index === 0 ? 'Populaire' : 'Sélection'}
+              key={trip.id}
+              image={trip.image}
+              imageAlt={t(`trips.${trip.id}.title`)}
+              place={t(`trips.${trip.id}.place`)}
+              title={t(`trips.${trip.id}.title`)}
+              copy={t(`trips.${trip.id}.copy`)}
+              tags={trip.tags.map((tag) => t(`tags.${tag}`))}
+              badge={index === 0 ? t('popular.badgePopular') : t('popular.badgeSelection')}
               tall={index === 0}
               renderLink={(content) => (
                 <Link to="/wish" className="block text-ink no-underline">
@@ -94,7 +82,7 @@ function LandingPage() {
           action={
             <Button asChild variant="coral" size="lg">
               <Link to="/wish">
-                Commencer <span aria-hidden="true">↗</span>
+                {t('closing.start')} <span aria-hidden="true">↗</span>
               </Link>
             </Button>
           }

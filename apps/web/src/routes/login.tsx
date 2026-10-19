@@ -1,5 +1,6 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { createFileRoute, Link, redirect, useRouter } from '@tanstack/react-router'
+import { useTranslation } from 'react-i18next'
 
 import { googleSignInUrl } from '../api/auth'
 import { ApiError, isUnauthenticated } from '../api/errors'
@@ -13,7 +14,7 @@ import { Eyebrow } from '../components/atoms/Eyebrow'
 import { Logo } from '../components/atoms/Logo'
 import { AuthMedia } from '../components/organisms/AuthMedia'
 import { PasswordSignInForm } from '../components/organisms/PasswordSignInForm'
-import { passwordSignInErrorMessage, signInErrorMessage } from '../domain/auth/errors'
+import { passwordSignInErrorKey, signInErrorKey } from '../domain/auth/errors'
 import { safeRedirect } from '../domain/auth/session'
 
 type LoginSearch = {
@@ -44,7 +45,10 @@ export const Route = createFileRoute('/login')({
 
 function LoginPage() {
   const { redirect: target, error } = Route.useSearch()
-  const googleError = signInErrorMessage(error)
+  const { t } = useTranslation('auth')
+  const { t: tErrors } = useTranslation('errors')
+  const { t: tCommon } = useTranslation()
+  const googleErrorKey = signInErrorKey(error)
   const next = safeRedirect(target, '/wish')
   const queryClient = useQueryClient()
   const router = useRouter()
@@ -57,30 +61,30 @@ function LoginPage() {
     },
   })
   const passwordError = signIn.isError
-    ? passwordSignInErrorMessage(signIn.error instanceof ApiError ? signIn.error.code : undefined)
+    ? tErrors(passwordSignInErrorKey(signIn.error instanceof ApiError ? signIn.error.code : undefined))
     : undefined
 
   return (
     <main className="min-h-screen md:grid md:h-screen md:grid-cols-[1.05fr_0.95fr]">
       <AuthMedia
         image="/images/aegean-boat.jpg"
-        imageAlt="Bateau sur la mer Égée"
+        imageAlt={t('imageAlt')}
         logo={
-          <Link to="/" aria-label="Novoya, accueil" className="flex min-h-11 items-center no-underline">
+          <Link to="/" aria-label={tCommon('homeLink')} className="flex min-h-11 items-center no-underline">
             <Logo light />
           </Link>
         }
-        quote="“On ne devrait pas passer des semaines à chercher un voyage qui nous ressemble.”"
-        caption="Mer Égée · Grèce"
+        quote={t('quote')}
+        caption={t('caption')}
       />
       <section className="grid place-items-center bg-paper px-[22px] py-[45px] md:overflow-y-auto md:p-[30px]">
         <div className="w-full max-w-[420px]">
-          <Eyebrow>Heureux de vous revoir</Eyebrow>
-          <h1 className="mb-2.5 text-[45px] leading-none md:text-[55px]">Se connecter</h1>
-          <p className="text-muted">Retrouvez vos envies, vos aperçus et toutes vos conversations.</p>
-          {googleError && (
+          <Eyebrow>{t('welcomeBack')}</Eyebrow>
+          <h1 className="mb-2.5 text-[45px] leading-none md:text-[55px]">{t('title')}</h1>
+          <p className="text-muted">{t('intro')}</p>
+          {googleErrorKey && (
             <p role="alert" className="mt-4 text-sm text-danger">
-              {googleError}
+              {tErrors(googleErrorKey)}
             </p>
           )}
           <Button asChild variant="outline" className="my-5 w-full">
@@ -88,12 +92,12 @@ function LoginPage() {
               <span aria-hidden="true" className="font-[Arial] font-bold">
                 G
               </span>
-              Continuer avec Google
+              {t('continueWithGoogle')}
             </a>
           </Button>
           <div className="mb-1 flex items-center gap-2.5 text-xs text-muted">
             <span aria-hidden="true" className="h-px flex-1 bg-line" />
-            ou avec votre e-mail
+            {t('orWithEmail')}
             <span aria-hidden="true" className="h-px flex-1 bg-line" />
           </div>
           <PasswordSignInForm
@@ -102,7 +106,7 @@ function LoginPage() {
             error={passwordError}
           />
           <p className="mt-6 text-center text-xs text-muted">
-            En continuant, vous acceptez nos conditions et notre politique de confidentialité.
+            {t('legalNote')}
           </p>
         </div>
       </section>

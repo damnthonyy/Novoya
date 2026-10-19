@@ -1,4 +1,5 @@
 import { type FormEvent, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 
 import { Button } from '../atoms/Button'
 import { Input } from '../atoms/Input'
@@ -16,6 +17,7 @@ export function PasswordSignInForm({ onSubmit, pending = false, error }: Props) 
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [shown, setShown] = useState(false)
+  const { t } = useTranslation('auth')
 
   const submit = (event: FormEvent) => {
     event.preventDefault()
@@ -24,7 +26,7 @@ export function PasswordSignInForm({ onSubmit, pending = false, error }: Props) 
 
   return (
     <form onSubmit={submit}>
-      <Field label="E-mail">
+      <Field label={t('email')}>
         {({ id, describedBy }) => (
           <Input
             id={id}
@@ -32,13 +34,13 @@ export function PasswordSignInForm({ onSubmit, pending = false, error }: Props) 
             type="email"
             autoComplete="email"
             required
-            placeholder="camille@exemple.fr"
+            placeholder={t('emailPlaceholder')}
             value={email}
             onChange={(event) => setEmail(event.target.value)}
           />
         )}
       </Field>
-      <Field label="Mot de passe">
+      <Field label={t('password')}>
         {({ id, describedBy }) => (
           <div className="relative">
             <Input
@@ -57,7 +59,7 @@ export function PasswordSignInForm({ onSubmit, pending = false, error }: Props) 
               onClick={() => setShown(!shown)}
               className="absolute top-1/2 right-1 min-h-11 -translate-y-1/2 px-3 text-xs underline underline-offset-4"
             >
-              {shown ? 'Masquer' : 'Afficher'}
+              {shown ? t('hidePassword') : t('showPassword')}
             </button>
           </div>
         )}
@@ -68,7 +70,7 @@ export function PasswordSignInForm({ onSubmit, pending = false, error }: Props) 
         </p>
       )}
       <Button type="submit" size="lg" className="mt-2 w-full" disabled={pending}>
-        {pending ? 'Connexion…' : 'Se connecter'} <span aria-hidden="true">↗</span>
+        {pending ? t('signingIn') : t('submit')} <span aria-hidden="true">↗</span>
       </Button>
     </form>
   )

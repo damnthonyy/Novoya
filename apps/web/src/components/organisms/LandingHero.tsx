@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react'
+import { useTranslation } from 'react-i18next'
 
 import { Eyebrow } from '../atoms/Eyebrow'
 import { PublicHeader } from './PublicHeader'
@@ -13,6 +14,7 @@ type Props = {
 
 /** The landing page's first screen: full-height photo, header, promise and actions. */
 export function LandingHero({ image, imageAlt, signedIn, actions }: Props) {
+  const { t } = useTranslation('home')
   return (
     <section className="relative h-[760px] overflow-hidden text-white md:h-screen md:min-h-[700px]">
       <img src={image} alt={imageAlt} className="absolute inset-0 size-full animate-zoom object-cover" />
@@ -27,15 +29,14 @@ export function LandingHero({ image, imageAlt, signedIn, actions }: Props) {
       <PublicHeader signedIn={signedIn} />
       <div className="absolute inset-x-6 top-[49%] -translate-y-1/2 md:right-auto md:left-[8.3vw] md:top-[51%] md:max-w-[790px]">
         <div className="animate-reveal">
-          <Eyebrow light>Agence humaine · Assistant IA</Eyebrow>
+          <Eyebrow light>{t('heroEyebrow')}</Eyebrow>
           <h1 className="mb-[30px] text-[56px] leading-[0.91] md:text-[clamp(70px,7.2vw,116px)]">
-            Votre envie,
+            {t('titleStart')}
             <br />
-            <em className="text-[0.78em]">notre itinéraire.</em>
+            <em className="text-[0.78em]">{t('titleEnd')}</em>
           </h1>
           <p className="mb-[34px] max-w-[570px] text-sm leading-normal text-white/85 md:text-[17px] md:leading-[1.65]">
-            Des voyages sur-mesure, imaginés avec vous et composés uniquement auprès de partenaires que
-            nous connaissons.
+            {t('heroIntro')}
           </p>
           <div className="grid gap-2.5 md:flex">{actions}</div>
         </div>
@@ -46,7 +47,7 @@ export function LandingHero({ image, imageAlt, signedIn, actions }: Props) {
       >
         <span>01</span>
         <span className="h-px w-[65px] bg-white/60" />
-        <span className="ml-auto">Prendre le large</span>
+        <span className="ml-auto">{t('heroFoot')}</span>
       </div>
     </section>
   )

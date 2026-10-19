@@ -12,8 +12,8 @@ from novoya_api.wishes.presentation.http.dependencies import (
     get_send_wish,
 )
 from novoya_api.wishes.presentation.http.schemas import (
-    AnsweredWishResponse,
     AnswerPanelRequest,
+    PlanResponse,
     SendWishRequest,
     WishResponse,
 )
@@ -35,11 +35,10 @@ async def send_wish(
     return WishResponse.of(await use_case(SendWishCommand(user_id=user_id, text=body.text)))
 
 
-# TEMPORARY until #29: returns the answered wish, not the proposed plan that ARCHITECTURE.md
-# describes. #29 builds the plan here and changes the response to it.
 @router.post(
     "/{wish_id}/answers",
     operation_id="answerPanel",
+    status_code=status.HTTP_201_CREATED,
     responses={status_code: {"model": ErrorResponse} for status_code in (404, 409)},
 )
 async def answer_panel(
@@ -47,9 +46,11 @@ async def answer_panel(
     body: AnswerPanelRequest,
     user_id: Annotated[UUID, Depends(get_current_user_id)],
     use_case: Annotated[AnswerPanel, Depends(get_answer_panel)],
-) -> AnsweredWishResponse:
-    """Save the tags the client picked, their budget in EUR, travellers and dates. 404 if the
-    wish is not theirs, 409 if it is already answered or shows no panel, 422 for a tag the
-    panel did not show."""
+) -> PlanResponse:
+    """Save the tags the client picked, their budget in EUR, travellers and dates, and return
+    the proposed plan built from partner offers. 404 if the wish is not theirs; 409 if it is
+    already answered, shows no panel or is being answered by another request; 422 for a tag
+    the panel did not show, and 422 no_offer_fits when no offer fits the travellers and
+    dates."""
     command = AnswerPanelCommand(user_id=user_id, wish_id=wish_id, answers=body.to_answers())
-    return AnsweredWishResponse.of(await use_case(command))
+    return PlanResponse.of((await use_case(command)).plan)

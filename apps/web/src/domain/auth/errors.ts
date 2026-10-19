@@ -1,38 +1,47 @@
 // The codes the API puts in /login?error=<code> when a Google sign-in fails.
-const MESSAGES: Record<string, string> = {
-  oauth_cancelled: 'Vous avez annulé la connexion avec Google.',
-  oauth_failed: 'La connexion avec Google n’a pas fonctionné. Réessayez.',
-  oauth_state_invalid:
-    'La connexion a pris trop de temps ou a commencé dans un autre navigateur. Réessayez.',
-  oauth_email_not_verified: 'Votre adresse Google n’est pas encore vérifiée.',
-  oauth_link_not_allowed: 'Ce compte Google ne peut pas être lié à votre compte Novoya.',
-  identity_already_linked: 'Ce compte Google est déjà lié à un autre compte Novoya.',
-  account_disabled: 'Ce compte est désactivé.',
-  user_not_found: 'Nous ne retrouvons pas votre compte. Connectez-vous à nouveau.',
-  too_many_attempts: 'Trop de tentatives. Patientez un instant avant de réessayer.',
-  unknown_provider: 'La connexion avec Google n’est pas disponible pour le moment.',
-}
+// Their texts are in i18n/locales/<language>/errors.json, under signIn.<code>.
+const SIGN_IN_ERROR_CODES = [
+  'oauth_cancelled',
+  'oauth_failed',
+  'oauth_state_invalid',
+  'oauth_email_not_verified',
+  'oauth_link_not_allowed',
+  'identity_already_linked',
+  'account_disabled',
+  'user_not_found',
+  'too_many_attempts',
+  'unknown_provider',
+] as const
 
-const FALLBACK = 'Un problème est survenu pendant la connexion. Réessayez.'
+type SignInErrorCode = (typeof SIGN_IN_ERROR_CODES)[number]
+export type SignInErrorKey = `signIn.${SignInErrorCode | 'unknown'}`
 
-/** The message to show for a sign-in error code, or null when there is no error. */
-export function signInErrorMessage(code: string | undefined): string | null {
+const KNOWN = new Set<string>(SIGN_IN_ERROR_CODES)
+
+/** The key of the message to show for a sign-in error code, or null when there is no error. */
+export function signInErrorKey(code: string | undefined): SignInErrorKey | null {
   if (!code) return null
-  return MESSAGES[code] ?? FALLBACK
+  return KNOWN.has(code) ? (`signIn.${code}` as SignInErrorKey) : 'signIn.unknown'
 }
 
 // The codes POST /auth/login answers with when an e-mail and password sign-in fails.
-const PASSWORD_MESSAGES: Record<string, string> = {
-  invalid_credentials: 'E-mail ou mot de passe incorrect.',
-  email_not_verified:
-    'Confirmez d’abord votre adresse e-mail : ouvrez le lien que nous vous avons envoyé.',
-  no_password_set: 'Ce compte se connecte avec Google. Utilisez le bouton « Continuer avec Google ».',
-  account_disabled: MESSAGES.account_disabled!,
-  too_many_attempts: MESSAGES.too_many_attempts!,
-  too_many_requests: MESSAGES.too_many_attempts!,
-}
+// Their texts are in errors.json, under password.<code>.
+const PASSWORD_ERROR_CODES = [
+  'invalid_credentials',
+  'email_not_verified',
+  'no_password_set',
+  'account_disabled',
+  'too_many_attempts',
+] as const
 
-/** The message for a failed e-mail and password sign-in. */
-export function passwordSignInErrorMessage(code: string | undefined): string {
-  return (code && PASSWORD_MESSAGES[code]) || FALLBACK
+type PasswordErrorCode = (typeof PASSWORD_ERROR_CODES)[number]
+export type PasswordSignInErrorKey = `password.${PasswordErrorCode | 'unknown'}`
+
+const KNOWN_PASSWORD = new Set<string>(PASSWORD_ERROR_CODES)
+
+/** The key of the message for a failed e-mail and password sign-in. */
+export function passwordSignInErrorKey(code: string | undefined): PasswordSignInErrorKey {
+  // The rate limiter answers too_many_requests; it reads the same as too_many_attempts.
+  if (code === 'too_many_requests') return 'password.too_many_attempts'
+  return code && KNOWN_PASSWORD.has(code) ? (`password.${code}` as PasswordSignInErrorKey) : 'password.unknown'
 }

@@ -1,0 +1,99 @@
+{
+  "titleStart": "Votre envie,",
+  "titleEnd": "notre itinéraire.",
+  "describeTrip": "Décrire mon voyage",
+  "heroImageAlt": "Côte rocheuse de Crète baignée par une eau turquoise",
+  "heroEyebrow": "Agence humaine · Assistant IA",
+  "heroIntro": "Des voyages sur-mesure, imaginés avec vous et composés uniquement auprès de partenaires que nous connaissons.",
+  "continueWithGoogle": "Continuer avec Google",
+  "heroFoot": "Prendre le large",
+  "manifesto": {
+    "eyebrow": "La promesse Novoya",
+    "titleStart": "Moins chercher.",
+    "titleEnd": "Mieux partir.",
+    "lead": "Vous racontez une envie. Notre concierge IA lui donne une première forme. Puis un agent Novoya la rend possible, avec attention et discernement.",
+    "honestyTitle": "Notre parti pris : l’honnêteté.",
+    "honestyText": "Nous ne proposons que des destinations où nos partenaires sont actifs. Si nous ne pouvons pas vous y emmener, nous vous le dirons."
+  },
+  "popular": {
+    "eyebrow": "Carnet d’inspirations",
+    "title": "Les plus désirés",
+    "intro": "Trois échappées souvent imaginées par nos voyageurs, à réinterpréter selon vos envies.",
+    "badgePopular": "Populaire",
+    "badgeSelection": "Sélection"
+  },
+  "trips": {
+    "elounda": {
+      "place": "Grèce · Chania",
+      "title": "Chambre vue mer, Elounda",
+      "copy": "Une semaine calme au bord de l’eau, petit-déjeuner inclus."
+    },
+    "biarritz": {
+      "place": "France · Biarritz",
+      "title": "Cours de surf, Grande Plage",
+      "copy": "Une demi-journée face à l’Atlantique, planche incluse."
+    },
+    "marrakech": {
+      "place": "Maroc · Marrakech",
+      "title": "Chambre de riad dans la médina",
+      "copy": "Une maison à cour confidentielle, séjour de 2 nuits minimum."
+    }
+  },
+  "tags": {
+    "sea": "mer",
+    "calm": "calme",
+    "beach": "plage",
+    "sport": "sport",
+    "culture": "culture",
+    "riad": "riad"
+  },
+  "method": {
+    "eyebrow": "Une méthode simple",
+    "titleStart": "De l’envie",
+    "titleEnd": "au départ.",
+    "intro": "La technologie pour clarifier vos envies. L’humain pour négocier, vérifier et prendre soin du reste.",
+    "steps": {
+      "describe": {
+        "title": "Je décris",
+        "copy": "Une phrase suffit. Vos mots restent chez Novoya."
+      },
+      "refine": {
+        "title": "Je précise",
+        "copy": "Quelques préférences, seulement si vous le souhaitez."
+      },
+      "discover": {
+        "title": "Je découvre",
+        "copy": "Un aperçu jour par jour, toujours modifiable."
+      },
+      "exchange": {
+        "title": "J’échange",
+        "copy": "Je l’affine avec le concierge, puis un conseiller prend le relais."
+      }
+    }
+  },
+  "trust": {
+    "eyebrow": "Un voyage vrai, dès le premier mot",
+    "titleStart": "Rien d’inventé.",
+    "titleEnd": "Rien d’intrusif.",
+    "promises": {
+      "realOffers": {
+        "title": "Des offres réelles",
+        "copy": "Chaque proposition correspond à une offre active chez l’un de nos partenaires."
+      },
+      "noPrice": {
+        "title": "Un aperçu sans prix",
+        "copy": "L’IA compose et ajuste le voyage avec vous, sans jamais inventer de montant."
+      },
+      "yourWords": {
+        "title": "Vos mots, seulement",
+        "copy": "Jamais d’import d’e-mails ou de réseaux sociaux. Vous gardez le contrôle."
+      }
+    }
+  },
+  "closing": {
+    "eyebrow": "Votre prochain voyage commence ici",
+    "titleStart": "Où avez-vous",
+    "titleEnd": "envie d’être ?",
+    "start": "Commencer"
+  }
+}

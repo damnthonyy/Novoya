@@ -1,0 +1,35 @@
+{
+  "steps": {
+    "preferences": "Preferences",
+    "preview": "Preview",
+    "quote": "Quote"
+  },
+  "stepsLabel": "Steps",
+  "intention": "Your intention",
+  "wishQuote": "“{{wish}}”",
+  "stepOf": "Step {{current}} of {{total}}",
+  "titleStart": "What matters",
+  "titleEnd": "to you.",
+  "intro": "Choose what speaks to you. You can also leave everything unselected.",
+  "singleChoice": "one choice only",
+  "lastMarkers": "Final details",
+  "budget": "Maximum budget (€)",
+  "budgetHint": "Shared only with your agent",
+  "budgetPlaceholder": "3,500",
+  "travellers": "Travellers",
+  "departure": "Departure",
+  "return": "Return",
+  "fewerTravellers": "One traveller fewer",
+  "moreTravellers": "One more traveller",
+  "persons_one": "{{count}} traveller",
+  "persons_other": "{{count}} travellers",
+  "picked_one": "{{count}} preference",
+  "picked_other": "{{count}} preferences",
+  "submit": "Compose my preview",
+  "sending": "Sending…",
+  "lost": {
+    "title": "Let's start again from your wish.",
+    "text": "We can't find this wish's panel on this page. Describe it again: it only takes a moment.",
+    "cta": "Describe my trip"
+  }
+}

@@ -1,0 +1,35 @@
+{
+  "steps": {
+    "preferences": "Préférences",
+    "preview": "Aperçu",
+    "quote": "Devis"
+  },
+  "stepsLabel": "Étapes",
+  "intention": "Votre intention",
+  "wishQuote": "« {{wish}} »",
+  "stepOf": "Étape {{current}} sur {{total}}",
+  "titleStart": "Ce qui compte",
+  "titleEnd": "pour vous.",
+  "intro": "Choisissez ce qui vous parle. Vous pouvez aussi ne rien sélectionner.",
+  "singleChoice": "un seul choix",
+  "lastMarkers": "Derniers repères",
+  "budget": "Budget maximum (€)",
+  "budgetHint": "Partagé uniquement avec votre agent",
+  "budgetPlaceholder": "3 500",
+  "travellers": "Voyageurs",
+  "departure": "Départ",
+  "return": "Retour",
+  "fewerTravellers": "Un voyageur de moins",
+  "moreTravellers": "Un voyageur de plus",
+  "persons_one": "{{count}} voyageur",
+  "persons_other": "{{count}} voyageurs",
+  "picked_one": "{{count}} préférence",
+  "picked_other": "{{count}} préférences",
+  "submit": "Composer mon aperçu",
+  "sending": "Envoi…",
+  "lost": {
+    "title": "Reprenons depuis votre envie.",
+    "text": "Nous ne retrouvons pas le panneau de cette envie sur cette page. Décrivez-la à nouveau : cela ne prend qu’un instant.",
+    "cta": "Décrire mon voyage"
+  }
+}

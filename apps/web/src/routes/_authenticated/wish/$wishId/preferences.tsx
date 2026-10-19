@@ -1,6 +1,7 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { createFileRoute, Link, useNavigate } from '@tanstack/react-router'
 import { type FormEvent, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 
 import { ApiError } from '../../../../api/errors'
 import { answerPanelMutation } from '../../../../api/generated/@tanstack/react-query.gen'
@@ -19,10 +20,9 @@ import {
   MAX_PERSONS,
   MIN_PERSONS,
   parseBudget,
-  personsLabel,
 } from '../../../../domain/constraints/constraints'
 import {
-  answerPanelErrorMessage,
+  answerPanelErrorKey,
   initialSelection,
   type Selection,
   selectedTags,
@@ -33,12 +33,13 @@ export const Route = createFileRoute('/_authenticated/wish/$wishId/preferences')
   component: PreferencesPage,
 })
 
-const STEPS = ['Préférences', 'Aperçu', 'Devis']
+const STEPS = ['preferences', 'preview', 'quote'] as const
 const FORM_ID = 'preferences-form'
 
 function PreferencesPage() {
   const { wishId } = Route.useParams()
   const wish = useQueryClient().getQueryData<CachedWish>(wishQueryKey(wishId))
+  const { t } = useTranslation('preferences')
 
   return (
     <AppShell>
@@ -46,14 +47,13 @@ function PreferencesPage() {
         <PreferencesForm wishId={wishId} text={wish.text} panel={wish.panel} />
       ) : (
         <main className="mx-auto max-w-xl px-5 py-24 text-center">
-          <Eyebrow>Préférences</Eyebrow>
-          <h1 className="mb-4 text-[47px] leading-none">Reprenons depuis votre envie.</h1>
+          <Eyebrow>{t('steps.preferences')}</Eyebrow>
+          <h1 className="mb-4 text-[47px] leading-none">{t('lost.title')}</h1>
           <p className="mb-8 text-muted">
-            Nous ne retrouvons pas le panneau de cette envie sur cette page. Décrivez-la à nouveau : cela ne
-            prend qu’un instant.
+            {t('lost.text')}
           </p>
           <Button asChild variant="coral" size="lg">
-            <Link to="/wish">Décrire mon voyage</Link>
+            <Link to="/wish">{t('lost.cta')}</Link>
           </Button>
         </main>
       )}
@@ -63,6 +63,8 @@ function PreferencesPage() {
 
 function PreferencesForm({ wishId, text, panel }: { wishId: string; text: string; panel: PanelOut }) {
   const navigate = useNavigate()
+  const { t } = useTranslation('preferences')
+  const { t: tErrors } = useTranslation('errors')
   const [selection, setSelection] = useState<Selection>(() => initialSelection(panel.sections))
   const [constraints, setConstraints] = useState<ConstraintsValues>({
     budget: '',
@@ -100,15 +102,15 @@ function PreferencesForm({ wishId, text, panel }: { wishId: string; text: string
 
   return (
     <div className="md:grid md:min-h-[calc(100vh-88px)] md:grid-cols-[33%_67%]">
-      <IntentAside wish={text} steps={STEPS} current={0} />
+      <IntentAside wish={text} steps={STEPS.map((step) => t(`steps.${step}`))} current={0} />
       <main className="bg-paper px-5 pt-[55px] pb-[155px] md:px-[8vw] md:pt-20 md:pb-40">
-        <Eyebrow>Étape 1 sur 3</Eyebrow>
+        <Eyebrow>{t('stepOf', { current: 1, total: STEPS.length })}</Eyebrow>
         <h1 className="mb-[23px] text-[47px] leading-[0.98] md:text-[clamp(56px,5.6vw,82px)]">
-          Ce qui compte
+          {t('titleStart')}
           <br />
-          <em>pour vous.</em>
+          <em>{t('titleEnd')}</em>
         </h1>
-        <p className="text-muted">Choisissez ce qui vous parle. Vous pouvez aussi ne rien sélectionner.</p>
+        <p className="text-muted">{t('intro')}</p>
         <form id={FORM_ID} onSubmit={submit} noValidate>
           {panel.sections.map((section) => (
             <TagGroup
@@ -122,28 +124,29 @@ function PreferencesForm({ wishId, text, panel }: { wishId: string; text: string
           ))}
           <ConstraintsFields
             values={constraints}
-            errors={errors}
+            errors={Object.fromEntries(
+              Object.entries(errors).map(([field, key]) => [field, tErrors(key, { min: MIN_PERSONS, max: MAX_PERSONS })]),
+            )}
             onChange={(values) => {
               setConstraints(values)
               if (Object.keys(errors).length > 0) setErrors(constraintsErrors(values))
             }}
             minPersons={MIN_PERSONS}
             maxPersons={MAX_PERSONS}
-            personsText={personsLabel(constraints.persons)}
           />
           {answer.isError && (
             <p role="alert" className="mt-6 text-danger">
-              {answerPanelErrorMessage(answer.error instanceof ApiError ? answer.error.code : undefined)}
+              {tErrors(answerPanelErrorKey(answer.error instanceof ApiError ? answer.error.code : undefined))}
             </p>
           )}
         </form>
       </main>
       <StickyAction
-        summary={`${picked.length} préférence${picked.length > 1 ? 's' : ''}`}
+        summary={t('picked', { count: picked.length })}
         chips={picked.slice(0, 3)}
         action={
           <Button type="submit" form={FORM_ID} variant="coral" size="lg" className="w-full md:w-auto" disabled={answer.isPending}>
-            {answer.isPending ? 'Envoi…' : 'Composer mon aperçu'} <span aria-hidden="true">↗</span>
+            {answer.isPending ? t('sending') : t('submit')} <span aria-hidden="true">↗</span>
           </Button>
         }
       />

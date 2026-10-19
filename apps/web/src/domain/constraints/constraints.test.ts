@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { constraintsErrors, parseBudget, personsLabel } from './constraints'
+import { constraintsErrors, parseBudget } from './constraints'
 
 describe('parseBudget', () => {
   it.each([
@@ -28,18 +28,11 @@ describe('constraintsErrors', () => {
   it('needs a budget, 1 to 50 travellers and both dates', () => {
     const errors = constraintsErrors({ budget: '', persons: 0, startDate: '', endDate: '' })
     expect(Object.keys(errors).sort()).toEqual(['budget', 'endDate', 'persons', 'startDate'])
-    expect(constraintsErrors({ ...valid, persons: 51 }).persons).toMatch(/Entre 1 et 50/)
+    expect(constraintsErrors({ ...valid, persons: 51 }).persons).toBe('answers.persons')
   })
 
   it('needs the return after the departure', () => {
-    expect(constraintsErrors({ ...valid, endDate: '2026-05-12' }).endDate).toMatch(/après le départ/)
-    expect(constraintsErrors({ ...valid, endDate: '2026-05-01' }).endDate).toMatch(/après le départ/)
-  })
-})
-
-describe('personsLabel', () => {
-  it('agrees with the number', () => {
-    expect(personsLabel(1)).toBe('1 voyageur')
-    expect(personsLabel(2)).toBe('2 voyageurs')
+    expect(constraintsErrors({ ...valid, endDate: '2026-05-12' }).endDate).toBe('answers.endBeforeStart')
+    expect(constraintsErrors({ ...valid, endDate: '2026-05-01' }).endDate).toBe('answers.endBeforeStart')
   })
 })

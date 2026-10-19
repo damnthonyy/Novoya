@@ -46,6 +46,7 @@ hooks/wish        ──►  components      INTERDIT
 hooks/wish        ──►  hooks/ui        oui, si besoin d’un détail visuel
 
 components        ──►  hooks/ui        oui
+components        ──►  useTranslation  oui        (les textes, voir I18N.md)
 components        ──►  hooks/wish      INTERDIT   (sinon PreferencePanel “sait” trop)
 
 routes            ──►  hooks/*         oui

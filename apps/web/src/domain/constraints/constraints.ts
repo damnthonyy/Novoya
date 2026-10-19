@@ -6,7 +6,15 @@ export type ConstraintsInput = {
   endDate: string
 }
 
-export type ConstraintsErrors = Partial<Record<keyof ConstraintsInput, string>>
+// Texts in errors.json under answers.<key>; the page passes { min, max } for answers.persons.
+export type ConstraintsErrorKey =
+  | 'answers.budget'
+  | 'answers.persons'
+  | 'answers.startDate'
+  | 'answers.endDate'
+  | 'answers.endBeforeStart'
+
+export type ConstraintsErrors = Partial<Record<keyof ConstraintsInput, ConstraintsErrorKey>>
 
 export const MIN_PERSONS = 1
 export const MAX_PERSONS = 50 // AnswerPanelRequest.persons
@@ -22,19 +30,14 @@ export function parseBudget(text: string): string | null {
 /** The API's rules for the answers: a budget above 0, 1 to 50 travellers, the return after the departure. */
 export function constraintsErrors(input: ConstraintsInput): ConstraintsErrors {
   const errors: ConstraintsErrors = {}
-  if (parseBudget(input.budget) === null) errors.budget = 'Indiquez un budget en euros, par exemple 3 500.'
+  if (parseBudget(input.budget) === null) errors.budget = 'answers.budget'
   if (!Number.isInteger(input.persons) || input.persons < MIN_PERSONS || input.persons > MAX_PERSONS) {
-    errors.persons = `Entre ${MIN_PERSONS} et ${MAX_PERSONS} voyageurs.`
+    errors.persons = 'answers.persons'
   }
-  if (!input.startDate) errors.startDate = 'Choisissez une date de départ.'
-  if (!input.endDate) errors.endDate = 'Choisissez une date de retour.'
+  if (!input.startDate) errors.startDate = 'answers.startDate'
+  if (!input.endDate) errors.endDate = 'answers.endDate'
   else if (input.startDate && input.endDate <= input.startDate) {
-    errors.endDate = 'Le retour doit être après le départ.'
+    errors.endDate = 'answers.endBeforeStart'
   }
   return errors
-}
-
-/** "2 voyageurs", "1 voyageur". */
-export function personsLabel(persons: number): string {
-  return `${persons} voyageur${persons > 1 ? 's' : ''}`
 }

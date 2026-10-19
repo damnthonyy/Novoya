@@ -3,6 +3,8 @@ from uuid import UUID
 
 from novoya_api.shared.application.clock import Clock
 from novoya_api.shared.application.unit_of_work import UnitOfWork
+from novoya_api.wishes.application.ports.answers_in_progress import AnswersInProgress
+from novoya_api.wishes.application.ports.planner import Planner, ProposedPlan
 from novoya_api.wishes.application.ports.wish_repository import WishRepository
 from novoya_api.wishes.domain.answers import Answers
 from novoya_api.wishes.domain.errors import WishNotFound
@@ -16,22 +18,47 @@ class AnswerPanelCommand:
     answers: Answers
 
 
+@dataclass(frozen=True)
+class AnswerPanelResult:
+    wish: Wish
+    plan: ProposedPlan
+
+
 class AnswerPanel:
-    """Save the client's panel answers on their wish, which becomes answered.
+    """Save the client's panel answers on their wish and build its proposed plan.
 
     Only the owner can answer; another user's wish is reported as not found, so its
-    existence does not leak. The plan is built from the answered wish (#29)."""
+    existence does not leak. The answers, the plan and the planned wish are committed
+    together: when no offer fits, nothing is saved and the client can change the dates or
+    the travellers and send again. While a plan is built, another answer to the same wish
+    is turned away (409) before it starts a model run."""
 
-    def __init__(self, wishes: WishRepository, uow: UnitOfWork, clock: Clock) -> None:
+    def __init__(
+        self,
+        wishes: WishRepository,
+        planner: Planner,
+        in_progress: AnswersInProgress,
+        uow: UnitOfWork,
+        clock: Clock,
+    ) -> None:
         self._wishes = wishes
+        self._planner = planner
+        self._in_progress = in_progress
         self._uow = uow
         self._clock = clock
 
-    async def __call__(self, cmd: AnswerPanelCommand) -> Wish:
+    async def __call__(self, cmd: AnswerPanelCommand) -> AnswerPanelResult:
         wish = await self._wishes.get(cmd.wish_id)
         if wish is None or wish.user_id != cmd.user_id:
             raise WishNotFound("no such wish")
-        wish.answer(cmd.answers, self._clock.now())
-        await self._wishes.save(wish)
-        await self._uow.commit()
-        return wish
+        # After the owner check: another user's wish is never reported as busy.
+        async with self._in_progress.hold(wish.id):
+            # Read again: another answer may have planned it before this request held it.
+            wish = await self._wishes.get(cmd.wish_id)
+            assert wish is not None  # wishes are never deleted while their owner is signed in
+            wish.answer(cmd.answers, self._clock.now())
+            plan = await self._planner.propose(wish)
+            wish.mark_planned(self._clock.now())
+            await self._wishes.save(wish)
+            await self._uow.commit()
+        return AnswerPanelResult(wish, plan)

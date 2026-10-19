@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
-import { destinationLabel, destinationPhoto, FALLBACK_PHOTO, suggestionWish } from './destination'
-import { sendWishErrorMessage, WISH_MAX_LENGTH, wishTextError } from './wish'
+import { destinationLabel, destinationPhoto, destinationPlace, FALLBACK_PHOTO } from './destination'
+import { sendWishErrorKey, WISH_MAX_LENGTH, wishTextError } from './wish'
 
 describe('wishTextError', () => {
   it('accepts a sentence', () => {
@@ -9,21 +9,21 @@ describe('wishTextError', () => {
   })
 
   it('refuses an empty or blank wish', () => {
-    expect(wishTextError('')).toMatch(/Décrivez votre envie/)
-    expect(wishTextError('   \n ')).toMatch(/Décrivez votre envie/)
+    expect(wishTextError('')).toBe('wish.empty')
+    expect(wishTextError('   \n ')).toBe('wish.empty')
   })
 
   it('refuses more than the API takes, ignoring the spaces around', () => {
     expect(wishTextError(` ${'a'.repeat(WISH_MAX_LENGTH)} `)).toBeNull()
-    expect(wishTextError('a'.repeat(WISH_MAX_LENGTH + 1))).toMatch(/1000 caractères/)
+    expect(wishTextError('a'.repeat(WISH_MAX_LENGTH + 1))).toBe('wish.tooLong')
   })
 })
 
-describe('sendWishErrorMessage', () => {
+describe('sendWishErrorKey', () => {
   it('explains a refused wish and rate limiting, with a fallback', () => {
-    expect(sendWishErrorMessage('invalid_wish')).toMatch(/Reformulez/)
-    expect(sendWishErrorMessage('too_many_requests')).toMatch(/Patientez/)
-    expect(sendWishErrorMessage(undefined)).toMatch(/n’a pas pu être envoyée/)
+    expect(sendWishErrorKey('invalid_wish')).toBe('wish.invalid')
+    expect(sendWishErrorKey('too_many_requests')).toBe('wish.tooManyRequests')
+    expect(sendWishErrorKey(undefined)).toBe('wish.unknown')
   })
 })
 
@@ -39,11 +39,11 @@ describe('destinationPhoto', () => {
   })
 })
 
-describe('destinationLabel and suggestionWish', () => {
+describe('destinationLabel and destinationPlace', () => {
   it('name the city when there is one', () => {
     expect(destinationLabel({ city: 'Biarritz', country: 'France' })).toBe('Biarritz · France')
     expect(destinationLabel({ city: null, country: 'France' })).toBe('France')
-    expect(suggestionWish({ city: 'Biarritz', country: 'France' })).toBe('Quelques jours à Biarritz, ')
-    expect(suggestionWish({ city: null, country: 'Maroc' })).toBe('Quelques jours à Maroc, ')
+    expect(destinationPlace({ city: 'Biarritz', country: 'France' })).toBe('Biarritz')
+    expect(destinationPlace({ city: null, country: 'Morocco' })).toBe('Morocco')
   })
 })

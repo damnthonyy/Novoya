@@ -1,4 +1,5 @@
 import { type FormEvent, type KeyboardEvent, type Ref, useId } from 'react'
+import { Trans, useTranslation } from 'react-i18next'
 
 type Props = {
   value: string
@@ -10,10 +11,13 @@ type Props = {
   textareaRef?: Ref<HTMLTextAreaElement>
 }
 
+const kbd = 'rounded-[3px] border border-line px-1.5 py-0.5 font-sans'
+
 /** The big white box where the client writes their wish. ⌘/Ctrl + Enter sends it. */
 export function WishComposer({ value, onChange, onSubmit, pending = false, error, textareaRef }: Props) {
   const id = useId()
   const errorId = `${id}-error`
+  const { t } = useTranslation('wish')
 
   const submit = (event: FormEvent) => {
     event.preventDefault()
@@ -33,7 +37,7 @@ export function WishComposer({ value, onChange, onSubmit, pending = false, error
       className="w-full rounded-[3px] border border-ink/10 bg-white p-[19px] text-left shadow-card md:w-[min(760px,90vw)] md:p-[25px]"
     >
       <label htmlFor={id} className="sr-only">
-        Votre envie de voyage
+        {t('composerLabel')}
       </label>
       <textarea
         id={id}
@@ -43,7 +47,7 @@ export function WishComposer({ value, onChange, onSubmit, pending = false, error
         onKeyDown={sendOnShortcut}
         aria-invalid={Boolean(error)}
         aria-describedby={error ? errorId : undefined}
-        placeholder="Une semaine calme au bord de la mer en mai, avec de bons petits-déjeuners…"
+        placeholder={t('placeholder')}
         className="h-[90px] w-full resize-none border-0 font-serif text-xl text-ink outline-none placeholder:text-[#8b908a] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-solid focus-visible:outline-coral"
       />
       {error && (
@@ -53,12 +57,15 @@ export function WishComposer({ value, onChange, onSubmit, pending = false, error
       )}
       <div className="flex items-center justify-between">
         <span className="text-xs text-muted">
-          <kbd className="rounded-[3px] border border-line px-1.5 py-0.5 font-sans">⌘</kbd> +{' '}
-          <kbd className="rounded-[3px] border border-line px-1.5 py-0.5 font-sans">Entrée</kbd> pour envoyer
+          <Trans
+            t={t}
+            i18nKey="shortcut"
+            components={[<kbd key="cmd" className={kbd} />, <kbd key="enter" className={kbd} />]}
+          />
         </span>
         <button
           type="submit"
-          aria-label={pending ? 'Envoi en cours' : 'Envoyer'}
+          aria-label={pending ? t('sending') : t('send')}
           disabled={pending}
           className="grid size-11 place-items-center rounded-full bg-coral text-xl text-ink transition hover:bg-coral-light disabled:opacity-60"
         >

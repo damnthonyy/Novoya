@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { answerPanelErrorMessage, initialSelection, selectedTags, toggleTag } from './selection'
+import { answerPanelErrorKey, initialSelection, selectedTags, toggleTag } from './selection'
 
 const mood = {
   id: 'mood',
@@ -55,11 +55,11 @@ describe('selectedTags', () => {
   })
 })
 
-describe('answerPanelErrorMessage', () => {
+describe('answerPanelErrorKey', () => {
   it('explains the API errors, with a fallback', () => {
-    expect(answerPanelErrorMessage('invalid_answers')).toMatch(/Vérifiez les dates/)
-    expect(answerPanelErrorMessage('wish_not_found')).toMatch(/ne retrouvons pas/)
-    expect(answerPanelErrorMessage('invalid_transition')).toMatch(/déjà répondu/)
-    expect(answerPanelErrorMessage(undefined)).toMatch(/n’ont pas pu être envoyées/)
+    expect(answerPanelErrorKey('invalid_answers')).toBe('answers.invalid')
+    expect(answerPanelErrorKey('wish_not_found')).toBe('answers.wishNotFound')
+    expect(answerPanelErrorKey('invalid_transition')).toBe('answers.alreadyAnswered')
+    expect(answerPanelErrorKey(undefined)).toBe('answers.unknown')
   })
 })

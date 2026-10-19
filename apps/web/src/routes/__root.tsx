@@ -8,9 +8,13 @@ import {
   useRouterState,
 } from '@tanstack/react-router'
 import { TanStackRouterDevtools } from '@tanstack/react-router-devtools'
+import { useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 
 import { Logo } from '../components/atoms/Logo'
 import { ErrorNote } from '../components/molecules/ErrorNote'
+import { resolveLocale } from '../domain/i18n/locale'
+import i18n from '../i18n'
 
 export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()({
   component: RootLayout,
@@ -18,6 +22,19 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
 
 // Public pages (landing, login) draw their own header; signed-in pages get theirs from /_authenticated.
 function RootLayout() {
+  // The user loaded by the /_authenticated guard. Pages outside it, like /login, have none.
+  const me = useRouterState({
+    select: (state) => state.matches.find((match) => match.routeId === '/_authenticated')?.context.me,
+  })
+
+  // The signed-in user's locale wins; signed out (e.g. on /login), the browser's language.
+  // The /_authenticated guard already switches before a signed-in page renders; this keeps
+  // the language right when there is no user any more, for example after signing out.
+  const locale = resolveLocale(me?.locale, navigator.languages)
+  useEffect(() => {
+    if (i18n.language !== locale) void i18n.changeLanguage(locale)
+  }, [locale])
+
   return (
     <>
       <Outlet />
@@ -34,6 +51,8 @@ function RootLayout() {
 /** The page shown when a route fails for another reason than a missing session. */
 export function RouteError() {
   const router = useRouter()
+  const { t } = useTranslation('errors')
+  const { t: tCommon } = useTranslation()
   // Inside the signed-in layout, its header is already on screen. Otherwise (the session
   // check itself failed, or a public page) draw one, so there is still a way home.
   const layoutHeader = useRouterState({
@@ -44,16 +63,13 @@ export function RouteError() {
     <>
       {!layoutHeader && (
         <header className="flex h-18 items-center border-b border-line px-5 md:h-22 md:px-[5vw]">
-          <Link to="/" aria-label="Novoya, accueil" className="flex min-h-11 items-center no-underline">
+          <Link to="/" aria-label={tCommon('homeLink')} className="flex min-h-11 items-center no-underline">
             <Logo />
           </Link>
         </header>
       )}
       <main className={layoutHeader ? 'pt-26 md:pt-30' : 'pt-8'}>
-        <ErrorNote
-          message="Novoya ne parvient pas à joindre le serveur. Réessayez dans un instant."
-          onRetry={() => router.invalidate()}
-        />
+        <ErrorNote message={t('serverUnreachable')} onRetry={() => router.invalidate()} />
       </main>
     </>
   )

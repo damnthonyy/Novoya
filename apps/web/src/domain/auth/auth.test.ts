@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
-import { passwordSignInErrorMessage, signInErrorMessage } from './errors'
+import en from '../../i18n/locales/en/errors.json'
+import { passwordSignInErrorKey, signInErrorKey } from './errors'
 import { displayName, safeRedirect } from './session'
 
 describe('displayName', () => {
@@ -33,28 +34,45 @@ describe('safeRedirect', () => {
   )
 })
 
-describe('signInErrorMessage', () => {
+describe('signInErrorKey', () => {
   it('is null without an error', () => {
-    expect(signInErrorMessage(undefined)).toBeNull()
+    expect(signInErrorKey(undefined)).toBeNull()
   })
 
-  it('explains a known code and has a fallback for the others', () => {
-    expect(signInErrorMessage('account_disabled')).toBe('Ce compte est désactivé.')
-    expect(signInErrorMessage('oauth_cancelled')).toBe('Vous avez annulé la connexion avec Google.')
-    expect(signInErrorMessage('user_not_found')).toMatch(/ne retrouvons pas votre compte/)
-    expect(signInErrorMessage('something_new')).toMatch(/problème est survenu/)
+  it('gives the key of a known code and a fallback for the others', () => {
+    expect(signInErrorKey('account_disabled')).toBe('signIn.account_disabled')
+    expect(signInErrorKey('oauth_cancelled')).toBe('signIn.oauth_cancelled')
+    expect(signInErrorKey('something_new')).toBe('signIn.unknown')
+  })
+
+  it('has a text for every key it can give', () => {
+    const codes = Object.keys(en.signIn)
+    for (const code of [...codes, 'something_new']) {
+      const key = signInErrorKey(code)!.replace('signIn.', '')
+      expect(en.signIn).toHaveProperty(key)
+    }
   })
 })
 
-describe('passwordSignInErrorMessage', () => {
-  it('explains wrong credentials, an unverified e-mail and rate limiting', () => {
-    expect(passwordSignInErrorMessage('invalid_credentials')).toBe('E-mail ou mot de passe incorrect.')
-    expect(passwordSignInErrorMessage('email_not_verified')).toMatch(/Confirmez d’abord votre adresse/)
-    expect(passwordSignInErrorMessage('too_many_attempts')).toMatch(/Trop de tentatives/)
+describe('passwordSignInErrorKey', () => {
+  it('gives the key of a known code', () => {
+    expect(passwordSignInErrorKey('invalid_credentials')).toBe('password.invalid_credentials')
+    expect(passwordSignInErrorKey('email_not_verified')).toBe('password.email_not_verified')
+  })
+
+  it('reads a rate limit like too many attempts', () => {
+    expect(passwordSignInErrorKey('too_many_requests')).toBe('password.too_many_attempts')
   })
 
   it('has a fallback for anything else', () => {
-    expect(passwordSignInErrorMessage(undefined)).toMatch(/problème est survenu/)
-    expect(passwordSignInErrorMessage('something_new')).toMatch(/problème est survenu/)
+    expect(passwordSignInErrorKey(undefined)).toBe('password.unknown')
+    expect(passwordSignInErrorKey('something_new')).toBe('password.unknown')
+  })
+
+  it('has a text for every key it can give', () => {
+    for (const code of [...Object.keys(en.password), 'too_many_requests', 'something_new']) {
+      const key = passwordSignInErrorKey(code).replace('password.', '')
+      expect(en.password).toHaveProperty(key)
+    }
   })
 })

@@ -1,4 +1,5 @@
 import { useId } from 'react'
+import { useTranslation } from 'react-i18next'
 
 import { Eyebrow } from '../atoms/Eyebrow'
 import { Input } from '../atoms/Input'
@@ -13,27 +14,26 @@ type Props = {
   onChange: (values: ConstraintsValues) => void
   minPersons: number
   maxPersons: number
-  /** "2 voyageurs". */
-  personsText: string
 }
 
 const label = 'text-xs tracking-[0.12em] uppercase'
 
 /** The panel's last step: budget, travellers and dates. */
-export function ConstraintsFields({ values, errors, onChange, minPersons, maxPersons, personsText }: Props) {
+export function ConstraintsFields({ values, errors, onChange, minPersons, maxPersons }: Props) {
   const personsId = useId()
+  const { t } = useTranslation('preferences')
   const set = <K extends keyof ConstraintsValues>(key: K, value: ConstraintsValues[K]) =>
     onChange({ ...values, [key]: value })
 
   return (
     <section aria-labelledby={`${personsId}-title`} className="mt-[50px] border-t border-ink pt-10">
       <Eyebrow>
-        <span id={`${personsId}-title`}>Derniers repères</span>
+        <span id={`${personsId}-title`}>{t('lastMarkers')}</span>
       </Eyebrow>
       <div className="grid gap-x-5 md:grid-cols-2">
         <Field
-          label={<span className={label}>Budget maximum (€)</span>}
-          hint="Partagé uniquement avec votre agent"
+          label={<span className={label}>{t('budget')}</span>}
+          hint={t('budgetHint')}
           error={errors.budget}
           className="my-2.5"
         >
@@ -41,7 +41,7 @@ export function ConstraintsFields({ values, errors, onChange, minPersons, maxPer
             <Input
               id={id}
               inputMode="decimal"
-              placeholder="3 500"
+              placeholder={t('budgetPlaceholder')}
               aria-describedby={describedBy}
               aria-invalid={invalid}
               value={values.budget}
@@ -51,15 +51,16 @@ export function ConstraintsFields({ values, errors, onChange, minPersons, maxPer
         </Field>
         <div className="my-2.5">
           <p id={`${personsId}-label`} className={`mb-2 ${label}`}>
-            Voyageurs
+            {t('travellers')}
           </p>
           <div aria-labelledby={`${personsId}-label`} role="group">
             <Stepper
               value={values.persons}
               min={minPersons}
               max={maxPersons}
-              unit="voyageur"
-              valueText={personsText}
+              decreaseLabel={t('fewerTravellers')}
+              increaseLabel={t('moreTravellers')}
+              valueText={t('persons', { count: values.persons })}
               describedBy={errors.persons ? `${personsId}-error` : undefined}
               onChange={(persons) => set('persons', persons)}
             />
@@ -70,7 +71,7 @@ export function ConstraintsFields({ values, errors, onChange, minPersons, maxPer
             </p>
           )}
         </div>
-        <Field label={<span className={label}>Départ</span>} error={errors.startDate} className="my-2.5">
+        <Field label={<span className={label}>{t('departure')}</span>} error={errors.startDate} className="my-2.5">
           {({ id, describedBy, invalid }) => (
             <Input
               id={id}
@@ -82,7 +83,7 @@ export function ConstraintsFields({ values, errors, onChange, minPersons, maxPer
             />
           )}
         </Field>
-        <Field label={<span className={label}>Retour</span>} error={errors.endDate} className="my-2.5">
+        <Field label={<span className={label}>{t('return')}</span>} error={errors.endDate} className="my-2.5">
           {({ id, describedBy, invalid }) => (
             <Input
               id={id}

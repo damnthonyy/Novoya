@@ -30,20 +30,27 @@ export function selectedTags(selection: Selection): { section: string; tag: stri
   return Object.entries(selection).flatMap(([section, tags]) => tags.map((tag) => ({ section, tag })))
 }
 
-/** The panel answers refused by the API, in words for the client. */
-export function answerPanelErrorMessage(code: string | undefined): string {
+export type AnswerPanelErrorKey =
+  | 'answers.invalid'
+  | 'answers.wishNotFound'
+  | 'answers.alreadyAnswered'
+  | 'answers.tooManyRequests'
+  | 'answers.unknown'
+
+/** The key of the message for panel answers the API refused (errors.json). */
+export function answerPanelErrorKey(code: string | undefined): AnswerPanelErrorKey {
   switch (code) {
     case 'invalid_answers':
     case 'invalid_input':
-      return 'Certaines réponses ne conviennent pas. Vérifiez les dates et le budget, puis réessayez.'
+      return 'answers.invalid'
     case 'wish_not_found':
-      return 'Nous ne retrouvons pas cette envie. Recommencez depuis le début.'
+      return 'answers.wishNotFound'
     case 'invalid_transition':
     case 'conflict':
-      return 'Vous avez déjà répondu pour cette envie.'
+      return 'answers.alreadyAnswered'
     case 'too_many_requests':
-      return 'Trop de demandes d’un coup. Patientez un instant puis réessayez.'
+      return 'answers.tooManyRequests'
     default:
-      return 'Vos préférences n’ont pas pu être envoyées. Réessayez dans un instant.'
+      return 'answers.unknown'
   }
 }

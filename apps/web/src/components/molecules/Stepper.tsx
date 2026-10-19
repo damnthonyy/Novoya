@@ -3,16 +3,17 @@ type Props = {
   min: number
   max: number
   onChange: (value: number) => void
-  /** What the number counts, for the buttons' labels ("voyageur"). */
-  unit: string
-  /** The value in words ("2 voyageurs"). */
+  /** The buttons' labels for screen readers ("One traveller fewer"). */
+  decreaseLabel: string
+  increaseLabel: string
+  /** The value in words ("2 travellers"). */
   valueText: string
   id?: string
   describedBy?: string
 }
 
 /** A number changed with − and + buttons. */
-export function Stepper({ value, min, max, onChange, unit, valueText, id, describedBy }: Props) {
+export function Stepper({ value, min, max, onChange, decreaseLabel, increaseLabel, valueText, id, describedBy }: Props) {
   const button = 'size-11 bg-ivory text-lg disabled:opacity-40'
   return (
     <div
@@ -24,7 +25,7 @@ export function Stepper({ value, min, max, onChange, unit, valueText, id, descri
       <button
         type="button"
         className={button}
-        aria-label={`Un ${unit} de moins`}
+        aria-label={decreaseLabel}
         disabled={value <= min}
         onClick={() => onChange(value - 1)}
       >
@@ -34,7 +35,7 @@ export function Stepper({ value, min, max, onChange, unit, valueText, id, descri
       <button
         type="button"
         className={button}
-        aria-label={`Un ${unit} de plus`}
+        aria-label={increaseLabel}
         disabled={value >= max}
         onClick={() => onChange(value + 1)}
       >

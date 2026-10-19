@@ -3,7 +3,7 @@ import type { ReactNode } from 'react'
 import { Chip } from '../atoms/Chip'
 
 type Props = {
-  /** "3 préférences". */
+  /** "3 preferences". */
   summary: string
   chips: string[]
   action: ReactNode

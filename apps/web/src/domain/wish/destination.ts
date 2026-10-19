@@ -28,7 +28,7 @@ export function destinationLabel(destination: Destination): string {
   return destination.city ? `${destination.city} · ${destination.country}` : destination.country
 }
 
-/** A wish to start from when the client picks a suggested destination. */
-export function suggestionWish(destination: Destination): string {
-  return `Quelques jours à ${destination.city ?? destination.country}, `
+/** The place to name in a wish started from a suggestion: the city, else the country. */
+export function destinationPlace(destination: Destination): string {
+  return destination.city ?? destination.country
 }
