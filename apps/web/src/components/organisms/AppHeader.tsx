@@ -35,7 +35,7 @@ export function AppHeader({ userName, role = 'client', onSignOut, signingOut = f
         </Link>
         {userName && (
           <>
-            <nav aria-label="Navigation principale" className="hidden items-center gap-7 md:flex">
+            <nav aria-label="Navigation principale" className="hidden items-center gap-7 lg:flex">
               <Link to="/wish" className={navLink}>
                 Composer
               </Link>
@@ -56,30 +56,31 @@ export function AppHeader({ userName, role = 'client', onSignOut, signingOut = f
             <DropdownMenu>
               <DropdownMenuTrigger className="flex min-h-11 items-center gap-2.5 rounded-full text-sm">
                 <Avatar name={userName} />
-                <span className="hidden max-w-48 truncate md:inline">{userName}</span>
+                <span className="hidden max-w-48 truncate lg:inline">{userName}</span>
                 <span aria-hidden="true">⌄</span>
-                <span className="sr-only md:hidden">Menu du compte</span>
+                <span className="sr-only lg:hidden">Menu du compte</span>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-52 rounded-none border-0 p-2.5 shadow-menu">
-                <div className="md:hidden">
+                {/* Below lg the nav is hidden, so its links live here. */}
+                <div className="lg:hidden">
                   <DropdownMenuItem asChild>
                     <Link to="/wish">Composer</Link>
                   </DropdownMenuItem>
                   <DropdownMenuItem asChild>
                     <Link to="/trips">Mes voyages</Link>
                   </DropdownMenuItem>
+                  {role !== 'client' && (
+                    <DropdownMenuItem asChild>
+                      <Link to="/agent">Espace agence</Link>
+                    </DropdownMenuItem>
+                  )}
+                  {role === 'admin' && (
+                    <DropdownMenuItem asChild>
+                      <Link to="/admin">Administration</Link>
+                    </DropdownMenuItem>
+                  )}
+                  <DropdownMenuSeparator />
                 </div>
-                {role !== 'client' && (
-                  <DropdownMenuItem asChild>
-                    <Link to="/agent">Espace agence</Link>
-                  </DropdownMenuItem>
-                )}
-                {role === 'admin' && (
-                  <DropdownMenuItem asChild>
-                    <Link to="/admin">Administration</Link>
-                  </DropdownMenuItem>
-                )}
-                <DropdownMenuSeparator />
                 <DropdownMenuItem disabled={signingOut} onSelect={onSignOut}>
                   {signingOut ? 'Déconnexion…' : 'Se déconnecter'}
                 </DropdownMenuItem>
