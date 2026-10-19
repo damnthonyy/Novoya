@@ -7,6 +7,7 @@ How `src/` is organised:
 - Screens, in Atomic Design: [docs/ATOMIC.md](docs/ATOMIC.md)
 - Business rules (`src/domain/`): [docs/DOMAIN.md](docs/DOMAIN.md)
 - React hooks (`src/hooks/`): [docs/HOOKS.md](docs/HOOKS.md)
+- Translations, English and French (`src/i18n/`): [docs/I18N.md](docs/I18N.md)
 
 ## Styling
 

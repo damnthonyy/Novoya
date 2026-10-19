@@ -1,6 +1,7 @@
 
 import { useForm } from "@tanstack/react-form";
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 type Status = "idle" | "loading" | "error" | "notCovered";
 
 
@@ -17,6 +18,9 @@ async function submitWish(wish: string) {
     const [status, setStatus] = useState<Status>("idle");
     const [message, setMessage] = useState("");
     const [suggestions, setSuggestions] = useState<string[]>([]);
+    const { t } = useTranslation("wish");
+    const { t: tCommon } = useTranslation();
+    const { t: tErrors } = useTranslation("errors");
     const form = useForm({
         defaultValues: { wish: "" },
         onSubmit: async ({ value }) => {
@@ -51,18 +55,18 @@ async function submitWish(wish: string) {
             <textarea
               value={field.state.value}
               onChange={(e) => field.handleChange(e.target.value)}
-              placeholder="Décris ton voyage..."
+              placeholder={t("placeholder")}
             />
           )}
         </form.Field>
         <button type="submit" disabled={status === "loading"}>
-          Envoyer
+          {t("send")}
         </button>
       </form>
 
-      {status === "loading" && <p>Chargement...</p>}
+      {status === "loading" && <p>{tCommon("loading")}</p>}
 
-      {status === "error" && <p>Une erreur est survenue, réessaie.</p>}
+      {status === "error" && <p>{tErrors("wishFailed")}</p>}
 
       {status === "notCovered" && (
         <div>

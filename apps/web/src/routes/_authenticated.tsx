@@ -1,11 +1,14 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { createFileRoute, Outlet, redirect, useRouter } from '@tanstack/react-router'
+import { useTranslation } from 'react-i18next'
 
 import { isUnauthenticated } from '../api/errors'
 import { getMeOptions, getMeQueryKey, signOutMutation } from '../api/generated/@tanstack/react-query.gen'
 import { AppHeader } from '../components/organisms/AppHeader'
 import { displayName } from '../domain/auth/session'
+import { resolveLocale } from '../domain/i18n/locale'
 import { useActivityGap } from '../hooks/ui/useActivityGap'
+import i18n from '../i18n'
 
 // After this long without any action on the page, check the session again on the next navigation.
 const IDLE_MS = 3 * 60_000
@@ -16,6 +19,9 @@ export const Route = createFileRoute('/_authenticated')({
   beforeLoad: async ({ context, location }) => {
     try {
       const me = await context.queryClient.ensureQueryData({ ...getMeOptions(), retry: false })
+      // Switch before the page renders, so it never shows in the browser's language first.
+      const locale = resolveLocale(me.locale, navigator.languages)
+      if (i18n.language !== locale) await i18n.changeLanguage(locale)
       return { me }
     } catch (error) {
       if (isUnauthenticated(error)) {
@@ -31,6 +37,7 @@ function SignedInLayout() {
   const { me } = Route.useRouteContext()
   const queryClient = useQueryClient()
   const router = useRouter()
+  const { t } = useTranslation('header')
   const signOut = useMutation({
     ...signOutMutation(),
     onSuccess: async () => {
@@ -49,7 +56,7 @@ function SignedInLayout() {
         role={me.role}
         onSignOut={() => signOut.mutate({})}
         signingOut={signOut.isPending}
-        signOutError={signOut.isError ? 'La déconnexion a échoué. Réessayez.' : undefined}
+        signOutError={signOut.isError ? t('signOutFailed') : undefined}
       />
       <Outlet />
     </>

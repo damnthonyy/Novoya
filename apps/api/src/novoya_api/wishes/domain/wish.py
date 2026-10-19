@@ -46,7 +46,8 @@ class WishStatus(StrEnum):
 class Wish:
     """What the client asks for, in their own words. A draft becomes not_covered or
     panel_shown once the destination is checked; a draft without a destination stays a
-    draft so the client can say where. A panel_shown wish is answered once."""
+    draft so the client can say where. A panel_shown wish is answered once, then planned
+    once its plan is built."""
 
     id: UUID
     user_id: UUID
@@ -82,6 +83,12 @@ class Wish:
         answers.check_against(self.panel)
         self.status = WishStatus.ANSWERED
         self.answers = answers
+        self.updated_at = now
+
+    def mark_planned(self, now: datetime) -> None:
+        if self.status is not WishStatus.ANSWERED:
+            raise InvalidTransition(f"a {self.status} wish cannot be planned")
+        self.status = WishStatus.PLANNED
         self.updated_at = now
 
     def _leave_draft(self, status: WishStatus) -> None:

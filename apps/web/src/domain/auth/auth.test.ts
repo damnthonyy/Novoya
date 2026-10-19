@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
-import { signInErrorMessage } from './errors'
+import en from '../../i18n/locales/en/errors.json'
+import { signInErrorKey } from './errors'
 import { displayName, safeRedirect } from './session'
 
 describe('displayName', () => {
@@ -33,15 +34,22 @@ describe('safeRedirect', () => {
   )
 })
 
-describe('signInErrorMessage', () => {
+describe('signInErrorKey', () => {
   it('is null without an error', () => {
-    expect(signInErrorMessage(undefined)).toBeNull()
+    expect(signInErrorKey(undefined)).toBeNull()
   })
 
-  it('explains a known code and has a fallback for the others', () => {
-    expect(signInErrorMessage('account_disabled')).toBe('This account is disabled.')
-    expect(signInErrorMessage('oauth_cancelled')).toBe('You cancelled the Google sign-in.')
-    expect(signInErrorMessage('user_not_found')).toMatch(/could not find your account/)
-    expect(signInErrorMessage('something_new')).toMatch(/went wrong/)
+  it('gives the key of a known code and a fallback for the others', () => {
+    expect(signInErrorKey('account_disabled')).toBe('signIn.account_disabled')
+    expect(signInErrorKey('oauth_cancelled')).toBe('signIn.oauth_cancelled')
+    expect(signInErrorKey('something_new')).toBe('signIn.unknown')
+  })
+
+  it('has a text for every key it can give', () => {
+    const codes = Object.keys(en.signIn)
+    for (const code of [...codes, 'something_new']) {
+      const key = signInErrorKey(code)!.replace('signIn.', '')
+      expect(en.signIn).toHaveProperty(key)
+    }
   })
 })

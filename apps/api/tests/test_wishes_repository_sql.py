@@ -45,7 +45,7 @@ ANSWERS = Answers(
 async def engine(database_url) -> AsyncIterator[AsyncEngine]:  # noqa: F811
     engine = create_async_engine(database_url, poolclass=NullPool)
     async with engine.begin() as connection:
-        await connection.execute(text("TRUNCATE wishes"))
+        await connection.execute(text("TRUNCATE wishes CASCADE"))  # plans reference wishes
     yield engine
     await engine.dispose()
 

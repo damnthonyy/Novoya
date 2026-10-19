@@ -1,21 +1,25 @@
 // The codes the API puts in /login?error=<code> when a Google sign-in fails.
-const MESSAGES: Record<string, string> = {
-  oauth_cancelled: 'You cancelled the Google sign-in.',
-  oauth_failed: 'Google sign-in did not work. Please try again.',
-  oauth_state_invalid: 'Your sign-in took too long or was started in another browser. Please try again.',
-  oauth_email_not_verified: 'Your Google email address is not verified yet.',
-  oauth_link_not_allowed: 'This Google account cannot be linked to your Novoya account.',
-  identity_already_linked: 'This Google account is already linked to another Novoya account.',
-  account_disabled: 'This account is disabled.',
-  user_not_found: 'We could not find your account. Please sign in again.',
-  too_many_attempts: 'Too many attempts. Please wait a moment and try again.',
-  unknown_provider: 'Sign-in with Google is not available right now.',
-}
+// Their texts are in i18n/locales/<language>/errors.json, under signIn.<code>.
+const SIGN_IN_ERROR_CODES = [
+  'oauth_cancelled',
+  'oauth_failed',
+  'oauth_state_invalid',
+  'oauth_email_not_verified',
+  'oauth_link_not_allowed',
+  'identity_already_linked',
+  'account_disabled',
+  'user_not_found',
+  'too_many_attempts',
+  'unknown_provider',
+] as const
 
-const FALLBACK = 'Something went wrong while signing you in. Please try again.'
+type SignInErrorCode = (typeof SIGN_IN_ERROR_CODES)[number]
+export type SignInErrorKey = `signIn.${SignInErrorCode | 'unknown'}`
 
-/** The message to show for a sign-in error code, or null when there is no error. */
-export function signInErrorMessage(code: string | undefined): string | null {
+const KNOWN = new Set<string>(SIGN_IN_ERROR_CODES)
+
+/** The key of the message to show for a sign-in error code, or null when there is no error. */
+export function signInErrorKey(code: string | undefined): SignInErrorKey | null {
   if (!code) return null
-  return MESSAGES[code] ?? FALLBACK
+  return KNOWN.has(code) ? (`signIn.${code}` as SignInErrorKey) : 'signIn.unknown'
 }
