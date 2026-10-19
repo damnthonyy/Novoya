@@ -56,6 +56,30 @@ class Panel:
             )
         )
 
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> "Panel":
+        """The panel saved by to_dict(), so the answers are checked against what was shown."""
+        return cls(
+            sections=tuple(
+                PanelSection(
+                    id=section["id"],
+                    title=section["title"],
+                    multi=section["multi"],
+                    tags=tuple(
+                        Tag(id=tag["id"], label=tag["label"], preselected=tag["preselected"])
+                        for tag in section["tags"]
+                    ),
+                )
+                for section in data["sections"]
+            ),
+            ask_budget=data["ask_budget"],
+            ask_persons=data["ask_persons"],
+            ask_dates=data["ask_dates"],
+        )
+
+    def section(self, section_id: str) -> PanelSection | None:
+        return next((section for section in self.sections if section.id == section_id), None)
+
     def to_dict(self) -> dict[str, Any]:
         """The JSON shape of ARCHITECTURE.md section 3."""
         return {

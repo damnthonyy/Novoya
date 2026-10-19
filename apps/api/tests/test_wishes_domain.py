@@ -1,13 +1,15 @@
 """The wish, its destination and its panel are plain objects: tested without any port."""
 
 from dataclasses import FrozenInstanceError
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
+from decimal import Decimal
 from uuid import UUID, uuid4
 
 import pytest
 
 from novoya_api.shared.domain.errors import DomainError, InvalidTransition
-from novoya_api.wishes.domain.errors import InvalidWish
+from novoya_api.wishes.domain.answers import Answers, SelectedTag
+from novoya_api.wishes.domain.errors import InvalidAnswers, InvalidWish
 from novoya_api.wishes.domain.panel import Panel, PanelSection, Tag
 from novoya_api.wishes.domain.wish import Destination, Wish, WishStatus, find_covered
 
@@ -307,3 +309,167 @@ def test_to_dict_keeps_preselected_and_ask_flags():
         "ask_persons": True,
         "ask_dates": False,
     }
+
+
+def test_from_dict_reads_back_to_dict():
+    panel = Panel(
+        sections=(
+            PanelSection("style", "Style", False, (Tag("beach", "Beach", True),)),
+            PanelSection("food", "Food", True, (Tag("seafood", "Seafood"), Tag("wine", "Wine"))),
+        ),
+        ask_budget=True,
+        ask_persons=False,
+        ask_dates=True,
+    )
+
+    assert Panel.from_dict(panel.to_dict()) == panel
+
+
+def test_section_returns_the_section_or_none():
+    assert PANEL.section("style") == PANEL.sections[0]
+    assert PANEL.section("food") is None
+
+
+# Answers
+
+ANSWER_PANEL = Panel(
+    sections=(
+        PanelSection("style", "Style", True, (Tag("beach", "Beach"), Tag("city", "City"))),
+        PanelSection("rhythm", "Rhythm", False, (Tag("slow", "Slow"), Tag("busy", "Busy"))),
+    )
+)
+BEACH = SelectedTag("style", "beach")
+
+
+def answers(**changes) -> Answers:
+    fields = {
+        "selected_tags": (BEACH,),
+        "budget_max": Decimal("1500.00"),
+        "currency": "EUR",
+        "persons": 2,
+        "start_date": date(2026, 11, 2),
+        "end_date": date(2026, 11, 9),
+    } | changes
+    return Answers(**fields)
+
+
+def shown_wish() -> Wish:
+    wish = new_wish()
+    wish.show_panel(LISBON, ANSWER_PANEL, CREATED)
+    return wish
+
+
+def test_new_wish_has_no_answers():
+    assert new_wish().answers is None
+
+
+def test_answer_sets_status_answers_and_updated_at():
+    wish = shown_wish()
+    given = answers(
+        selected_tags=(BEACH, SelectedTag("style", "city"), SelectedTag("rhythm", "slow"))
+    )
+
+    wish.answer(given, LATER)
+
+    assert wish.status is WishStatus.ANSWERED
+    assert wish.answers == given
+    assert wish.updated_at == LATER
+
+
+def test_answer_without_tags_is_valid():
+    wish = shown_wish()
+
+    wish.answer(answers(selected_tags=()), LATER)
+
+    assert wish.status is WishStatus.ANSWERED
+
+
+@pytest.mark.parametrize(
+    "tag",
+    [
+        SelectedTag("style", "mountain"),
+        SelectedTag("food", "beach"),
+        SelectedTag("rhythm", "beach"),
+    ],
+    ids=["unknown tag", "unknown section", "tag of another section"],
+)
+def test_answer_with_a_tag_not_in_the_panel_raises_invalid_answers(tag):
+    wish = shown_wish()
+
+    with pytest.raises(InvalidAnswers):
+        wish.answer(answers(selected_tags=(BEACH, tag)), LATER)
+    assert wish.status is WishStatus.PANEL_SHOWN
+    assert wish.answers is None
+
+
+def test_answer_with_two_tags_in_a_single_choice_section_raises_invalid_answers():
+    wish = shown_wish()
+    tags = (SelectedTag("rhythm", "slow"), SelectedTag("rhythm", "busy"))
+
+    with pytest.raises(InvalidAnswers):
+        wish.answer(answers(selected_tags=tags), LATER)
+
+
+def test_answer_twice_raises_invalid_transition():
+    wish = shown_wish()
+    wish.answer(answers(), LATER)
+
+    with pytest.raises(InvalidTransition):
+        wish.answer(answers(), LATER)
+
+
+@pytest.mark.parametrize(
+    "status", [WishStatus.DRAFT, WishStatus.NOT_COVERED, WishStatus.ANSWERED, WishStatus.PLANNED]
+)
+def test_answer_a_wish_whose_panel_is_not_shown_raises_invalid_transition(status):
+    wish = Wish(
+        id=uuid4(),
+        user_id=USER_ID,
+        text="A week in Lisbon",
+        status=status,
+        destination=LISBON,
+        panel=ANSWER_PANEL,
+        created_at=CREATED,
+        updated_at=CREATED,
+    )
+
+    with pytest.raises(InvalidTransition):
+        wish.answer(answers(), LATER)
+
+
+@pytest.mark.parametrize(
+    "changes",
+    [
+        {"budget_max": Decimal("0")},
+        {"budget_max": Decimal("-10")},
+        {"currency": "USD"},
+        {"currency": "eur"},
+        {"persons": 0},
+        {"end_date": date(2026, 11, 2)},
+        {"end_date": date(2026, 11, 1)},
+        {"selected_tags": (BEACH, BEACH)},
+    ],
+    ids=[
+        "zero budget",
+        "negative budget",
+        "other currency",
+        "lowercase currency",
+        "no traveller",
+        "same day",
+        "end before start",
+        "duplicate tag",
+    ],
+)
+def test_invalid_answers_raise_invalid_answers(changes):
+    with pytest.raises(InvalidAnswers):
+        answers(**changes)
+
+
+def test_invalid_answers_is_a_422_input_error():
+    assert issubclass(InvalidAnswers, DomainError)
+    assert InvalidAnswers.code == "invalid_answers"
+
+
+def test_answers_are_immutable():
+    with pytest.raises(FrozenInstanceError):
+        answers().persons = 3  # type: ignore[misc]

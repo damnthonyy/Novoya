@@ -5,6 +5,7 @@ from enum import StrEnum
 from uuid import UUID, uuid4
 
 from novoya_api.shared.domain.errors import InvalidTransition
+from novoya_api.wishes.domain.answers import Answers
 from novoya_api.wishes.domain.errors import InvalidWish
 from novoya_api.wishes.domain.panel import Panel
 
@@ -45,7 +46,7 @@ class WishStatus(StrEnum):
 class Wish:
     """What the client asks for, in their own words. A draft becomes not_covered or
     panel_shown once the destination is checked; a draft without a destination stays a
-    draft so the client can say where."""
+    draft so the client can say where. A panel_shown wish is answered once."""
 
     id: UUID
     user_id: UUID
@@ -55,6 +56,7 @@ class Wish:
     panel: Panel | None
     created_at: datetime
     updated_at: datetime
+    answers: Answers | None = None
 
     @classmethod
     def create(cls, user_id: UUID, text: str, now: datetime) -> "Wish":
@@ -72,6 +74,14 @@ class Wish:
         self._leave_draft(WishStatus.PANEL_SHOWN)
         self.destination = destination
         self.panel = panel
+        self.updated_at = now
+
+    def answer(self, answers: Answers, now: datetime) -> None:
+        if self.status is not WishStatus.PANEL_SHOWN or self.panel is None:
+            raise InvalidTransition(f"a {self.status} wish cannot be answered")
+        answers.check_against(self.panel)
+        self.status = WishStatus.ANSWERED
+        self.answers = answers
         self.updated_at = now
 
     def _leave_draft(self, status: WishStatus) -> None:
