@@ -1,14 +1,18 @@
+import re
+from collections.abc import Iterable
 from dataclasses import dataclass
 from datetime import date
 from uuid import UUID
 
 from novoya_api.catalog.domain.kinds import OfferKind
 from novoya_api.catalog.domain.partner import Partner
-from novoya_api.shared.domain.errors import DomainError
+from novoya_api.shared.domain.errors import InvalidInput
 
 
-class InvalidOffer(DomainError):
-    """Person limits or availability dates are inconsistent."""
+class InvalidOffer(InvalidInput):
+    """Person limits, dates or tags are inconsistent."""
+
+    code = "invalid_offer"
 
 
 @dataclass(frozen=True)
@@ -35,6 +39,9 @@ class Offer:
             raise InvalidOffer("person limits must be at least 1 and min <= max")
         if self.available_from > self.available_to:
             raise InvalidOffer("available_from must be on or before available_to")
+        for tag in self.tags:
+            if not _is_catalog_tag(tag):
+                raise InvalidOffer("tags must be section:tag")
 
     def is_listed_with(self, partner: Partner) -> bool:
         """Inactive partners hide their offers; inactive offers are unused."""
@@ -51,3 +58,26 @@ class Offer:
         if start < self.available_from or end > self.available_to:
             return False
         return True
+
+
+def normalize_tags(tags: Iterable[str]) -> tuple[str, ...]:
+    """Lowercase section:tag, no duplicates. Empty tags are allowed."""
+    kept: list[str] = []
+    for raw in tags:
+        tag = raw.strip().lower()
+        if not tag:
+            continue
+        if not _is_catalog_tag(tag):
+            raise InvalidOffer("tags must be section:tag")
+        if tag not in kept:
+            kept.append(tag)
+    return tuple(kept)
+
+
+# Same ids as the panel builder accepts (wishes/infrastructure/llm/panel_builder.py, Slug).
+_ID = r"[a-z0-9]+(?:[_-][a-z0-9]+)*"
+_CATALOG_TAG = re.compile(rf"{_ID}:{_ID}")
+
+
+def _is_catalog_tag(tag: str) -> bool:
+    return _CATALOG_TAG.fullmatch(tag) is not None
