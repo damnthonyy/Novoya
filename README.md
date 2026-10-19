@@ -16,7 +16,7 @@ docker compose up --build
 
 | Service | URL |
 |---|---|
-| Web (React) | http://localhost:5173 |
+| Web (React) | http://localhost:5173. The app reaches the API through it, at http://localhost:5173/api |
 | API (FastAPI) | http://localhost:8000, docs at http://localhost:8000/docs |
 | PostgreSQL | localhost:5432 (user, password and database: `novoya`) |
 

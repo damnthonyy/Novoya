@@ -1,9 +1,9 @@
 import { createFileRoute } from '@tanstack/react-router'
 
-import { ApiStatus } from '../components/ApiStatus'
-import { WishForm } from '../components/WishForm'
+import { ApiStatus } from '../../components/ApiStatus'
+import { WishForm } from '../../components/WishForm'
 
-export const Route = createFileRoute('/')({
+export const Route = createFileRoute('/_authenticated/')({
   component: HomePage,
 })
 

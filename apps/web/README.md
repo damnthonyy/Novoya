@@ -10,7 +10,7 @@ How `src/` is organised:
 
 ## Run locally
 
-Needs Node 22.22.2+ (or 24.15+) and pnpm. The API should run on http://localhost:8000.
+Needs Node 22.22.2+ (or 24.15+) and pnpm. The API should run on http://localhost:8000: the dev server proxies `/api` to it (set `API_PROXY_TARGET` otherwise), so the browser only talks to http://localhost:5173 ([ADR 0011](../../docs/adr/0011-same-origin-api-proxy.md)).
 
 ```bash
 cp .env.example .env

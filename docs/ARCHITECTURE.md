@@ -64,7 +64,7 @@ flowchart LR
   DB[(PostgreSQL)]
   LLM[[OpenRouter<br/>LLM API]]
 
-  W -- HTTPS --> API
+  W -- "HTTPS, /api on the web app's origin (proxy)" --> API
   API --> AG
   AG --> LLM
   AG --> TL --> DB
@@ -235,6 +235,8 @@ The PDF exists in English and French, in the client's language (`users.locale`).
 Roles live in the database (`users.role`). A new account is `client`, and signing in never changes a role. Only an admin changes it, through `/admin/users`, and each change is written to `role_changes`. The first admin is set with the `grant-role` command.
 
 An account can have Google, a password, or both: `oauth_identities` and `password_credentials` hold one sign-in method each. Sessions are opaque tokens stored hashed in `sessions`, so signing out, resetting a password or changing a role takes effect at the next request. Sessions expire after 7 days without use and 30 days at most.
+
+The browser calls the API at `/api` on the web app's own origin, through a proxy that strips the prefix (Vite locally, the host's rewrites in production). The session cookie is then always first-party, wherever the API is hosted ([ADR 0011](adr/0011-same-origin-api-proxy.md)).
 
 ## 7. API (first version)
 
