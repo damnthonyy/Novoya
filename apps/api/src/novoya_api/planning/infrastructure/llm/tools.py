@@ -10,6 +10,7 @@ from datetime import date
 from typing import Annotated, Any
 
 from pydantic import BaseModel, ConfigDict, Field, StringConstraints, ValidationError
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from novoya_api.catalog.public import covered_destinations as catalog_destinations
 from novoya_api.catalog.public import search_offers as catalog_search
@@ -80,10 +81,24 @@ class _SearchArguments(BaseModel):
 
 
 def travel_tools(
-    covered_destinations: CoveredDestinations = catalog_destinations,
-    search_offers: SearchOffers = catalog_search,
+    covered_destinations: CoveredDestinations | None = None,
+    search_offers: SearchOffers | None = None,
+    *,
+    session: AsyncSession | None = None,
 ) -> list[Tool]:
-    """covered_destinations and search_offers, reading the catalog through catalog.public."""
+    """covered_destinations and search_offers, reading the catalog through catalog.public.
+
+    Inside a request, pass its session: the tools then read through it. The orchestrator runs
+    tool calls one after the other, so they never use the session at the same time."""
+    if covered_destinations is None:
+
+        async def covered_destinations() -> list[tuple[str, str]]:
+            return await catalog_destinations(session=session)
+
+    if search_offers is None:
+
+        async def search_offers(*arguments: Any) -> list[Any]:
+            return await catalog_search(*arguments, session=session)
 
     async def list_covered() -> dict[str, Any]:
         covered = await covered_destinations()

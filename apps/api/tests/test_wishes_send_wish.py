@@ -52,12 +52,14 @@ class FakeCatalog:
 
 
 class FakeReader:
-    def __init__(self, reading: DestinationReading) -> None:
+    def __init__(self, reading: DestinationReading, events: list[str]) -> None:
         self.reading = reading
+        self.events = events
         self.calls: list[tuple[str, list[Destination]]] = []
 
     async def read(self, text, covered) -> DestinationReading:
         self.calls.append((text, list(covered)))
+        self.events.append("read")
         return self.reading
 
 
@@ -78,13 +80,16 @@ class FakeUnitOfWork:
     async def commit(self) -> None:
         self.events.append("commit")
 
+    async def rollback(self) -> None:
+        self.events.append("rollback")
+
 
 class Setup:
     def __init__(self, reading: DestinationReading, covered=COVERED, tags=LISBON_TAGS) -> None:
         self.events: list[str] = []
         self.wishes = FakeWishes(self.events)
         self.catalog = FakeCatalog(covered, tags)
-        self.reader = FakeReader(reading)
+        self.reader = FakeReader(reading, self.events)
         self.uow = FakeUnitOfWork(self.events)
         self.send_wish = SendWish(
             wishes=self.wishes,
@@ -135,8 +140,18 @@ async def test_wish_is_added_once_then_committed_once(reading):
 
     result = await send(setup)
 
-    assert setup.events == ["add", "commit"]
+    assert setup.events == ["rollback", "read", "add", "commit"]
     assert setup.wishes.added == [result.wish]
+
+
+async def test_the_catalog_read_ends_before_the_reader_runs():
+    """The reader may wait on a model for seconds: the request must not hold its database
+    connection, in an open transaction, during that time."""
+    setup = Setup(DestinationReading(destination=LISBON, suggestions=[]))
+
+    await send(setup)
+
+    assert setup.events.index("rollback") < setup.events.index("read")
 
 
 # Covered destination
