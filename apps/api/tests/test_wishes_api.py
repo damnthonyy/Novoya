@@ -17,6 +17,7 @@ from novoya_api.wishes.application.ports.destination_reader import DestinationRe
 from novoya_api.wishes.application.use_cases.send_wish import SendWish
 from novoya_api.wishes.domain.wish import Destination
 from novoya_api.wishes.infrastructure.llm.destination_reader import NameMatchingReader
+from novoya_api.wishes.infrastructure.llm.panel_builder import TagsFromOffersBuilder
 from novoya_api.wishes.presentation.http import dependencies
 from novoya_api.wishes.presentation.http.dependencies import get_current_user_id, get_send_wish
 
@@ -87,6 +88,7 @@ def app(reader, wishes):
         wishes=wishes,
         catalog=FakeCatalog(),
         reader=reader,
+        panel_builder=TagsFromOffersBuilder(),
         uow=FakeUnitOfWork(),
         clock=FixedClock(),
     )
@@ -193,13 +195,14 @@ def test_send_wish_route_is_documented(app):
     assert "201" in operation["responses"]
 
 
-def test_without_an_api_key_the_reader_matches_names(monkeypatch):
+def test_without_an_api_key_the_reader_and_builder_skip_the_model(monkeypatch):
     def no_key(**kwargs):
         raise LLMError("NOVOYA_OPENROUTER_API_KEY is not set")
 
     monkeypatch.setattr(dependencies, "get_orchestrator", no_key)
 
     assert isinstance(dependencies.get_destination_reader(), NameMatchingReader)
+    assert isinstance(dependencies.get_panel_builder(), TagsFromOffersBuilder)
 
 
 def signed_in_as(role: Role) -> CurrentUserView:
@@ -238,7 +241,9 @@ def test_send_wish_documents_the_shared_error_responses(app):
 def test_send_wish_reads_the_catalog_through_the_request_session():
     session = object()
 
-    use_case = dependencies.get_send_wish(session=session, reader=NameMatchingReader())
+    use_case = dependencies.get_send_wish(
+        session=session, reader=NameMatchingReader(), panel_builder=TagsFromOffersBuilder()
+    )
 
     assert use_case._catalog._session is session
     assert use_case._wishes._session is session

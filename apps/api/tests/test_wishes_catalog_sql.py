@@ -20,6 +20,7 @@ from novoya_api.wishes.application.use_cases.send_wish import SendWish, SendWish
 from novoya_api.wishes.domain.panel import Panel
 from novoya_api.wishes.domain.wish import Destination, WishStatus
 from novoya_api.wishes.infrastructure.catalog import PartnerCatalog
+from novoya_api.wishes.infrastructure.llm.panel_builder import TagsFromOffersBuilder
 from tests.test_catalog_sql import database_url, session  # noqa: F401  (fixtures)
 
 pytestmark = pytest.mark.usefixtures("session")
@@ -94,6 +95,7 @@ def send_wish(session, reading: DestinationReading) -> SendWish:  # noqa: F811
         wishes=FakeWishes(),
         catalog=PartnerCatalog(session),
         reader=FakeReader(reading),
+        panel_builder=TagsFromOffersBuilder(),
         uow=FakeUnitOfWork(),
         clock=FixedClock(),
     )
@@ -218,6 +220,7 @@ async def test_the_request_session_holds_no_transaction_while_the_reader_runs(se
         wishes=FakeWishes(),
         catalog=PartnerCatalog(session),
         reader=reader,
+        panel_builder=TagsFromOffersBuilder(),
         uow=SqlAlchemyUnitOfWork(session),
         clock=FixedClock(),
     )
@@ -225,4 +228,34 @@ async def test_the_request_session_holds_no_transaction_while_the_reader_runs(se
     result = await use_case(SendWishCommand(user_id=USER_ID, text="A week in Chania"))
 
     assert reader.in_transaction is False
+    assert result.wish.status == WishStatus.PANEL_SHOWN
+
+
+class SessionWatchingBuilder:
+    """Notes whether the request session still holds a transaction while the panel is built."""
+
+    def __init__(self, session: AsyncSession) -> None:  # noqa: F811
+        self.session = session
+        self.in_transaction: bool | None = None
+
+    async def build(self, text, destination, tags) -> Panel:
+        self.in_transaction = self.session.in_transaction()
+        return Panel.from_tags(tags)
+
+
+async def test_the_request_session_holds_no_transaction_while_the_builder_runs(session):  # noqa: F811
+    await seed_catalog()
+    builder = SessionWatchingBuilder(session)
+    use_case = SendWish(
+        wishes=FakeWishes(),
+        catalog=PartnerCatalog(session),
+        reader=FakeReader(DestinationReading(destination=CHANIA, suggestions=[])),
+        panel_builder=builder,
+        uow=SqlAlchemyUnitOfWork(session),
+        clock=FixedClock(),
+    )
+
+    result = await use_case(SendWishCommand(user_id=USER_ID, text="A week in Chania"))
+
+    assert builder.in_transaction is False
     assert result.wish.status == WishStatus.PANEL_SHOWN
