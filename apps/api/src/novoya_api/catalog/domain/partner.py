@@ -32,7 +32,7 @@ class Partner:
 
 def normalize_place(name: str) -> str:
     """English Title Case so destinations stay one spelling (greece -> Greece)."""
-    parts = name.strip().split()
-    if not parts:
+    words = " ".join(name.split())
+    if not words:
         raise InvalidPartner("place is empty")
-    return " ".join(part[:1].upper() + part[1:].lower() for part in parts)
+    return words.title()  # same as the seed: Saint-Tropez, L'Isle-Sur-La-Sorgue

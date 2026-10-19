@@ -144,6 +144,24 @@ def test_normalize_place_title_cases_english_names():
     assert normalize_place("CHANIA") == "Chania"
 
 
+@pytest.mark.parametrize("tag", ["style:café", "food:fish&chips", "a:b:c", "style:", ":beach"])
+def test_normalize_tags_refuses_ids_the_panel_cannot_use(tag):
+    with pytest.raises(InvalidOffer):
+        normalize_tags([tag])
+
+
+def test_normalize_tags_keeps_slug_ids():
+    assert normalize_tags(["Style:Sea_View", "food:street-food"]) == (
+        "style:sea_view",
+        "food:street-food",
+    )
+
+
+def test_normalize_place_capitalises_after_hyphens_and_apostrophes():
+    assert normalize_place("saint-tropez") == "Saint-Tropez"
+    assert normalize_place("l'isle-sur-la-sorgue") == "L'Isle-Sur-La-Sorgue"
+
+
 def test_empty_partner_name_is_rejected():
     with pytest.raises(InvalidPartner):
         _partner(name="  ")

@@ -1,3 +1,4 @@
+import re
 from collections.abc import Iterable
 from dataclasses import dataclass
 from datetime import date
@@ -73,6 +74,10 @@ def normalize_tags(tags: Iterable[str]) -> tuple[str, ...]:
     return tuple(kept)
 
 
+# Same ids as the panel builder accepts (wishes/infrastructure/llm/panel_builder.py, Slug).
+_ID = r"[a-z0-9]+(?:[_-][a-z0-9]+)*"
+_CATALOG_TAG = re.compile(rf"{_ID}:{_ID}")
+
+
 def _is_catalog_tag(tag: str) -> bool:
-    section, sep, name = tag.partition(":")
-    return bool(sep and section and name and " " not in tag)
+    return _CATALOG_TAG.fullmatch(tag) is not None
