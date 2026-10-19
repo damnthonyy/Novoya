@@ -61,6 +61,7 @@ export function AppHeader({ userName, role = 'client', onSignOut, signingOut = f
                 <span className="sr-only lg:hidden">Menu du compte</span>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-52 rounded-none border-0 p-2.5 shadow-menu">
+                {/* Below lg the nav is hidden, so its links live here. */}
                 <div className="lg:hidden">
                   <DropdownMenuItem asChild>
                     <Link to="/wish">Composer</Link>
@@ -68,18 +69,18 @@ export function AppHeader({ userName, role = 'client', onSignOut, signingOut = f
                   <DropdownMenuItem asChild>
                     <Link to="/trips">Mes voyages</Link>
                   </DropdownMenuItem>
+                  {role !== 'client' && (
+                    <DropdownMenuItem asChild>
+                      <Link to="/agent">Espace agence</Link>
+                    </DropdownMenuItem>
+                  )}
+                  {role === 'admin' && (
+                    <DropdownMenuItem asChild>
+                      <Link to="/admin">Administration</Link>
+                    </DropdownMenuItem>
+                  )}
+                  <DropdownMenuSeparator />
                 </div>
-                {role !== 'client' && (
-                  <DropdownMenuItem asChild>
-                    <Link to="/agent">Espace agence</Link>
-                  </DropdownMenuItem>
-                )}
-                {role === 'admin' && (
-                  <DropdownMenuItem asChild>
-                    <Link to="/admin">Administration</Link>
-                  </DropdownMenuItem>
-                )}
-                <DropdownMenuSeparator />
                 <DropdownMenuItem disabled={signingOut} onSelect={onSignOut}>
                   {signingOut ? 'Déconnexion…' : 'Se déconnecter'}
                 </DropdownMenuItem>

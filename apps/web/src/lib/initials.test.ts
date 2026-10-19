@@ -11,4 +11,8 @@ describe('initials', () => {
   it('works on an email when there is no name', () => {
     expect(initials('lea@example.com')).toBe('LE')
   })
+  it('keeps a character made of two UTF-16 units whole', () => {
+    expect(initials('😀 Martin')).toBe('😀M')
+    expect(initials('𝒜da Lovelace')).toBe('𝒜L')
+  })
 })
