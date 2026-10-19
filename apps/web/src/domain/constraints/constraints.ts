@@ -11,6 +11,7 @@ export type ConstraintsErrorKey =
   | 'answers.budget'
   | 'answers.persons'
   | 'answers.startDate'
+  | 'answers.startInPast'
   | 'answers.endDate'
   | 'answers.endBeforeStart'
 
@@ -27,14 +28,18 @@ export function parseBudget(text: string): string | null {
   return value > 0 ? value.toFixed(2) : null
 }
 
-/** The API's rules for the answers: a budget above 0, 1 to 50 travellers, the return after the departure. */
-export function constraintsErrors(input: ConstraintsInput): ConstraintsErrors {
+/**
+ * The rules for the answers: a budget above 0, 1 to 50 travellers, a departure from `today`
+ * (YYYY-MM-DD, the user's local day) and the return after the departure.
+ */
+export function constraintsErrors(input: ConstraintsInput, today: string): ConstraintsErrors {
   const errors: ConstraintsErrors = {}
   if (parseBudget(input.budget) === null) errors.budget = 'answers.budget'
   if (!Number.isInteger(input.persons) || input.persons < MIN_PERSONS || input.persons > MAX_PERSONS) {
     errors.persons = 'answers.persons'
   }
   if (!input.startDate) errors.startDate = 'answers.startDate'
+  else if (input.startDate < today) errors.startDate = 'answers.startInPast'
   if (!input.endDate) errors.endDate = 'answers.endDate'
   else if (input.startDate && input.endDate <= input.startDate) {
     errors.endDate = 'answers.endBeforeStart'

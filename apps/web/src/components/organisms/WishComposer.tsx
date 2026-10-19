@@ -1,6 +1,8 @@
 import { type FormEvent, type KeyboardEvent, type Ref, useId } from 'react'
 import { Trans, useTranslation } from 'react-i18next'
 
+import { isApplePlatform } from '@/lib/platform'
+
 type Props = {
   value: string
   onChange: (value: string) => void
@@ -48,7 +50,7 @@ export function WishComposer({ value, onChange, onSubmit, pending = false, error
         aria-invalid={Boolean(error)}
         aria-describedby={error ? errorId : undefined}
         placeholder={t('placeholder')}
-        className="h-[90px] w-full resize-none border-0 font-serif text-xl text-ink outline-none placeholder:text-[#8b908a] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-solid focus-visible:outline-coral"
+        className="h-[90px] w-full resize-none border-0 font-serif text-xl text-ink placeholder:text-muted"
       />
       {error && (
         <p id={errorId} role="alert" className="mb-2 text-sm text-danger">
@@ -60,6 +62,7 @@ export function WishComposer({ value, onChange, onSubmit, pending = false, error
           <Trans
             t={t}
             i18nKey="shortcut"
+            values={{ key: isApplePlatform() ? '⌘' : 'Ctrl' }}
             components={[<kbd key="cmd" className={kbd} />, <kbd key="enter" className={kbd} />]}
           />
         </span>

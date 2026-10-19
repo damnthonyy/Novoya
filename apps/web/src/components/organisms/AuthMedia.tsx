@@ -1,3 +1,4 @@
+import { Photo } from '../atoms/Photo'
 import type { ReactNode } from 'react'
 
 type Props = {
@@ -13,7 +14,7 @@ type Props = {
 export function AuthMedia({ image, imageAlt, logo, quote, caption }: Props) {
   return (
     <section className="relative flex h-[250px] flex-col justify-end p-5 text-white md:h-auto md:px-[4vw] md:py-[42px]">
-      <img src={image} alt={imageAlt} className="absolute inset-0 size-full object-cover" />
+      <Photo src={image} alt={imageAlt} sizes="(min-width: 768px) 52vw, 100vw" fetchPriority="high" className="absolute inset-0 size-full object-cover" />
       <div
         aria-hidden="true"
         className="absolute inset-0 bg-[linear-gradient(180deg,rgb(15_40_35/0.55),transparent_120px),linear-gradient(0deg,rgb(15_40_35/0.65),rgb(15_40_35/0.05))]"

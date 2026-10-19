@@ -29,9 +29,9 @@ describe('sendWishErrorKey', () => {
 
 describe('destinationPhoto', () => {
   it('uses the city first, then the country, ignoring case', () => {
-    expect(destinationPhoto({ city: 'Chania', country: 'Greece' })).toBe('/images/elounda-sea-view.jpg')
-    expect(destinationPhoto({ city: 'Athens', country: 'greece' })).toBe('/images/crete-coast.jpg')
-    expect(destinationPhoto({ city: null, country: 'Morocco' })).toBe('/images/marrakech-riad.jpg')
+    expect(destinationPhoto({ city: 'Chania', country: 'Greece' })).toBe('/images/elounda-sea-view')
+    expect(destinationPhoto({ city: 'Athens', country: 'greece' })).toBe('/images/crete-coast')
+    expect(destinationPhoto({ city: null, country: 'Morocco' })).toBe('/images/marrakech-riad')
   })
 
   it('falls back to a neutral photo', () => {

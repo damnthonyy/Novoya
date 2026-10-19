@@ -1,5 +1,6 @@
 import { useTranslation } from 'react-i18next'
 
+import { Photo } from '../atoms/Photo'
 import { Button } from '../atoms/Button'
 import { Eyebrow } from '../atoms/Eyebrow'
 
@@ -35,7 +36,7 @@ export function CoverageSuggestions({ place, suggestions, onRephrase }: Props) {
                 onClick={suggestion.onPick}
                 className="group relative grid w-full grid-cols-[115px_1fr] bg-white text-left md:block"
               >
-                <img src={suggestion.image} alt="" className="h-[110px] w-full object-cover md:h-[230px]" />
+                <Photo src={suggestion.image} alt="" sizes="(min-width: 768px) 30vw, 115px" loading="lazy" className="h-[110px] w-full object-cover md:h-[230px]" />
                 <span className="grid p-5">
                   <span className="mb-2 text-xs text-muted">{t('coverage.composeHere')}</span>
                   <strong className="font-serif text-lg font-normal">{suggestion.label}</strong>

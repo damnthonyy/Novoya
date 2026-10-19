@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 
+import { Photo } from '../atoms/Photo'
 import { Eyebrow } from '../atoms/Eyebrow'
 import { PublicHeader } from './PublicHeader'
 
@@ -17,7 +18,7 @@ export function LandingHero({ image, imageAlt, signedIn, actions }: Props) {
   const { t } = useTranslation('home')
   return (
     <section className="relative h-[760px] overflow-hidden text-white md:h-screen md:min-h-[700px]">
-      <img src={image} alt={imageAlt} className="absolute inset-0 size-full animate-zoom object-cover" />
+      <Photo src={image} alt={imageAlt} fetchPriority="high" className="absolute inset-0 size-full animate-zoom object-cover" />
       <div
         aria-hidden="true"
         className="absolute inset-0 bg-[rgb(13_35_31/0.5)] md:bg-[linear-gradient(90deg,rgb(13_35_31/0.8)_0%,rgb(13_35_31/0.45)_54%,rgb(13_35_31/0.25))]"

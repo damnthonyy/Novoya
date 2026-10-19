@@ -67,7 +67,7 @@ function LoginPage() {
   return (
     <main className="min-h-screen md:grid md:h-screen md:grid-cols-[1.05fr_0.95fr]">
       <AuthMedia
-        image="/images/aegean-boat.jpg"
+        image="/images/aegean-boat"
         imageAlt={t('imageAlt')}
         logo={
           <Link to="/" aria-label={tCommon('homeLink')} className="flex min-h-11 items-center no-underline">
@@ -105,9 +105,6 @@ function LoginPage() {
             pending={signIn.isPending}
             error={passwordError}
           />
-          <p className="mt-6 text-center text-xs text-muted">
-            {t('legalNote')}
-          </p>
         </div>
       </section>
     </main>

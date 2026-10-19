@@ -2,19 +2,19 @@ type Destination = { country: string; city: string | null }
 
 // Our partners' destinations have their own photo; anything else gets the neutral sea one.
 const BY_CITY: Record<string, string> = {
-  chania: '/images/elounda-sea-view.jpg',
-  elounda: '/images/elounda-sea-view.jpg',
-  biarritz: '/images/biarritz-surf.jpg',
-  marrakech: '/images/marrakech-riad.jpg',
+  chania: '/images/elounda-sea-view',
+  elounda: '/images/elounda-sea-view',
+  biarritz: '/images/biarritz-surf',
+  marrakech: '/images/marrakech-riad',
 }
 const BY_COUNTRY: Record<string, string> = {
-  greece: '/images/crete-coast.jpg',
-  grèce: '/images/crete-coast.jpg',
-  france: '/images/biarritz-surf.jpg',
-  morocco: '/images/marrakech-riad.jpg',
-  maroc: '/images/marrakech-riad.jpg',
+  greece: '/images/crete-coast',
+  grèce: '/images/crete-coast',
+  france: '/images/biarritz-surf',
+  morocco: '/images/marrakech-riad',
+  maroc: '/images/marrakech-riad',
 }
-export const FALLBACK_PHOTO = '/images/aegean-boat.jpg'
+export const FALLBACK_PHOTO = '/images/aegean-boat'
 
 const key = (value: string | null) => (value ?? '').trim().toLowerCase()
 

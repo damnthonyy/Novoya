@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 
+import { Photo } from '../atoms/Photo'
 import { Eyebrow } from '../atoms/Eyebrow'
 import { Seal } from '../atoms/Seal'
 
@@ -137,7 +138,7 @@ export function Closing({ image, action }: { image: string; action: ReactNode })
   const { t } = useTranslation('home')
   return (
     <section className="relative grid h-[600px] place-items-center text-center text-white md:h-[720px]">
-      <img src={image} alt="" loading="lazy" className="absolute inset-0 size-full object-cover" />
+      <Photo src={image} alt="" loading="lazy" className="absolute inset-0 size-full object-cover" />
       <div aria-hidden="true" className="absolute inset-0 bg-[rgb(11_36_31/0.6)]" />
       <div className="relative px-6">
         <Eyebrow light>{t('closing.eyebrow')}</Eyebrow>

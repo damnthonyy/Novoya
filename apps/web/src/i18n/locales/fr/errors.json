@@ -39,6 +39,7 @@
     "wishNotFound": "Nous ne retrouvons pas cette envie. Recommencez depuis le début.",
     "alreadyAnswered": "Vous avez déjà répondu pour cette envie.",
     "tooManyRequests": "Trop de demandes d’un coup. Patientez un instant, puis réessayez.",
-    "unknown": "Vos préférences n’ont pas pu être envoyées. Réessayez dans un instant."
+    "unknown": "Vos préférences n’ont pas pu être envoyées. Réessayez dans un instant.",
+    "startInPast": "Le départ ne peut pas être dans le passé."
   }
 }

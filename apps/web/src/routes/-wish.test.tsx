@@ -204,6 +204,16 @@ describe('sending a wish', () => {
     expect(posts('/wishes')[0]!.body).toEqual({ text: 'La Crète en mai' })
   })
 
+  it.each([
+    ['Win32', 'Ctrl + Enter to send'],
+    ['MacIntel', '⌘ + Enter to send'],
+  ])('shows the shortcut of the platform (%s)', async (platform, hint) => {
+    vi.spyOn(navigator, 'platform', 'get').mockReturnValue(platform)
+    renderAt('/wish')
+
+    expect(await screen.findByText((_, element) => element?.textContent === hint)).toBeInTheDocument()
+  })
+
   it('opens the preferences when the destination is covered, keeping the wish for that page', async () => {
     const { router, queryClient } = renderAt('/wish')
 
@@ -263,8 +273,8 @@ describe('the preferences panel', () => {
 
   function fillConstraints() {
     fireEvent.change(screen.getByLabelText(/Maximum budget/), { target: { value: '3 500 €' } })
-    fireEvent.change(screen.getByLabelText('Departure'), { target: { value: '2026-05-12' } })
-    fireEvent.change(screen.getByLabelText('Return'), { target: { value: '2026-05-19' } })
+    fireEvent.change(screen.getByLabelText('Departure'), { target: { value: '2027-05-12' } })
+    fireEvent.change(screen.getByLabelText('Return'), { target: { value: '2027-05-19' } })
   }
 
   it('starts from the preselected tags and sends the chosen tags and constraints', async () => {
@@ -288,8 +298,8 @@ describe('the preferences panel', () => {
       budget_max: '3500.00',
       currency: 'EUR',
       persons: 3,
-      start_date: '2026-05-12',
-      end_date: '2026-05-19',
+      start_date: '2027-05-12',
+      end_date: '2027-05-19',
     })
     expect(await screen.findByRole('heading', { name: /Setting the evenings/ })).toBeInTheDocument()
     expect(screen.getByRole('link', { name: /See my trips/ })).toHaveAttribute('href', '/trips')
@@ -299,7 +309,7 @@ describe('the preferences panel', () => {
     renderAt(`/wish/${WISH_ID}/preferences`, withWish)
     await screen.findByRole('heading', { name: /What matters/ })
     fillConstraints()
-    fireEvent.change(screen.getByLabelText('Return'), { target: { value: '2026-05-01' } })
+    fireEvent.change(screen.getByLabelText('Return'), { target: { value: '2027-05-01' } })
 
     fireEvent.click(screen.getByRole('button', { name: /Compose my preview/ }))
 

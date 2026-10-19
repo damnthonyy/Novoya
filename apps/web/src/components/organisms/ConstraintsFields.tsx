@@ -1,6 +1,8 @@
 import { useId } from 'react'
 import { useTranslation } from 'react-i18next'
 
+import { localIsoDate } from '@/lib/dates'
+
 import { Eyebrow } from '../atoms/Eyebrow'
 import { Input } from '../atoms/Input'
 import { Field } from '../molecules/Field'
@@ -78,6 +80,7 @@ export function ConstraintsFields({ values, errors, onChange, minPersons, maxPer
               type="date"
               aria-describedby={describedBy}
               aria-invalid={invalid}
+              min={localIsoDate()}
               value={values.startDate}
               onChange={(event) => set('startDate', event.target.value)}
             />
@@ -88,7 +91,7 @@ export function ConstraintsFields({ values, errors, onChange, minPersons, maxPer
             <Input
               id={id}
               type="date"
-              min={values.startDate || undefined}
+              min={values.startDate || localIsoDate()}
               aria-describedby={describedBy}
               aria-invalid={invalid}
               value={values.endDate}

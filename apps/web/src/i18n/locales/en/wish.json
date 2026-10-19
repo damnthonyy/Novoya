@@ -3,7 +3,7 @@
   "send": "Send",
   "sending": "Sending",
   "composerLabel": "Your travel wish",
-  "shortcut": "<0>⌘</0> + <1>Enter</1> to send",
+  "shortcut": "<0>{{key}}</0> + <1>Enter</1> to send",
   "greeting": "Hello {{name}}",
   "greetingNoName": "Hello",
   "titleStart": "What would you",

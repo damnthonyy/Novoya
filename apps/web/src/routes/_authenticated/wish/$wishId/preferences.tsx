@@ -3,6 +3,8 @@ import { createFileRoute, Link, useNavigate } from '@tanstack/react-router'
 import { type FormEvent, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
+import { localIsoDate } from '@/lib/dates'
+
 import { ApiError } from '../../../../api/errors'
 import { answerPanelMutation } from '../../../../api/generated/@tanstack/react-query.gen'
 import type { PanelOut } from '../../../../api/generated/types.gen'
@@ -81,7 +83,7 @@ function PreferencesForm({ wishId, text, panel }: { wishId: string; text: string
 
   const submit = (event: FormEvent) => {
     event.preventDefault()
-    const found = constraintsErrors(constraints)
+    const found = constraintsErrors(constraints, localIsoDate())
     setErrors(found)
     if (Object.keys(found).length > 0 || answer.isPending) return
     answer.mutate({
@@ -129,7 +131,7 @@ function PreferencesForm({ wishId, text, panel }: { wishId: string; text: string
             )}
             onChange={(values) => {
               setConstraints(values)
-              if (Object.keys(errors).length > 0) setErrors(constraintsErrors(values))
+              if (Object.keys(errors).length > 0) setErrors(constraintsErrors(values, localIsoDate()))
             }}
             minPersons={MIN_PERSONS}
             maxPersons={MAX_PERSONS}

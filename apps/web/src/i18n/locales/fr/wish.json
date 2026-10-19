@@ -3,7 +3,7 @@
   "send": "Envoyer",
   "sending": "Envoi en cours",
   "composerLabel": "Votre envie de voyage",
-  "shortcut": "<0>⌘</0> + <1>Entrée</1> pour envoyer",
+  "shortcut": "<0>{{key}}</0> + <1>Entrée</1> pour envoyer",
   "greeting": "Bonjour {{name}}",
   "greetingNoName": "Bonjour",
   "titleStart": "De quoi avez-vous",
@@ -22,7 +22,7 @@
       "wish": "Une parenthèse sportive face à l’océan"
     }
   },
-  "suggestionWish": "Quelques jours à {{place}}, ",
+  "suggestionWish": "Quelques jours : {{place}}, ",
   "privacy": "✦ Vos mots restent chez Novoya. Aucun import, jamais.",
   "coverage": {
     "eyebrow": "Couverture Novoya",

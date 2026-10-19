@@ -19,20 +19,26 @@ describe('parseBudget', () => {
 })
 
 describe('constraintsErrors', () => {
+  const TODAY = '2026-03-01'
   const valid = { budget: '3 500', persons: 2, startDate: '2026-05-12', endDate: '2026-05-19' }
 
   it('accepts valid answers', () => {
-    expect(constraintsErrors(valid)).toEqual({})
+    expect(constraintsErrors(valid, TODAY)).toEqual({})
   })
 
   it('needs a budget, 1 to 50 travellers and both dates', () => {
-    const errors = constraintsErrors({ budget: '', persons: 0, startDate: '', endDate: '' })
+    const errors = constraintsErrors({ budget: '', persons: 0, startDate: '', endDate: '' }, TODAY)
     expect(Object.keys(errors).sort()).toEqual(['budget', 'endDate', 'persons', 'startDate'])
-    expect(constraintsErrors({ ...valid, persons: 51 }).persons).toBe('answers.persons')
+    expect(constraintsErrors({ ...valid, persons: 51 }, TODAY).persons).toBe('answers.persons')
   })
 
   it('needs the return after the departure', () => {
-    expect(constraintsErrors({ ...valid, endDate: '2026-05-12' }).endDate).toBe('answers.endBeforeStart')
-    expect(constraintsErrors({ ...valid, endDate: '2026-05-01' }).endDate).toBe('answers.endBeforeStart')
+    expect(constraintsErrors({ ...valid, endDate: '2026-05-12' }, TODAY).endDate).toBe('answers.endBeforeStart')
+    expect(constraintsErrors({ ...valid, endDate: '2026-05-01' }, TODAY).endDate).toBe('answers.endBeforeStart')
+  })
+
+  it('refuses a departure in the past, and accepts today', () => {
+    expect(constraintsErrors({ ...valid, startDate: '2026-02-28' }, TODAY).startDate).toBe('answers.startInPast')
+    expect(constraintsErrors({ ...valid, startDate: TODAY }, TODAY).startDate).toBeUndefined()
   })
 })

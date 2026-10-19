@@ -2,6 +2,7 @@ import type { ReactNode } from 'react'
 
 import { cn } from '@/lib/utils'
 
+import { Photo } from '../atoms/Photo'
 import { Chip } from '../atoms/Chip'
 
 type Props = {
@@ -27,8 +28,9 @@ export function TripCard({ image, imageAlt, badge, place, title, copy, tags, tal
       {renderLink(
         <>
           <div className={cn('relative h-[400px] overflow-hidden', tall ? 'md:h-[540px]' : 'md:h-[420px]')}>
-            <img
+            <Photo
               src={image}
+              sizes="(min-width: 768px) 40vw, 84vw"
               alt={imageAlt}
               loading="lazy"
               className="size-full object-cover transition-transform duration-700 group-hover:scale-[1.035]"

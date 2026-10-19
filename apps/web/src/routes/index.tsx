@@ -16,9 +16,9 @@ export const Route = createFileRoute('/')({
 
 // Three partner offers from the seed catalogue, shown as inspirations. Texts in home.json, trips.<id>.
 const TRIPS = [
-  { id: 'elounda', image: '/images/elounda-sea-view.jpg', tags: ['sea', 'calm', 'beach'] },
-  { id: 'biarritz', image: '/images/biarritz-surf.jpg', tags: ['beach', 'sport', 'sea'] },
-  { id: 'marrakech', image: '/images/marrakech-riad.jpg', tags: ['culture', 'calm', 'riad'] },
+  { id: 'elounda', image: '/images/elounda-sea-view', tags: ['sea', 'calm', 'beach'] },
+  { id: 'biarritz', image: '/images/biarritz-surf', tags: ['beach', 'sport', 'sea'] },
+  { id: 'marrakech', image: '/images/marrakech-riad', tags: ['culture', 'calm', 'riad'] },
 ] as const
 
 function LandingPage() {
@@ -31,7 +31,7 @@ function LandingPage() {
     <>
       <main>
         <LandingHero
-          image="/images/crete-coast.jpg"
+          image="/images/crete-coast"
           imageAlt={t('heroImageAlt')}
           signedIn={signedIn}
           actions={
@@ -78,7 +78,7 @@ function LandingPage() {
         <Method />
         <Trust />
         <Closing
-          image="/images/elounda-sea-view.jpg"
+          image="/images/elounda-sea-view"
           action={
             <Button asChild variant="coral" size="lg">
               <Link to="/wish">

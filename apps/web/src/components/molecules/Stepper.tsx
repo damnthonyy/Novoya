@@ -14,7 +14,8 @@ type Props = {
 
 /** A number changed with − and + buttons. */
 export function Stepper({ value, min, max, onChange, decreaseLabel, increaseLabel, valueText, id, describedBy }: Props) {
-  const button = 'size-11 bg-ivory text-lg disabled:opacity-40'
+  // aria-disabled, not disabled: a disabled button drops the focus to the top of the page.
+  const button = 'size-11 bg-ivory text-lg aria-disabled:cursor-default aria-disabled:opacity-40'
   return (
     <div
       id={id}
@@ -26,8 +27,8 @@ export function Stepper({ value, min, max, onChange, decreaseLabel, increaseLabe
         type="button"
         className={button}
         aria-label={decreaseLabel}
-        disabled={value <= min}
-        onClick={() => onChange(value - 1)}
+        aria-disabled={value <= min}
+        onClick={() => value > min && onChange(value - 1)}
       >
         −
       </button>
@@ -36,8 +37,8 @@ export function Stepper({ value, min, max, onChange, decreaseLabel, increaseLabe
         type="button"
         className={button}
         aria-label={increaseLabel}
-        disabled={value >= max}
-        onClick={() => onChange(value + 1)}
+        aria-disabled={value >= max}
+        onClick={() => value < max && onChange(value + 1)}
       >
         +
       </button>

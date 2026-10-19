@@ -39,6 +39,7 @@
     "wishNotFound": "We can't find this wish any more. Please start again.",
     "alreadyAnswered": "You have already answered for this wish.",
     "tooManyRequests": "Too many requests at once. Please wait a moment and try again.",
-    "unknown": "Your preferences couldn't be sent. Please try again in a moment."
+    "unknown": "Your preferences couldn't be sent. Please try again in a moment.",
+    "startInPast": "The departure cannot be in the past."
   }
 }
