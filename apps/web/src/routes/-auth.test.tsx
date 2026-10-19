@@ -298,6 +298,16 @@ describe('sign-in and sign-out', () => {
       expect(document.documentElement).toHaveAttribute('lang', 'fr')
     })
 
+    it("renders the page in the user's language from the first paint", async () => {
+      signedIn = { ...LEA, locale: 'fr' }
+      browserLanguages(['en-US'])
+      renderAt('/')
+
+      // The first heading on screen must already be French: no English frame before the switch.
+      expect(await screen.findByRole('heading', { level: 1 })).toHaveTextContent('Planifiez votre prochain voyage')
+      expect(screen.queryByText('Plan your next trip')).not.toBeInTheDocument()
+    })
+
     it("prefers the user's locale to the browser's language", async () => {
       signedIn = { ...LEA, locale: 'en' }
       browserLanguages(['fr-FR'])

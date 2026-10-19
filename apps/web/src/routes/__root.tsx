@@ -46,6 +46,8 @@ function RootLayout() {
   useActivityGap(IDLE_MS, () => queryClient.removeQueries({ queryKey: getMeQueryKey() }))
 
   // The signed-in user's locale wins; signed out (e.g. on /login), the browser's language.
+  // The /_authenticated guard already switches before a signed-in page renders; this keeps
+  // the language right when there is no user any more, for example after signing out.
   const locale = resolveLocale(me?.locale, navigator.languages)
   useEffect(() => {
     if (i18n.language !== locale) void i18n.changeLanguage(locale)
