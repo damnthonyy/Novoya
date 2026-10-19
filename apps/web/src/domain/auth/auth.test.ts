@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { signInErrorMessage } from './errors'
+import { passwordSignInErrorMessage, signInErrorMessage } from './errors'
 import { displayName, safeRedirect } from './session'
 
 describe('displayName', () => {
@@ -39,9 +39,22 @@ describe('signInErrorMessage', () => {
   })
 
   it('explains a known code and has a fallback for the others', () => {
-    expect(signInErrorMessage('account_disabled')).toBe('This account is disabled.')
-    expect(signInErrorMessage('oauth_cancelled')).toBe('You cancelled the Google sign-in.')
-    expect(signInErrorMessage('user_not_found')).toMatch(/could not find your account/)
-    expect(signInErrorMessage('something_new')).toMatch(/went wrong/)
+    expect(signInErrorMessage('account_disabled')).toBe('Ce compte est désactivé.')
+    expect(signInErrorMessage('oauth_cancelled')).toBe('Vous avez annulé la connexion avec Google.')
+    expect(signInErrorMessage('user_not_found')).toMatch(/ne retrouvons pas votre compte/)
+    expect(signInErrorMessage('something_new')).toMatch(/problème est survenu/)
+  })
+})
+
+describe('passwordSignInErrorMessage', () => {
+  it('explains wrong credentials, an unverified e-mail and rate limiting', () => {
+    expect(passwordSignInErrorMessage('invalid_credentials')).toBe('E-mail ou mot de passe incorrect.')
+    expect(passwordSignInErrorMessage('email_not_verified')).toMatch(/Confirmez d’abord votre adresse/)
+    expect(passwordSignInErrorMessage('too_many_attempts')).toMatch(/Trop de tentatives/)
+  })
+
+  it('has a fallback for anything else', () => {
+    expect(passwordSignInErrorMessage(undefined)).toMatch(/problème est survenu/)
+    expect(passwordSignInErrorMessage('something_new')).toMatch(/problème est survenu/)
   })
 })

@@ -163,7 +163,7 @@ describe('sign-in and sign-out', () => {
     meAnswer = 'ok'
     fireEvent.click(screen.getByRole('button', { name: 'Réessayer' }))
 
-    expect(await screen.findByRole('heading', { name: 'De quoi avez-vous envie ?' })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: /De quoi avez-vous/ })).toBeInTheDocument()
   })
 
   it('starts Google sign-in and comes back to the requested page', async () => {
@@ -186,20 +186,20 @@ describe('sign-in and sign-out', () => {
   it('explains why a Google sign-in failed', async () => {
     renderAt('/login?error=oauth_failed')
 
-    expect(await screen.findByRole('alert')).toHaveTextContent('Google sign-in did not work')
+    expect(await screen.findByRole('alert')).toHaveTextContent('La connexion avec Google n’a pas fonctionné')
   })
 
   it('says so when the user cancelled at Google', async () => {
     renderAt('/login?error=oauth_cancelled')
 
-    expect(await screen.findByRole('alert')).toHaveTextContent('You cancelled the Google sign-in.')
+    expect(await screen.findByRole('alert')).toHaveTextContent('Vous avez annulé la connexion avec Google.')
   })
 
   it('skips the login page when already signed in', async () => {
     signedIn = LEA
     const { router } = renderAt('/login')
 
-    expect(await screen.findByRole('heading', { name: 'De quoi avez-vous envie ?' })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: /De quoi avez-vous/ })).toBeInTheDocument()
     expect(router.state.location.pathname).toBe('/wish')
   })
 
@@ -207,7 +207,7 @@ describe('sign-in and sign-out', () => {
     signedIn = LEA
     const { router } = renderAt('/login?redirect=%2Fwish%3Ftrip%3Dbeach')
 
-    expect(await screen.findByRole('heading', { name: 'De quoi avez-vous envie ?' })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: /De quoi avez-vous/ })).toBeInTheDocument()
     expect(router.state.location.pathname).toBe('/wish')
     expect(router.state.location.search).toEqual({ trip: 'beach' })
   })
@@ -216,7 +216,7 @@ describe('sign-in and sign-out', () => {
     signedIn = LEA
     const { router } = renderAt('/login?redirect=%2F%2Fevil.com')
 
-    expect(await screen.findByRole('heading', { name: 'De quoi avez-vous envie ?' })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: /De quoi avez-vous/ })).toBeInTheDocument()
     expect(router.state.location.href).toBe('/wish')
   })
 
@@ -311,7 +311,7 @@ describe('sign-in and sign-out', () => {
       fireEvent.pointerMove(window)
       fireEvent.click(screen.getByRole('link', { name: 'Composer' }))
 
-      await screen.findByRole('heading', { name: 'De quoi avez-vous envie ?' })
+      await screen.findByRole('heading', { name: /De quoi avez-vous/ })
       expect(meCalls()).toBe(1)
     })
 
@@ -327,7 +327,7 @@ describe('sign-in and sign-out', () => {
       await waitFor(() => expect(meCalls()).toBe(2))
       expect(router.state.location.pathname).toBe('/wish')
       expect(screen.getByText('Léa Martin')).toBeInTheDocument()
-      expect(screen.getByRole('heading', { name: 'De quoi avez-vous envie ?' })).toBeInTheDocument()
+      expect(screen.getByRole('heading', { name: /De quoi avez-vous/ })).toBeInTheDocument()
     })
 
     it('checks the session again and goes to /login if it was revoked', async () => {

@@ -1,21 +1,38 @@
 // The codes the API puts in /login?error=<code> when a Google sign-in fails.
 const MESSAGES: Record<string, string> = {
-  oauth_cancelled: 'You cancelled the Google sign-in.',
-  oauth_failed: 'Google sign-in did not work. Please try again.',
-  oauth_state_invalid: 'Your sign-in took too long or was started in another browser. Please try again.',
-  oauth_email_not_verified: 'Your Google email address is not verified yet.',
-  oauth_link_not_allowed: 'This Google account cannot be linked to your Novoya account.',
-  identity_already_linked: 'This Google account is already linked to another Novoya account.',
-  account_disabled: 'This account is disabled.',
-  user_not_found: 'We could not find your account. Please sign in again.',
-  too_many_attempts: 'Too many attempts. Please wait a moment and try again.',
-  unknown_provider: 'Sign-in with Google is not available right now.',
+  oauth_cancelled: 'Vous avez annulé la connexion avec Google.',
+  oauth_failed: 'La connexion avec Google n’a pas fonctionné. Réessayez.',
+  oauth_state_invalid:
+    'La connexion a pris trop de temps ou a commencé dans un autre navigateur. Réessayez.',
+  oauth_email_not_verified: 'Votre adresse Google n’est pas encore vérifiée.',
+  oauth_link_not_allowed: 'Ce compte Google ne peut pas être lié à votre compte Novoya.',
+  identity_already_linked: 'Ce compte Google est déjà lié à un autre compte Novoya.',
+  account_disabled: 'Ce compte est désactivé.',
+  user_not_found: 'Nous ne retrouvons pas votre compte. Connectez-vous à nouveau.',
+  too_many_attempts: 'Trop de tentatives. Patientez un instant avant de réessayer.',
+  unknown_provider: 'La connexion avec Google n’est pas disponible pour le moment.',
 }
 
-const FALLBACK = 'Something went wrong while signing you in. Please try again.'
+const FALLBACK = 'Un problème est survenu pendant la connexion. Réessayez.'
 
 /** The message to show for a sign-in error code, or null when there is no error. */
 export function signInErrorMessage(code: string | undefined): string | null {
   if (!code) return null
   return MESSAGES[code] ?? FALLBACK
+}
+
+// The codes POST /auth/login answers with when an e-mail and password sign-in fails.
+const PASSWORD_MESSAGES: Record<string, string> = {
+  invalid_credentials: 'E-mail ou mot de passe incorrect.',
+  email_not_verified:
+    'Confirmez d’abord votre adresse e-mail : ouvrez le lien que nous vous avons envoyé.',
+  no_password_set: 'Ce compte se connecte avec Google. Utilisez le bouton « Continuer avec Google ».',
+  account_disabled: MESSAGES.account_disabled!,
+  too_many_attempts: MESSAGES.too_many_attempts!,
+  too_many_requests: MESSAGES.too_many_attempts!,
+}
+
+/** The message for a failed e-mail and password sign-in. */
+export function passwordSignInErrorMessage(code: string | undefined): string {
+  return (code && PASSWORD_MESSAGES[code]) || FALLBACK
 }
