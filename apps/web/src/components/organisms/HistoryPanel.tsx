@@ -52,8 +52,8 @@ export function HistoryPanel({ title, version, messageCount, planId, messages }:
           <ChatBubble key={`${i}-${message.text}`} {...message} />
         ))}
       </div>
-      <ChatComposer value={draft} onChange={setDraft} onSend={() => setDraft('')} placeholder={t('history.placeholder')} />
-      <small className="px-4.5 pb-4 text-xs text-muted">{t('history.note')}</small>
+      <ChatComposer value={draft} onChange={setDraft} onSend={() => {}} placeholder={t('history.placeholder')} disabled />
+      <small className="block px-4.5 pb-4 text-xs text-muted">{tConcierge('unavailable')}</small>
     </section>
   )
 }

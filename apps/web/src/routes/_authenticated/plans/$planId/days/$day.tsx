@@ -6,6 +6,7 @@ import { formatDay } from '@/lib/format'
 import { Eyebrow } from '../../../../../components/atoms/Eyebrow'
 import { ConversationDock } from '../../../../../components/organisms/ConversationDock'
 import { AppShell } from '../../../../../components/templates/AppShell'
+import { DemoBanner } from '../../../../../components/molecules/DemoBanner'
 import { getPlan } from '../../../../../fixtures/plans'
 
 export const Route = createFileRoute('/_authenticated/plans/$planId/days/$day')({
@@ -34,6 +35,7 @@ function DayPage() {
   const rest = words.slice(cut)
   return (
     <AppShell>
+      <DemoBanner />
       <main>
         <Link
           to="/plans/$planId"

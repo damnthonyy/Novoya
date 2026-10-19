@@ -8,23 +8,17 @@ import { Seal } from '../atoms/Seal'
 import { ChatBubble } from '../molecules/ChatBubble'
 import { ChatComposer } from '../molecules/ChatComposer'
 
-const SUGGESTIONS = [
-  ['suggestions.editDay', 'suggestions.editDayText'],
-  ['suggestions.variant', 'suggestions.variantText'],
-] as const
-
 /**
  * The concierge conversation, docked at the bottom right on large screens. Below that it
  * sits at the end of the page and sticks to the bottom while scrolling, so it never hides
  * the page's last lines. It starts closed: open, it covers the page's own links.
  * Render it as the last child of the page.
- * A preview: messages stay on this page until the conversation API exists.
+ * A preview: it shows the demo messages, and sending is disabled until the conversation API exists.
  */
 export function ConversationDock({ version = 2 }: { version?: number }) {
   const { t } = useTranslation('concierge')
   const [open, setOpen] = useState(false)
-  const [current, setCurrent] = useState(version)
-  const [messages, setMessages] = useState<Message[]>(listPlanMessages)
+  const [messages] = useState<Message[]>(listPlanMessages)
   const [draft, setDraft] = useState('')
 
   // Keep focused links and buttons from scrolling under the docked bar.
@@ -36,19 +30,6 @@ export function ConversationDock({ version = 2 }: { version?: number }) {
     }
   }, [])
 
-  const send = () => {
-    if (!draft.trim()) return
-    const next = current + 1
-    setMessages([
-      ...messages,
-      { from: 'you', text: draft },
-      // Stands in for the concierge's answer until the conversation API exists.
-      { from: 'novoya', text: t('done', { version: next }) },
-    ])
-    setCurrent(next)
-    setDraft('')
-  }
-
   return (
     <aside
       aria-label={t('dockLabel')}
@@ -58,7 +39,7 @@ export function ConversationDock({ version = 2 }: { version?: number }) {
         <Seal tone="ink" />
         <div className="grid flex-1">
           <b className="font-serif text-sm font-normal">{t('name')}</b>
-          <small className="text-xs text-muted">{t('activeThread', { version: current })}</small>
+          <small className="text-xs text-muted">{t('activeThread', { version })}</small>
         </div>
         <button
           type="button"
@@ -81,22 +62,8 @@ export function ConversationDock({ version = 2 }: { version?: number }) {
               <ChatBubble key={`${i}-${message.text}`} {...message} />
             ))}
           </div>
-          <div className="hidden gap-1.5 px-4 pt-2 lg:flex">
-            {SUGGESTIONS.map(([label, text]) => (
-              <button
-                key={label}
-                type="button"
-                onClick={() => setDraft(t(text))}
-                className="min-h-8 rounded-full border border-line bg-white px-2.5 text-xs"
-              >
-                {t(label)}
-              </button>
-            ))}
-          </div>
-          <ChatComposer value={draft} onChange={setDraft} onSend={send} placeholder={t('placeholder')} />
-          <small className="hidden px-4 pb-3 text-xs text-muted lg:block">
-            {t('note')}
-          </small>
+          <ChatComposer value={draft} onChange={setDraft} onSend={() => {}} placeholder={t('placeholder')} disabled />
+          <small className="block px-4 pb-3 text-xs text-muted">{t('unavailable')}</small>
         </>
       )}
     </aside>

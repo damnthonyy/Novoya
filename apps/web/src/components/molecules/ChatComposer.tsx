@@ -8,11 +8,13 @@ type Props = {
   onChange: (value: string) => void
   onSend: () => void
   placeholder: string
+  /** Shown but not usable, e.g. until the conversation API exists. */
+  disabled?: boolean
   className?: string
 }
 
 /** A message field with a round send button. Enter sends, Shift+Enter adds a line. */
-export function ChatComposer({ value, onChange, onSend, placeholder, className }: Props) {
+export function ChatComposer({ value, onChange, onSend, placeholder, disabled = false, className }: Props) {
   const id = useId()
   const { t } = useTranslation('concierge')
   return (
@@ -20,7 +22,7 @@ export function ChatComposer({ value, onChange, onSend, placeholder, className }
       className={cn('flex items-end gap-2 px-4 py-2.5', className)}
       onSubmit={(event) => {
         event.preventDefault()
-        onSend()
+        if (!disabled) onSend()
       }}
     >
       <label htmlFor={id} className="sr-only">
@@ -33,16 +35,18 @@ export function ChatComposer({ value, onChange, onSend, placeholder, className }
         onKeyDown={(event) => {
           if (event.key === 'Enter' && !event.shiftKey) {
             event.preventDefault()
-            onSend()
+            if (!disabled) onSend()
           }
         }}
         placeholder={placeholder}
-        className="h-11 w-full resize-none border-0 bg-ivory p-3 text-xs placeholder:text-muted focus-visible:outline-2"
+        disabled={disabled}
+        className="h-11 w-full resize-none border-0 bg-ivory p-3 text-xs placeholder:text-muted focus-visible:outline-2 disabled:opacity-60"
       />
       <button
         type="submit"
         aria-label={t('send')}
-        className="grid size-11 shrink-0 place-items-center rounded-full bg-coral text-ink"
+        disabled={disabled}
+        className="grid size-11 shrink-0 place-items-center rounded-full bg-coral text-ink disabled:opacity-50"
       >
         <span aria-hidden="true">↑</span>
       </button>

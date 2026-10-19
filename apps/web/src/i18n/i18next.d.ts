@@ -5,6 +5,7 @@ import type agent from './locales/en/agent.json'
 import type auth from './locales/en/auth.json'
 import type common from './locales/en/common.json'
 import type concierge from './locales/en/concierge.json'
+import type demo from './locales/en/demo.json'
 import type errors from './locales/en/errors.json'
 import type header from './locales/en/header.json'
 import type home from './locales/en/home.json'
@@ -24,6 +25,7 @@ declare module 'i18next' {
       auth: typeof auth
       common: typeof common
       concierge: typeof concierge
+      demo: typeof demo
       errors: typeof errors
       header: typeof header
       home: typeof home

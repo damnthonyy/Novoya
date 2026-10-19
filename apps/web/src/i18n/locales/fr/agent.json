@@ -21,6 +21,7 @@
     "budgetMax": "Budget max",
     "datesTravellers_one": "{{dates}} · {{count}} voyageur",
     "datesTravellers_other": "{{dates}} · {{count}} voyageurs",
-    "take": "Prendre le plan"
+    "take": "Prendre le plan",
+    "takeSoon": "Bientôt disponible"
   }
 }

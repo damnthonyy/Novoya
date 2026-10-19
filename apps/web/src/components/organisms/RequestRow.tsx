@@ -39,9 +39,12 @@ export function RequestRow({ client, title, wish, budget, startDate, endDate, tr
           {t('request.datesTravellers', { dates: formatDayRange(locale, startDate, endDate), count: travellers })}
         </dd>
       </dl>
-      <Button className="col-start-2 justify-self-start xl:col-start-auto" onClick={onTake}>
-        {t('request.take')}
-      </Button>
+      <div className="col-start-2 grid justify-items-start gap-1 xl:col-start-auto">
+        <Button disabled={!onTake} onClick={onTake}>
+          {t('request.take')}
+        </Button>
+        {!onTake && <small className="text-xs text-muted">{t('request.takeSoon')}</small>}
+      </div>
     </article>
   )
 }

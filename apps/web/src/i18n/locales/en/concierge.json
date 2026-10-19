@@ -8,13 +8,6 @@
   "collapse": "Collapse the conversation",
   "expand": "Open the conversation",
   "messages": "Messages",
-  "suggestions": {
-    "editDay": "Change a day",
-    "editDayText": "Make day 4 more active",
-    "variant": "Create a variant",
-    "variantText": "Create a more cultural variant"
-  },
   "placeholder": "Refine, ask a question…",
-  "note": "The preview can change with every message. No price is generated.",
-  "done": "Done. Version {{version}} of your preview includes this request."
+  "unavailable": "Chatting with the concierge is coming soon: messages can't be sent yet."
 }

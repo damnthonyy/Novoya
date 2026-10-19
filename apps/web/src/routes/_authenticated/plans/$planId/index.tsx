@@ -7,6 +7,7 @@ import { ConversationDock } from '../../../../components/organisms/ConversationD
 import { DayTimeline } from '../../../../components/organisms/DayTimeline'
 import { PlanHeader } from '../../../../components/organisms/PlanHeader'
 import { AppShell } from '../../../../components/templates/AppShell'
+import { DemoBanner } from '../../../../components/molecules/DemoBanner'
 import { getPlan } from '../../../../fixtures/plans'
 
 export const Route = createFileRoute('/_authenticated/plans/$planId/')({
@@ -29,6 +30,7 @@ function PlanPage() {
   const { t } = useTranslation('plan')
   return (
     <AppShell>
+      <DemoBanner />
       <main className="lg:pb-24">
         <PlanHeader {...plan} />
         <DayTimeline planId={plan.id} days={plan.days} />

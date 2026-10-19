@@ -8,13 +8,6 @@
   "collapse": "Réduire la conversation",
   "expand": "Ouvrir la conversation",
   "messages": "Messages",
-  "suggestions": {
-    "editDay": "Modifier un jour",
-    "editDayText": "Rendre le jour 4 plus actif",
-    "variant": "Créer une variante",
-    "variantText": "Créer une variante plus culturelle"
-  },
   "placeholder": "Affiner, poser une question…",
-  "note": "L’aperçu peut évoluer à chaque message. Aucun prix n’est généré.",
-  "done": "C’est fait. La version {{version}} de votre aperçu intègre cette demande."
+  "unavailable": "La conversation avec le concierge arrive bientôt : les messages ne peuvent pas encore être envoyés."
 }

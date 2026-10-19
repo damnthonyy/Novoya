@@ -7,6 +7,7 @@ import { BackofficeLayout } from '../../components/organisms/BackofficeLayout'
 import { RequestRow } from '../../components/organisms/RequestRow'
 import { AppShell } from '../../components/templates/AppShell'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui/tabs'
+import { DemoBanner } from '../../components/molecules/DemoBanner'
 import { canOpen } from '../../domain/auth/roles'
 import { listQuoteRequests, QUEUE_COUNTS, type QueueFilter } from '../../fixtures/agentQueue'
 
@@ -24,6 +25,7 @@ function AgentPage() {
   const { t } = useTranslation('agent')
   return (
     <AppShell>
+      <DemoBanner />
       <BackofficeLayout
         area={t('area')}
         items={[

@@ -9,6 +9,7 @@ import { HistoryPanel } from '../../components/organisms/HistoryPanel'
 import { ThreadList } from '../../components/organisms/ThreadList'
 import { AppShell } from '../../components/templates/AppShell'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui/tabs'
+import { DemoBanner } from '../../components/molecules/DemoBanner'
 import { listThreads } from '../../fixtures/trips'
 
 export const Route = createFileRoute('/_authenticated/trips')({
@@ -23,6 +24,7 @@ function TripsPage() {
 
   return (
     <AppShell>
+      <DemoBanner />
       <main className="pb-22">
         <section className="relative px-5 pt-14 pb-12 md:px-[8vw] md:pt-20">
           <Eyebrow>{t('eyebrow')}</Eyebrow>

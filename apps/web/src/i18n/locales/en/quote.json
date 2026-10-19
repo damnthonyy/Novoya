@@ -28,8 +28,7 @@
     "commentLabel": "A question or a comment? (optional)",
     "accept": "Accept the offer",
     "refuse": "Decline the offer",
-    "accepted": "Thank you! Your advisor is confirming the bookings and will be back to you very soon.",
-    "refused": "Noted. Your advisor can suggest another version if you wish.",
-    "noSupplier": "No supplier name appears on the offer."
+    "noSupplier": "No supplier name appears on the offer.",
+    "unavailable": "Answering an offer is coming soon. This one is an example, so there is nothing to accept yet."
   }
 }

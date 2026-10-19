@@ -53,6 +53,8 @@ function mockApi() {
   })
 }
 
+const patches = () => requests.filter((request) => request.method === 'PATCH')
+
 function renderAt(url: string) {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   const router = createAppRouter(queryClient, createMemoryHistory({ initialEntries: [url] }))
@@ -77,16 +79,22 @@ describe('back-office and plan screens', () => {
   it('lists the users for an admin', async () => {
     renderAt('/admin')
 
-    const table = await screen.findByRole('table', { name: 'Users and roles' })
+    // The first render of the admin chunk can be slow on a cold start.
+    const table = await screen.findByRole('table', { name: 'Users and roles' }, { timeout: 3000 })
     expect(within(table).getByRole('rowheader', { name: /Léa Morel/ })).toBeInTheDocument()
     expect(within(table).getByRole('rowheader', { name: /Arthur Roche/ })).toBeInTheDocument()
   })
 
-  it('changes a user role with PATCH /admin/users/{id}/role', async () => {
+  it('asks before changing a role, then sends PATCH /admin/users/{id}/role', async () => {
     renderAt('/admin')
 
     const select = await screen.findByRole('combobox', { name: 'Role of Léa Morel' })
     fireEvent.change(select, { target: { value: 'agent' } })
+
+    const dialog = await screen.findByRole('alertdialog', { name: "Change Léa Morel's role?" })
+    expect(dialog).toHaveTextContent('Léa Morel will go from Client to Agent.')
+    expect(patches()).toHaveLength(0)
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Change role' }))
 
     await waitFor(() =>
       expect(requests).toContainEqual(
@@ -94,6 +102,19 @@ describe('back-office and plan screens', () => {
       ),
     )
     await waitFor(() => expect(screen.getByRole('combobox', { name: 'Role of Léa Morel' })).toHaveValue('agent'))
+  })
+
+  it('sends nothing when the admin cancels the role change', async () => {
+    renderAt('/admin')
+
+    const select = await screen.findByRole('combobox', { name: 'Role of Léa Morel' })
+    // What the arrow keys do on a closed <select> in Windows: one change per key press.
+    fireEvent.change(select, { target: { value: 'admin' } })
+    fireEvent.click(await screen.findByRole('button', { name: 'Cancel' }))
+
+    await waitFor(() => expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument())
+    expect(patches()).toHaveLength(0)
+    expect(screen.getByRole('combobox', { name: 'Role of Léa Morel' })).toHaveValue('client')
   })
 
   it('does not let an admin change their own role', async () => {
@@ -159,12 +180,38 @@ describe('back-office and plan screens', () => {
     expect(await screen.findByRole('heading', { name: 'La côte au réveil.' })).toBeInTheDocument()
   })
 
-  it('confirms when the client accepts the quote', async () => {
+  it('does not pretend to accept the demo quote', async () => {
     renderAt('/quotes/NV-2026-0182')
 
-    fireEvent.click(await screen.findByRole('button', { name: 'Accept the offer' }))
+    expect(await screen.findByRole('button', { name: 'Accept the offer' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Decline the offer' })).toBeDisabled()
+    expect(screen.getByText(/Answering an offer is coming soon/)).toBeInTheDocument()
+  })
 
-    expect(await screen.findByRole('status')).toHaveTextContent('Your advisor is confirming the bookings')
+  it.each(['/trips', '/plans/chania', '/plans/chania/days/2', '/quotes/NV-2026-0182', '/agent'])(
+    'says %s shows demo data',
+    async (url) => {
+      renderAt(url)
+
+      expect(await screen.findByRole('note')).toHaveTextContent('Demo data.')
+    },
+  )
+
+  it('does not pretend the concierge answers', async () => {
+    renderAt('/plans/chania')
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Open the conversation' }))
+
+    expect(screen.getByRole('button', { name: 'Send' })).toBeDisabled()
+    expect(screen.getByText(/messages can't be sent yet/)).toBeInTheDocument()
+  })
+
+  it('does not let an agent take a demo request', async () => {
+    me = { ...ADMIN, role: 'agent' }
+    renderAt('/agent')
+
+    const buttons = await screen.findAllByRole('button', { name: 'Take the plan' })
+    for (const button of buttons) expect(button).toBeDisabled()
   })
 
   it('shows the conversation of the chosen trip', async () => {

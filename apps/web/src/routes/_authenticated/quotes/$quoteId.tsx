@@ -5,6 +5,7 @@ import { Eyebrow } from '../../../components/atoms/Eyebrow'
 import { QuoteDecision } from '../../../components/organisms/QuoteDecision'
 import { QuoteSheet } from '../../../components/organisms/QuoteSheet'
 import { AppShell } from '../../../components/templates/AppShell'
+import { DemoBanner } from '../../../components/molecules/DemoBanner'
 import { getQuote } from '../../../fixtures/quotes'
 
 export const Route = createFileRoute('/_authenticated/quotes/$quoteId')({
@@ -27,6 +28,7 @@ function QuotePage() {
   const { t } = useTranslation('quote')
   return (
     <AppShell tone="ivory">
+      <DemoBanner />
       {/* The decision only shows a confirmation until the API exists (#54). */}
       <main className="px-5 py-14 md:grid md:grid-cols-[0.8fr_1.2fr_0.65fr] md:items-start md:gap-10 md:px-[7vw] md:py-20">
         <div className="md:sticky md:top-37">

@@ -31,5 +31,11 @@
     "you": "You",
     "verified": "Verified",
     "pending": "Pending"
+  },
+  "confirm": {
+    "title": "Change {{name}}'s role?",
+    "body": "{{name}} will go from {{from}} to {{to}}. This changes what they can open in Novoya.",
+    "action": "Change role",
+    "cancel": "Cancel"
   }
 }

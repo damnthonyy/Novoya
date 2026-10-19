@@ -21,6 +21,7 @@
     "budgetMax": "Max budget",
     "datesTravellers_one": "{{dates}} · {{count}} traveller",
     "datesTravellers_other": "{{dates}} · {{count}} travellers",
-    "take": "Take the plan"
+    "take": "Take the plan",
+    "takeSoon": "Coming soon"
   }
 }
