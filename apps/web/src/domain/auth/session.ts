@@ -5,7 +5,7 @@ export function displayName(user: { name: string | null; email: string }): strin
 
 // oxlint-disable-next-line no-control-regex -- rejecting control characters is the point
 const CONTROL = /[\x00-\x1f\x7f]/
-const MAX_LENGTH = 2048
+const MAX_LENGTH = 512 // RedirectPolicy.max_length and the oauth_states.redirect_to column
 
 /**
  * A page of the web app to go to after signing in, or `/`.

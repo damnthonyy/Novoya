@@ -19,6 +19,12 @@ describe('safeRedirect', () => {
     expect(safeRedirect('/wishes/new?x=1')).toBe('/wishes/new?x=1')
   })
 
+  it('accepts up to 512 characters, like the API', () => {
+    const longest = '/' + 'a'.repeat(511)
+    expect(safeRedirect(longest)).toBe(longest)
+    expect(safeRedirect(longest + 'a')).toBe('/')
+  })
+
   it.each([undefined, '', 'https://evil.com', '//evil.com', '/\\evil.com', '/a\nb', 42])(
     'falls back to / for %j',
     (target) => {
@@ -34,6 +40,8 @@ describe('signInErrorMessage', () => {
 
   it('explains a known code and has a fallback for the others', () => {
     expect(signInErrorMessage('account_disabled')).toBe('This account is disabled.')
+    expect(signInErrorMessage('oauth_cancelled')).toBe('You cancelled the Google sign-in.')
+    expect(signInErrorMessage('user_not_found')).toMatch(/could not find your account/)
     expect(signInErrorMessage('something_new')).toMatch(/went wrong/)
   })
 })

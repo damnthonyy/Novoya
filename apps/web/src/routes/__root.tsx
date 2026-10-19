@@ -8,9 +8,14 @@ import {
 } from '@tanstack/react-router'
 import { TanStackRouterDevtools } from '@tanstack/react-router-devtools'
 
-import { signOutMutation } from '../api/generated/@tanstack/react-query.gen'
+import { getMeQueryKey, signOutMutation } from '../api/generated/@tanstack/react-query.gen'
+import { ErrorNote } from '../components/molecules/ErrorNote'
 import { AppHeader } from '../components/organisms/AppHeader'
 import { displayName } from '../domain/auth/session'
+import { useActivityGap } from '../hooks/ui/useActivityGap'
+
+// After this long without any action on the page, check the session again on the next navigation.
+const IDLE_MS = 3 * 60_000
 
 export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()({
   component: RootLayout,
@@ -25,12 +30,14 @@ function RootLayout() {
   })
   const signOut = useMutation({
     ...signOutMutation(),
-    // Leave the protected pages even if the request failed: nothing of this account stays in memory.
-    onSettled: async () => {
+    onSuccess: async () => {
       queryClient.clear()
       await router.navigate({ to: '/login' })
     },
+    // On failure the session cookie may still be valid: stay here and say so.
   })
+
+  useActivityGap(IDLE_MS, () => queryClient.removeQueries({ queryKey: getMeQueryKey() }))
 
   return (
     <>
@@ -38,6 +45,7 @@ function RootLayout() {
         userName={me ? displayName(me) : undefined}
         onSignOut={() => signOut.mutate({})}
         signingOut={signOut.isPending}
+        signOutError={signOut.isError ? 'Sign out failed. Please try again.' : undefined}
       />
       <main className="app-main">
         <Outlet />
@@ -49,5 +57,16 @@ function RootLayout() {
         </>
       )}
     </>
+  )
+}
+
+/** The page shown when a route fails for another reason than a missing session. */
+export function RouteError() {
+  const router = useRouter()
+  return (
+    <ErrorNote
+      message="Novoya can't reach the server right now. Please try again in a moment."
+      onRetry={() => router.invalidate()}
+    />
   )
 }

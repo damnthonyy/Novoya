@@ -7,9 +7,11 @@ type Props = {
   userName?: string
   onSignOut?: () => void
   signingOut?: boolean
+  /** Shown when signing out failed: the user is still signed in. */
+  signOutError?: string
 }
 
-export function AppHeader({ userName, onSignOut, signingOut = false }: Props) {
+export function AppHeader({ userName, onSignOut, signingOut = false, signOutError }: Props) {
   return (
     <header className="app-header">
       <Link to="/" className="brand">
@@ -22,6 +24,11 @@ export function AppHeader({ userName, onSignOut, signingOut = false }: Props) {
             {signingOut ? 'Signing out…' : 'Sign out'}
           </Button>
         </div>
+      )}
+      {signOutError && (
+        <p role="alert" className="app-header__error">
+          {signOutError}
+        </p>
       )}
     </header>
   )

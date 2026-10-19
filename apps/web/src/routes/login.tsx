@@ -1,6 +1,7 @@
 import { createFileRoute, redirect } from '@tanstack/react-router'
 
 import { googleSignInUrl } from '../api/auth'
+import { isUnauthenticated } from '../api/errors'
 import { getMeOptions } from '../api/generated/@tanstack/react-query.gen'
 import { ButtonLink } from '../components/atoms/Button'
 import { signInErrorMessage } from '../domain/auth/errors'
@@ -18,14 +19,16 @@ export const Route = createFileRoute('/login')({
     redirect: typeof search.redirect === 'string' ? search.redirect : undefined,
     error: typeof search.error === 'string' ? search.error : undefined,
   }),
+  // Show the page only when there is no session. Already signed in: go to the requested page.
+  // Any other failure is rethrown, so an API outage does not look like being signed out.
   beforeLoad: async ({ context, search }) => {
-    const signedIn = await context.queryClient
-      .ensureQueryData({ ...getMeOptions(), retry: false })
-      .then(
-        () => true,
-        () => false,
-      )
-    if (signedIn) throw redirect({ href: safeRedirect(search.redirect) })
+    try {
+      await context.queryClient.ensureQueryData({ ...getMeOptions(), retry: false })
+    } catch (error) {
+      if (isUnauthenticated(error)) return
+      throw error
+    }
+    throw redirect({ href: safeRedirect(search.redirect) })
   },
   component: LoginPage,
 })
