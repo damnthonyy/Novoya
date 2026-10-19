@@ -1,4 +1,11 @@
 {
   "tryAgain": "Try again",
-  "loading": "Loading…"
+  "loading": "Loading…",
+  "comingSoon": "Coming soon",
+  "homeLink": "Novoya, home",
+  "footer": {
+    "tagline": "Tailor-made travel, with human intelligence.",
+    "legal": "Privacy · Legal notice",
+    "copyright": "© {{year}} Novoya"
+  }
 }

@@ -12,8 +12,8 @@ type Props = {
 export function ErrorNote({ message, onRetry, retryLabel }: Props) {
   const { t } = useTranslation()
   return (
-    <div role="alert" className="error-note">
-      <p>{message}</p>
+    <div role="alert" className="mx-auto mt-8 max-w-lg px-5">
+      <p className="mb-4 text-danger">{message}</p>
       {onRetry && <Button onClick={onRetry}>{retryLabel ?? t('tryAgain')}</Button>}
     </div>
   )

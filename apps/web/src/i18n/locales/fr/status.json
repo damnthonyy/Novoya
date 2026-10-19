@@ -1,8 +1,0 @@
-{
-  "label": "État des services",
-  "api": "API : {{state}}",
-  "database": "Base de données : {{state}}",
-  "checking": "vérification…",
-  "ok": "ok",
-  "unreachable": "injoignable"
-}

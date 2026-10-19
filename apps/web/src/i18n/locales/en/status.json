@@ -1,8 +1,0 @@
-{
-  "label": "Service status",
-  "api": "API: {{state}}",
-  "database": "Database: {{state}}",
-  "checking": "checking…",
-  "ok": "ok",
-  "unreachable": "unreachable"
-}

@@ -9,6 +9,14 @@ How `src/` is organised:
 - React hooks (`src/hooks/`): [docs/HOOKS.md](docs/HOOKS.md)
 - Translations, English and French (`src/i18n/`): [docs/I18N.md](docs/I18N.md)
 
+## Styling
+
+Tailwind CSS 4, with the design tokens from the Figma Make mockup in `src/index.css` (`@theme`): colours (`ink`, `ivory`, `paper`, `sand`, `coral`, `sage`, `muted`, `line`), the fonts (DM Sans for text, Gloock for headings) and shadows. Use the tokens (`bg-ink`, `text-muted`, `font-serif`), not raw hex values.
+
+shadcn/ui components live in `src/components/ui/` (`components.json` is set up). Add one with `pnpm dlx shadcn@latest add <name>`, then check its imports use `@/lib/utils`. They are for interactive parts that need keyboard and screen-reader support (menus, tabs); our own atoms, molecules and organisms are built on top.
+
+`@/` points to `src/`.
+
 ## Run locally
 
 Needs Node 22.22.2+ (or 24.15+) and pnpm. The API should run on http://localhost:8000: the dev server proxies `/api` to it (set `API_PROXY_TARGET` otherwise), so the browser only talks to http://localhost:5173 ([ADR 0011](../../docs/adr/0011-same-origin-api-proxy.md)).

@@ -75,6 +75,17 @@ function renderAt(url: string) {
   return { router, queryClient }
 }
 
+/** The account menu is a Radix dropdown: it opens on pointer down, not on click. */
+async function openAccountMenu() {
+  const trigger = await screen.findByRole('button', { name: /Léa Martin|lea@example\.com/ })
+  fireEvent.pointerDown(trigger, { button: 0, ctrlKey: false })
+}
+
+async function signOutFromMenu(label = 'Sign out') {
+  await openAccountMenu()
+  fireEvent.click(await screen.findByRole('menuitem', { name: label }))
+}
+
 const meCalls = () => calls.filter((call) => call === 'GET /me').length
 const logoutCalls = () => calls.filter((call) => call === 'POST /auth/logout').length
 
@@ -94,28 +105,28 @@ describe('sign-in and sign-out', () => {
   })
 
   it('sends a signed-out visitor of a protected page to the login page', async () => {
-    const { router } = renderAt('/')
+    const { router } = renderAt('/wish')
 
     expect(await screen.findByRole('heading', { name: 'Sign in' })).toBeInTheDocument()
     expect(router.state.location.pathname).toBe('/login')
-    expect(router.state.location.search).toEqual({ redirect: '/' })
+    expect(router.state.location.search).toEqual({ redirect: '/wish' })
   })
 
   it('keeps the search of the requested page in the redirect', async () => {
-    const { router } = renderAt('/?trip=beach')
+    const { router } = renderAt('/wish?trip=beach')
 
     expect(await screen.findByRole('heading', { name: 'Sign in' })).toBeInTheDocument()
-    expect(router.state.location.search).toEqual({ redirect: '/?trip=beach' })
+    expect(router.state.location.search).toEqual({ redirect: '/wish?trip=beach' })
   })
 
   it.each<MeAnswer>(['other_401', 'forbidden'])(
     'shows the error page, not the login page, for any error but a 401 unauthenticated (%s)',
     async (answer) => {
       meAnswer = answer
-      const { router } = renderAt('/')
+      const { router } = renderAt('/wish')
 
       expect(await screen.findByRole('alert')).toHaveTextContent("can't reach the server")
-      expect(router.state.location.pathname).toBe('/')
+      expect(router.state.location.pathname).toBe('/wish')
       expect(screen.queryByRole('heading', { name: 'Sign in' })).not.toBeInTheDocument()
     },
   )
@@ -124,10 +135,10 @@ describe('sign-in and sign-out', () => {
     'shows the error page, not the login page, when /me fails on a protected page (%s)',
     async (answer) => {
       meAnswer = answer
-      const { router } = renderAt('/')
+      const { router } = renderAt('/wish')
 
       expect(await screen.findByRole('alert')).toHaveTextContent("can't reach the server")
-      expect(router.state.location.pathname).toBe('/')
+      expect(router.state.location.pathname).toBe('/wish')
       expect(screen.queryByRole('heading', { name: 'Sign in' })).not.toBeInTheDocument()
     },
   )
@@ -146,13 +157,13 @@ describe('sign-in and sign-out', () => {
   it('opens the page once the API answers again', async () => {
     meAnswer = 'server_error'
     signedIn = LEA
-    renderAt('/')
+    renderAt('/wish')
 
     fireEvent.click(await screen.findByRole('button', { name: 'Try again' }))
     meAnswer = 'ok'
     fireEvent.click(screen.getByRole('button', { name: 'Try again' }))
 
-    expect(await screen.findByRole('heading', { name: 'Plan your next trip' })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: 'What would you really like?' })).toBeInTheDocument()
   })
 
   it('starts Google sign-in and comes back to the requested page', async () => {
@@ -169,7 +180,7 @@ describe('sign-in and sign-out', () => {
     renderAt('/login?redirect=%2F%2Fevil.com')
 
     const link = await screen.findByRole('link', { name: 'Continue with Google' })
-    expect(link).toHaveAttribute('href', 'http://api.test/auth/google/login?redirect_to=%2F')
+    expect(link).toHaveAttribute('href', 'http://api.test/auth/google/login?redirect_to=%2Fwish')
   })
 
   it('explains why a Google sign-in failed', async () => {
@@ -188,16 +199,16 @@ describe('sign-in and sign-out', () => {
     signedIn = LEA
     const { router } = renderAt('/login')
 
-    expect(await screen.findByRole('heading', { name: 'Plan your next trip' })).toBeInTheDocument()
-    expect(router.state.location.pathname).toBe('/')
+    expect(await screen.findByRole('heading', { name: 'What would you really like?' })).toBeInTheDocument()
+    expect(router.state.location.pathname).toBe('/wish')
   })
 
   it('sends a signed-in user on /login back to the requested page', async () => {
     signedIn = LEA
-    const { router } = renderAt('/login?redirect=%2F%3Ftrip%3Dbeach')
+    const { router } = renderAt('/login?redirect=%2Fwish%3Ftrip%3Dbeach')
 
-    expect(await screen.findByRole('heading', { name: 'Plan your next trip' })).toBeInTheDocument()
-    expect(router.state.location.pathname).toBe('/')
+    expect(await screen.findByRole('heading', { name: 'What would you really like?' })).toBeInTheDocument()
+    expect(router.state.location.pathname).toBe('/wish')
     expect(router.state.location.search).toEqual({ trip: 'beach' })
   })
 
@@ -205,29 +216,29 @@ describe('sign-in and sign-out', () => {
     signedIn = LEA
     const { router } = renderAt('/login?redirect=%2F%2Fevil.com')
 
-    expect(await screen.findByRole('heading', { name: 'Plan your next trip' })).toBeInTheDocument()
-    expect(router.state.location.href).toBe('/')
+    expect(await screen.findByRole('heading', { name: 'What would you really like?' })).toBeInTheDocument()
+    expect(router.state.location.href).toBe('/wish')
   })
 
   it('shows the signed-in user in the header', async () => {
     signedIn = LEA
-    renderAt('/')
+    renderAt('/wish')
 
     expect(await screen.findByText('Léa Martin')).toBeInTheDocument()
   })
 
   it('shows the email when the user has no name', async () => {
     signedIn = { ...LEA, name: null }
-    renderAt('/')
+    renderAt('/wish')
 
     expect(await screen.findByText('lea@example.com')).toBeInTheDocument()
   })
 
   it('signs out, forgets the user and returns to the login page', async () => {
     signedIn = LEA
-    const { router, queryClient } = renderAt('/')
+    const { router, queryClient } = renderAt('/wish')
 
-    fireEvent.click(await screen.findByRole('button', { name: 'Sign out' }))
+    await signOutFromMenu()
 
     expect(await screen.findByRole('heading', { name: 'Sign in' })).toBeInTheDocument()
     expect(calls).toContain('POST /auth/logout')
@@ -241,25 +252,26 @@ describe('sign-in and sign-out', () => {
     async (answer) => {
       signedIn = LEA
       logoutAnswer = answer
-      const { router } = renderAt('/')
+      const { router } = renderAt('/wish')
 
-      fireEvent.click(await screen.findByRole('button', { name: 'Sign out' }))
+      await signOutFromMenu()
 
       expect(await screen.findByRole('alert')).toHaveTextContent('Sign out failed. Please try again.')
-      expect(router.state.location.pathname).toBe('/')
+      expect(router.state.location.pathname).toBe('/wish')
       expect(screen.getByText('Léa Martin')).toBeInTheDocument()
     },
   )
 
-  it('sends a single sign-out request when the button is clicked twice', async () => {
+  it('sends a single sign-out request when sign-out is chosen twice', async () => {
     signedIn = LEA
     let release!: () => void
     logoutGate = new Promise((resolve) => (release = resolve))
-    renderAt('/')
+    renderAt('/wish')
 
-    fireEvent.click(await screen.findByRole('button', { name: 'Sign out' }))
-    const pending = await screen.findByRole('button', { name: 'Signing out…' })
-    expect(pending).toBeDisabled()
+    await signOutFromMenu()
+    await openAccountMenu()
+    const pending = await screen.findByRole('menuitem', { name: 'Signing out…' })
+    expect(pending).toHaveAttribute('aria-disabled', 'true')
     fireEvent.click(pending)
     release()
 
@@ -270,18 +282,71 @@ describe('sign-in and sign-out', () => {
   it('signs out on the second try after a failure, and drops the error', async () => {
     signedIn = LEA
     logoutAnswer = 'server_error'
-    const { router } = renderAt('/')
+    const { router } = renderAt('/wish')
 
-    fireEvent.click(await screen.findByRole('button', { name: 'Sign out' }))
+    await signOutFromMenu()
     expect(await screen.findByRole('alert')).toHaveTextContent('Sign out failed')
 
     logoutAnswer = 'ok'
-    fireEvent.click(screen.getByRole('button', { name: 'Sign out' }))
+    await signOutFromMenu()
 
     expect(await screen.findByRole('heading', { name: 'Sign in' })).toBeInTheDocument()
     expect(router.state.location.pathname).toBe('/login')
     expect(screen.queryByText(/Sign out failed/)).not.toBeInTheDocument()
     expect(logoutCalls()).toBe(2)
+  })
+
+  it('keeps a way home on the error page when the session check fails', async () => {
+    meAnswer = 'server_error'
+    renderAt('/wish')
+
+    expect(await screen.findByRole('alert')).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Novoya, home' })).toHaveAttribute('href', '/')
+  })
+
+  describe('the public landing page', () => {
+    it('lets a visitor in without a session and offers to sign in', async () => {
+      const { router } = renderAt('/')
+
+      expect(await screen.findByRole('link', { name: 'Sign in' })).toHaveAttribute('href', '/login')
+      expect(router.state.location.pathname).toBe('/')
+    })
+
+    it('sends a signed-in user to their space instead', async () => {
+      signedIn = LEA
+      renderAt('/')
+
+      expect(await screen.findByRole('link', { name: 'My space' })).toHaveAttribute('href', '/wish')
+      expect(screen.queryByRole('link', { name: 'Sign in' })).not.toBeInTheDocument()
+    })
+  })
+
+  describe('header links by role', () => {
+    const navLinks = async () => {
+      const nav = await screen.findByRole('navigation', { name: 'Main navigation' })
+      return Array.from(nav.querySelectorAll('a')).map((link) => link.textContent)
+    }
+
+    it('shows a client only the composer and their trips', async () => {
+      signedIn = LEA
+      renderAt('/wish')
+
+      expect(await navLinks()).toEqual(['Compose', 'My trips'])
+    })
+
+    it('adds the agency space for an agent', async () => {
+      signedIn = { ...LEA, role: 'agent' }
+      renderAt('/wish')
+
+      expect(await navLinks()).toEqual(['Compose', 'My trips', 'Agency'])
+    })
+
+    it('adds the agency space and administration for an admin', async () => {
+      signedIn = { ...LEA, role: 'admin' }
+      renderAt('/wish')
+
+      expect(await navLinks()).toEqual(['Compose', 'My trips', 'Agency', 'Administration'])
+    })
   })
 
   describe('language', () => {
@@ -291,19 +356,19 @@ describe('sign-in and sign-out', () => {
     it("shows the app in the signed-in user's language", async () => {
       signedIn = { ...LEA, locale: 'fr' }
       browserLanguages(['en-US'])
-      renderAt('/')
+      renderAt('/wish')
 
-      expect(await screen.findByRole('heading', { name: 'Planifiez votre prochain voyage' })).toBeInTheDocument()
-      expect(screen.getByRole('button', { name: 'Se déconnecter' })).toBeInTheDocument()
+      expect(await screen.findByRole('heading', { name: 'De quoi avez-vous envie ?' })).toBeInTheDocument()
+      expect(screen.getByRole('link', { name: 'Mes voyages' })).toBeInTheDocument()
       expect(document.documentElement).toHaveAttribute('lang', 'fr')
     })
 
     it("prefers the user's locale to the browser's language", async () => {
       signedIn = { ...LEA, locale: 'en' }
       browserLanguages(['fr-FR'])
-      renderAt('/')
+      renderAt('/wish')
 
-      expect(await screen.findByRole('heading', { name: 'Plan your next trip' })).toBeInTheDocument()
+      expect(await screen.findByRole('heading', { name: 'What would you really like?' })).toBeInTheDocument()
       expect(document.documentElement).toHaveAttribute('lang', 'en')
     })
 
@@ -316,6 +381,13 @@ describe('sign-in and sign-out', () => {
       expect(document.documentElement).toHaveAttribute('lang', 'fr')
     })
 
+    it("shows the landing page in the browser's language", async () => {
+      browserLanguages(['fr-FR'])
+      renderAt('/')
+
+      expect(await screen.findByRole('link', { name: 'Décrire mon voyage' })).toHaveAttribute('href', '/wish')
+    })
+
     it('translates the sign-in error sent by the API', async () => {
       browserLanguages(['fr-FR'])
       renderAt('/login?error=oauth_cancelled')
@@ -326,9 +398,9 @@ describe('sign-in and sign-out', () => {
     it("goes back to the browser's language after signing out", async () => {
       signedIn = { ...LEA, locale: 'fr' }
       browserLanguages(['en-US'])
-      renderAt('/')
+      renderAt('/wish')
 
-      fireEvent.click(await screen.findByRole('button', { name: 'Se déconnecter' }))
+      await signOutFromMenu('Se déconnecter')
 
       expect(await screen.findByRole('heading', { name: 'Sign in' })).toBeInTheDocument()
       expect(document.documentElement).toHaveAttribute('lang', 'en')
@@ -343,41 +415,41 @@ describe('sign-in and sign-out', () => {
 
     it('does not ask /me again while the user keeps acting', async () => {
       signedIn = LEA
-      renderAt('/')
+      renderAt('/wish')
       await screen.findByText('Léa Martin')
 
       vi.advanceTimersByTime(2 * 60_000)
       fireEvent.pointerMove(window)
-      fireEvent.click(screen.getByRole('link', { name: 'Novoya' }))
+      fireEvent.click(screen.getByRole('link', { name: 'Compose' }))
 
-      await screen.findByRole('heading', { name: 'Plan your next trip' })
+      await screen.findByRole('heading', { name: 'What would you really like?' })
       expect(meCalls()).toBe(1)
     })
 
     it('checks the session again and stays on the page while it is valid', async () => {
       signedIn = LEA
-      const { router } = renderAt('/')
+      const { router } = renderAt('/wish')
       await screen.findByText('Léa Martin')
 
       vi.advanceTimersByTime(3 * 60_000)
       fireEvent.pointerMove(window)
-      fireEvent.click(screen.getByRole('link', { name: 'Novoya' }))
+      fireEvent.click(screen.getByRole('link', { name: 'Compose' }))
 
       await waitFor(() => expect(meCalls()).toBe(2))
-      expect(router.state.location.pathname).toBe('/')
+      expect(router.state.location.pathname).toBe('/wish')
       expect(screen.getByText('Léa Martin')).toBeInTheDocument()
-      expect(screen.getByRole('heading', { name: 'Plan your next trip' })).toBeInTheDocument()
+      expect(screen.getByRole('heading', { name: 'What would you really like?' })).toBeInTheDocument()
     })
 
     it('checks the session again and goes to /login if it was revoked', async () => {
       signedIn = LEA
-      const { router } = renderAt('/')
+      const { router } = renderAt('/wish')
       await screen.findByText('Léa Martin')
 
       signedIn = null // signed out on another device
       vi.advanceTimersByTime(3 * 60_000)
       fireEvent.pointerMove(window)
-      fireEvent.click(screen.getByRole('link', { name: 'Novoya' }))
+      fireEvent.click(screen.getByRole('link', { name: 'Compose' }))
 
       expect(await screen.findByRole('heading', { name: 'Sign in' })).toBeInTheDocument()
       expect(router.state.location.pathname).toBe('/login')

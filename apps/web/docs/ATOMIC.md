@@ -72,7 +72,6 @@ apps/web/src/
 
 Les pages sont les fichiers de `src/routes/`. `main.tsx` monte le routeur, et `router.tsx` crée le routeur et le client TanStack Query. Ne pas mettre de logique métier dans `design/` ni dans `components/`.
 
-`components/ApiStatus.tsx` vient du setup M0 et appelle l’API directement. C’est une exception temporaire : il sera retiré ou déplacé dans une page.
 
 ---
 

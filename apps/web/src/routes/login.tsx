@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next'
 import { googleSignInUrl } from '../api/auth'
 import { isUnauthenticated } from '../api/errors'
 import { getMeOptions } from '../api/generated/@tanstack/react-query.gen'
-import { ButtonLink } from '../components/atoms/Button'
+import { Button } from '../components/atoms/Button'
 import { signInErrorKey } from '../domain/auth/errors'
 import { safeRedirect } from '../domain/auth/session'
 
@@ -29,7 +29,7 @@ export const Route = createFileRoute('/login')({
       if (isUnauthenticated(error)) return
       throw error
     }
-    throw redirect({ href: safeRedirect(search.redirect) })
+    throw redirect({ href: safeRedirect(search.redirect, '/wish') })
   },
   component: LoginPage,
 })
@@ -41,15 +41,17 @@ function LoginPage() {
   const errorKey = signInErrorKey(error)
 
   return (
-    <section className="login">
-      <h1>{t('title')}</h1>
-      <p>{t('intro')}</p>
+    <main className="mx-auto max-w-md px-5 pt-24">
+      <h1 className="mb-3 text-5xl">{t('title')}</h1>
+      <p className="mb-6 text-muted">{t('intro')}</p>
       {errorKey && (
-        <p role="alert" className="login__error">
+        <p role="alert" className="mb-4 text-danger">
           {tErrors(errorKey)}
         </p>
       )}
-      <ButtonLink href={googleSignInUrl(safeRedirect(target))}>{t('continueWithGoogle')}</ButtonLink>
-    </section>
+      <Button asChild variant="outline" className="w-full">
+        <a href={googleSignInUrl(safeRedirect(target, '/wish'))}>{t('continueWithGoogle')}</a>
+      </Button>
+    </main>
   )
 }

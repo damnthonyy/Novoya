@@ -1,4 +1,11 @@
 {
   "tryAgain": "Réessayer",
-  "loading": "Chargement…"
+  "loading": "Chargement…",
+  "comingSoon": "Bientôt",
+  "homeLink": "Novoya, accueil",
+  "footer": {
+    "tagline": "Le voyage sur-mesure, avec l’intelligence de l’humain.",
+    "legal": "Confidentialité · Mentions légales",
+    "copyright": "© {{year}} Novoya"
+  }
 }

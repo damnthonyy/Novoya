@@ -1,4 +1,5 @@
 {
-  "title": "Planifiez votre prochain voyage",
-  "intro": "Dites-nous ce que vous voulez, nous construisons le voyage autour."
+  "titleStart": "Votre envie,",
+  "titleEnd": "notre itinéraire.",
+  "describeTrip": "Décrire mon voyage"
 }
