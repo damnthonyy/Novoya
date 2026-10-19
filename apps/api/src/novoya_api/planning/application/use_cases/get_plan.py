@@ -11,9 +11,7 @@ from novoya_api.planning.domain.errors import PlanNotFound
 class GetPlan:
     """The plan as the owner sees it. Anyone else, or a missing id, looks the same: not found."""
 
-    def __init__(
-        self, plans: PlanRepository, catalog: OfferCatalog, wishes: WishOwnership
-    ) -> None:
+    def __init__(self, plans: PlanRepository, catalog: OfferCatalog, wishes: WishOwnership) -> None:
         self._plans = plans
         self._catalog = catalog
         self._wishes = wishes
