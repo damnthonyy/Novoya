@@ -33,5 +33,6 @@
     "viewPreview": "Voir l’aperçu →",
     "current": "Version actuelle",
     "placeholder": "Reprendre cette conversation…"
-  }
+  },
+  "empty": "Aucun voyage pour l’instant. Décrivez le premier, il apparaîtra ici."
 }

@@ -31,7 +31,6 @@ export type Plan = {
   tags: string[]
   photo: string
   photoAlt: string
-  quoteId: string
   days: PlanDay[]
 }
 
@@ -45,7 +44,7 @@ const DEMO: Plan = {
   id: 'chania',
   version: 2,
   updatedAt: '2026-10-19T10:42:00Z',
-  place: 'Chania,',
+  place: 'Chania',
   tagline: 'au rythme de la mer.',
   startDate: '2026-05-12',
   endDate: '2026-05-19',
@@ -53,7 +52,6 @@ const DEMO: Plan = {
   tags: ['calme', 'mer', 'cuisine locale'],
   photo: PHOTOS.crete,
   photoAlt: 'Eaux turquoise de Crète',
-  quoteId: 'NV-2026-0182',
   days: [
     { number: 1, date: '2026-05-12', title: 'Arriver, respirer', text: 'Installation face à la mer, temps libre et première soirée douce dans le vieux port.', mood: 'Très doux', intro: 'Une arrivée sans hâte, pour poser les valises et regarder la mer.', moments },
     { number: 2, date: '2026-05-13', title: 'La côte au réveil', text: 'Petit-déjeuner au calme, criques de l’ouest et déjeuner tardif les pieds presque dans l’eau.', mood: 'Équilibré', intro: 'Une journée lumineuse, pensée pour laisser la mer donner le tempo.', moments },

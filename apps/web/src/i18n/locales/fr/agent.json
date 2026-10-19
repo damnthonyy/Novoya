@@ -15,7 +15,7 @@
     "decided": "Décidés"
   },
   "filterTab": "{{label}} · {{count}}",
-  "emptySoon": "Bientôt : les dossiers de cet onglet.",
+  "emptySoon": "Aucune demande dans cet onglet.",
   "request": {
     "meta": "{{received}} · Devis demandé · {{client}}",
     "budgetMax": "Budget max",

@@ -11,7 +11,8 @@
     "eyebrow": "La conversation continue",
     "title": "Cet aperçu vous ressemble ?",
     "text": "Continuez à l’affiner avec le concierge, ou transmettez-le à un conseiller Novoya lorsqu’il vous convient.",
-    "button": "Demander un devis à un conseiller"
+    "button": "Demander un devis à un conseiller",
+    "unavailable": "La demande de devis arrive bientôt."
   },
   "notFound": "Cet aperçu n’existe pas.",
   "day": {
@@ -22,5 +23,6 @@
     "morning": "Matin",
     "midday": "Milieu de journée",
     "evening": "Soir"
-  }
+  },
+  "placeHeading": "{{place}},"
 }

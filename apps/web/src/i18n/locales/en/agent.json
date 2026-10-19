@@ -15,7 +15,7 @@
     "decided": "Decided"
   },
   "filterTab": "{{label}} · {{count}}",
-  "emptySoon": "Coming soon: the files in this tab.",
+  "emptySoon": "No requests in this tab.",
   "request": {
     "meta": "{{received}} · Quote requested · {{client}}",
     "budgetMax": "Max budget",

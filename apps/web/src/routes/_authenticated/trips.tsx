@@ -19,8 +19,8 @@ export const Route = createFileRoute('/_authenticated/trips')({
 function TripsPage() {
   const { t } = useTranslation('trips')
   const threads = listThreads()
-  const [selectedId, setSelectedId] = useState(threads[0]!.id)
-  const selected = threads.find((thread) => thread.id === selectedId) ?? threads[0]!
+  const [selectedId, setSelectedId] = useState(threads[0]?.id)
+  const selected = threads.find((thread) => thread.id === selectedId) ?? threads[0]
 
   return (
     <AppShell>
@@ -48,15 +48,21 @@ function TripsPage() {
             </TabsTrigger>
           </TabsList>
           <TabsContent value="trips" className={`${lineTabPanel} px-5 py-6 md:px-[8vw] md:py-9 lg:grid lg:grid-cols-[0.9fr_1.1fr] lg:gap-7.5`}>
-            <ThreadList threads={threads} selectedId={selected.id} onSelect={setSelectedId} />
-            <HistoryPanel
-              key={selected.id}
-              title={selected.title}
-              version={selected.version}
-              messageCount={selected.messageCount}
-              planId={selected.planId}
-              messages={selected.messages}
-            />
+            {selected ? (
+              <>
+                <ThreadList threads={threads} selectedId={selected.id} onSelect={setSelectedId} />
+                <HistoryPanel
+                  key={selected.id}
+                  title={selected.title}
+                  version={selected.version}
+                  messageCount={selected.messageCount}
+                  planId={selected.planId}
+                  messages={selected.messages}
+                />
+              </>
+            ) : (
+              <p className="text-muted lg:col-span-2">{t('empty')}</p>
+            )}
           </TabsContent>
           <TabsContent value="profile" className={`${lineTabPanel} px-5 py-9 text-muted md:px-[8vw]`}>
             {t('soon.profile')}

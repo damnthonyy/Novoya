@@ -9,7 +9,7 @@ import { AppShell } from '../../components/templates/AppShell'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui/tabs'
 import { DemoBanner } from '../../components/molecules/DemoBanner'
 import { canOpen } from '../../domain/auth/roles'
-import { listQuoteRequests, QUEUE_COUNTS, type QueueFilter } from '../../fixtures/agentQueue'
+import { countQuoteRequests, listQuoteRequests, type QueueFilter } from '../../fixtures/agentQueue'
 
 export const Route = createFileRoute('/_authenticated/agent')({
   beforeLoad: ({ context }) => {
@@ -29,7 +29,7 @@ function AgentPage() {
       <BackofficeLayout
         area={t('area')}
         items={[
-          { label: t('nav.queue'), active: true, count: QUEUE_COUNTS.unassigned },
+          { label: t('nav.queue'), active: true, count: countQuoteRequests('unassigned') },
           { label: t('nav.files') },
           { label: t('nav.sent') },
           { label: t('nav.partners') },
@@ -41,7 +41,7 @@ function AgentPage() {
             <h1 className="m-0 text-[39px] md:text-[50px]">{t('title')}</h1>
           </div>
           <p className="m-0 flex items-center gap-2">
-            <span className="font-serif text-[32px]">{QUEUE_COUNTS.unassigned}</span>
+            <span className="font-serif text-[32px]">{countQuoteRequests('unassigned')}</span>
             <small className="text-muted">{t('toTake')}</small>
           </p>
         </div>
@@ -49,7 +49,7 @@ function AgentPage() {
           <TabsList className={`${lineTabList} gap-2.5`}>
             {FILTERS.map((filter) => (
               <TabsTrigger key={filter} value={filter} className={`${lineTabTrigger} px-3.5`}>
-                {t('filterTab', { label: t(`filters.${filter}`), count: QUEUE_COUNTS[filter] })}
+                {t('filterTab', { label: t(`filters.${filter}`), count: countQuoteRequests(filter) })}
               </TabsTrigger>
             ))}
           </TabsList>

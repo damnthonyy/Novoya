@@ -174,6 +174,23 @@ describe('back-office and plan screens', () => {
     expect(document.body.textContent).not.toContain('€')
   })
 
+  it('does not lead from the plan to a priced quote', async () => {
+    renderAt('/plans/chania')
+
+    expect(await screen.findByRole('button', { name: 'Ask an advisor for a quote' })).toBeDisabled()
+    expect(screen.getByText('Asking for a quote is coming soon.')).toBeInTheDocument()
+    expect(document.querySelector('a[href^="/quotes/"]')).toBeNull()
+  })
+
+  it('counts in each agency tab exactly the requests it lists', async () => {
+    me = { ...ADMIN, role: 'agent' }
+    renderAt('/agent')
+
+    expect(await screen.findByRole('tab', { name: 'To assign · 3' })).toBeInTheDocument()
+    expect(screen.getByRole('tab', { name: 'In progress · 0' })).toBeInTheDocument()
+    expect(screen.getByRole('tab', { name: 'Decided · 0' })).toBeInTheDocument()
+  })
+
   it('opens a day of the plan', async () => {
     renderAt('/plans/chania/days/2')
 

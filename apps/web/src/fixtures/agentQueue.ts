@@ -21,9 +21,12 @@ const REQUESTS: QuoteRequest[] = [
 
 export type QueueFilter = 'unassigned' | 'in_progress' | 'decided'
 
-export const QUEUE_COUNTS: Record<QueueFilter, number> = { unassigned: 3, in_progress: 7, decided: 12 }
-
 /** The quote requests in one tab of the queue. Replace with the API call when #51 exists. */
 export function listQuoteRequests(filter: QueueFilter): QuoteRequest[] {
   return filter === 'unassigned' ? REQUESTS : []
+}
+
+/** How many requests a tab holds: always the length of its list, so the two cannot disagree. */
+export function countQuoteRequests(filter: QueueFilter): number {
+  return listQuoteRequests(filter).length
 }

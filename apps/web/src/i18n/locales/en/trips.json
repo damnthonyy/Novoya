@@ -33,5 +33,6 @@
     "viewPreview": "View the preview →",
     "current": "Current version",
     "placeholder": "Pick up this conversation…"
-  }
+  },
+  "empty": "No trips yet. Describe your first one and it will appear here."
 }
