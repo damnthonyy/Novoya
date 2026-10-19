@@ -12,7 +12,7 @@ from novoya_api.wishes.application.use_cases.send_wish import (
     SendWishResult,
 )
 from novoya_api.wishes.domain.errors import InvalidWish
-from novoya_api.wishes.domain.panel import Panel
+from novoya_api.wishes.domain.panel import Panel, PanelSection, Tag
 from novoya_api.wishes.domain.wish import Destination, WishStatus
 
 USER_ID = UUID("00000000-0000-0000-0000-000000000001")
@@ -63,6 +63,18 @@ class FakeReader:
         return self.reading
 
 
+class FakePanelBuilder:
+    def __init__(self, events: list[str], panel: Panel | None = None) -> None:
+        self.events = events
+        self.panel = panel
+        self.calls: list[tuple[str, Destination, list[str]]] = []
+
+    async def build(self, text, destination, tags) -> Panel:
+        self.calls.append((text, destination, list(tags)))
+        self.events.append("build")
+        return self.panel if self.panel is not None else Panel.from_tags(tags)
+
+
 class FakeWishes:
     def __init__(self, events: list[str]) -> None:
         self.events = events
@@ -85,16 +97,20 @@ class FakeUnitOfWork:
 
 
 class Setup:
-    def __init__(self, reading: DestinationReading, covered=COVERED, tags=LISBON_TAGS) -> None:
+    def __init__(
+        self, reading: DestinationReading, covered=COVERED, tags=LISBON_TAGS, panel=None
+    ) -> None:
         self.events: list[str] = []
         self.wishes = FakeWishes(self.events)
         self.catalog = FakeCatalog(covered, tags)
         self.reader = FakeReader(reading, self.events)
+        self.builder = FakePanelBuilder(self.events, panel)
         self.uow = FakeUnitOfWork(self.events)
         self.send_wish = SendWish(
             wishes=self.wishes,
             catalog=self.catalog,
             reader=self.reader,
+            panel_builder=self.builder,
             uow=self.uow,
             clock=FixedClock(),
         )
@@ -127,20 +143,29 @@ async def test_reader_gets_the_stripped_text_and_the_covered_destinations():
 
 
 @pytest.mark.parametrize(
-    "reading",
+    ("reading", "events"),
     [
-        DestinationReading(destination=LISBON, suggestions=[]),
-        DestinationReading(destination=MADRID, suggestions=[]),
-        DestinationReading(destination=None, suggestions=[]),
+        (
+            DestinationReading(destination=LISBON, suggestions=[]),
+            ["rollback", "read", "rollback", "build", "add", "commit"],
+        ),
+        (
+            DestinationReading(destination=MADRID, suggestions=[]),
+            ["rollback", "read", "add", "commit"],
+        ),
+        (
+            DestinationReading(destination=None, suggestions=[]),
+            ["rollback", "read", "add", "commit"],
+        ),
     ],
     ids=["covered", "not_covered", "no_destination"],
 )
-async def test_wish_is_added_once_then_committed_once(reading):
+async def test_wish_is_added_once_then_committed_once(reading, events):
     setup = Setup(reading)
 
     result = await send(setup)
 
-    assert setup.events == ["rollback", "read", "add", "commit"]
+    assert setup.events == events
     assert setup.wishes.added == [result.wish]
 
 
@@ -152,6 +177,15 @@ async def test_the_catalog_read_ends_before_the_reader_runs():
     await send(setup)
 
     assert setup.events.index("rollback") < setup.events.index("read")
+
+
+async def test_tags_are_read_then_the_connection_is_released_before_the_builder_runs():
+    setup = Setup(DestinationReading(destination=LISBON, suggestions=[]))
+
+    await send(setup)
+
+    assert setup.events.index("read") < setup.events.index("rollback", 1)
+    assert setup.events.index("rollback", 1) < setup.events.index("build")
 
 
 # Covered destination
@@ -166,6 +200,55 @@ async def test_covered_destination_shows_the_panel_of_its_tags():
     assert result.wish.destination == LISBON
     assert result.wish.panel == Panel.from_tags(LISBON_TAGS)
     assert result.suggestions == []
+    assert setup.builder.calls == [("A week in Lisbon", LISBON, LISBON_TAGS)]
+
+
+async def test_covered_shows_the_builder_panel():
+    proposed = Panel(
+        sections=(
+            PanelSection(
+                "style",
+                "Travel style",
+                True,
+                (Tag("beach", "Beach", True), Tag("city", "City")),
+            ),
+        )
+    )
+    setup = Setup(DestinationReading(destination=LISBON, suggestions=[]), panel=proposed)
+
+    result = await send(setup)
+
+    assert result.wish.panel == proposed
+
+
+async def test_covered_drops_tags_the_builder_invented():
+    proposed = Panel(
+        sections=(
+            PanelSection(
+                "style",
+                "Travel style",
+                True,
+                (Tag("beach", "Beach", True), Tag("japan", "Japan")),
+            ),
+            PanelSection("mystery", "Mystery", True, (Tag("ufo", "UFO"),)),
+        )
+    )
+    setup = Setup(DestinationReading(destination=LISBON, suggestions=[]), panel=proposed)
+
+    result = await send(setup)
+
+    assert result.wish.panel == Panel(
+        sections=(PanelSection("style", "Travel style", True, (Tag("beach", "Beach", True),)),)
+    )
+
+
+async def test_covered_falls_back_to_catalog_tags_when_the_builder_panel_has_none_left():
+    proposed = Panel(sections=(PanelSection("style", "Style", True, (Tag("japan", "Japan"),)),))
+    setup = Setup(DestinationReading(destination=LISBON, suggestions=[]), panel=proposed)
+
+    result = await send(setup)
+
+    assert result.wish.panel == Panel.from_tags(LISBON_TAGS)
 
 
 async def test_covered_destination_uses_the_catalog_spelling():
@@ -211,6 +294,7 @@ async def test_uncovered_destination_marks_the_wish_not_covered():
     assert result.wish.destination == MADRID
     assert result.wish.panel is None
     assert setup.catalog.tags_asked == []
+    assert setup.builder.calls == []
 
 
 async def test_uncovered_destination_suggests_the_covered_reader_suggestions():
@@ -286,6 +370,7 @@ async def test_no_destination_keeps_a_draft_and_suggests_every_covered_destinati
     assert result.wish.panel is None
     assert result.suggestions == COVERED
     assert setup.catalog.tags_asked == []
+    assert setup.builder.calls == []
 
 
 # Blank text
@@ -299,6 +384,7 @@ async def test_blank_text_raises_before_reading_and_saves_nothing(text):
         await send(setup, text)
 
     assert setup.reader.calls == []
+    assert setup.builder.calls == []
     assert setup.catalog.calls == 0
     assert setup.events == []
 

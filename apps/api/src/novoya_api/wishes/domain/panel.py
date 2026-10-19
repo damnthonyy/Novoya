@@ -39,9 +39,11 @@ class Panel:
         "preferences"."""
         grouped: dict[str, list[str]] = {}
         for raw in tags:
-            section, _, tag = raw.strip().lower().rpartition(":")
-            section, tag = section.strip() or DEFAULT_SECTION, tag.strip()
-            if tag and tag not in grouped.setdefault(section, []):
+            split = _split_catalog_tag(raw)
+            if split is None:
+                continue
+            section, tag = split
+            if tag not in grouped.setdefault(section, []):
                 grouped[section].append(tag)
         return cls(
             sections=tuple(
@@ -77,6 +79,26 @@ class Panel:
             ask_dates=data["ask_dates"],
         )
 
+    def restricted_to(self, tags: Iterable[str]) -> "Panel":
+        """Keep only tags that exist on the offers; drop empty sections.
+
+        Catalog tags are "section:tag". The LLM JSON uses separate section and tag ids."""
+        allowed = _catalog_keys(tags)
+        kept: list[PanelSection] = []
+        seen: set[str] = set()
+        for section in self.sections:
+            tags_kept: list[Tag] = []
+            for tag in section.tags:
+                key = f"{section.id.strip().lower()}:{tag.id.strip().lower()}"
+                if key in allowed and key not in seen:
+                    seen.add(key)
+                    tags_kept.append(tag)
+            if tags_kept:
+                kept.append(
+                    PanelSection(section.id, section.title, section.multi, tuple(tags_kept))
+                )
+        return Panel(tuple(kept), self.ask_budget, self.ask_persons, self.ask_dates)
+
     def section(self, section_id: str) -> PanelSection | None:
         return next((section for section in self.sections if section.id == section_id), None)
 
@@ -99,6 +121,22 @@ class Panel:
             "ask_persons": self.ask_persons,
             "ask_dates": self.ask_dates,
         }
+
+
+def _split_catalog_tag(raw: str) -> tuple[str, str] | None:
+    section, _, tag = raw.strip().lower().rpartition(":")
+    section, tag = section.strip() or DEFAULT_SECTION, tag.strip()
+    if not tag:
+        return None
+    return section, tag
+
+
+def _catalog_keys(tags: Iterable[str]) -> set[str]:
+    keys: set[str] = set()
+    for raw in tags:
+        if split := _split_catalog_tag(raw):
+            keys.add(f"{split[0]}:{split[1]}")
+    return keys
 
 
 def _label(identifier: str) -> str:

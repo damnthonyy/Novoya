@@ -5,6 +5,7 @@ from novoya_api.shared.application.clock import Clock
 from novoya_api.shared.application.unit_of_work import UnitOfWork
 from novoya_api.wishes.application.ports.catalog import Catalog
 from novoya_api.wishes.application.ports.destination_reader import DestinationReader
+from novoya_api.wishes.application.ports.panel_builder import PanelBuilder
 from novoya_api.wishes.application.ports.wish_repository import WishRepository
 from novoya_api.wishes.domain.panel import Panel
 from novoya_api.wishes.domain.wish import Destination, Wish, find_covered
@@ -31,19 +32,22 @@ class SendWish:
     the wish is kept so the team sees the demand. No destination in the text: the wish stays
     a draft and every covered destination is suggested.
 
-    The reader may use an LLM, but coverage is decided here, from the catalog."""
+    The reader and the builder may use an LLM. Coverage is decided here, from the catalog,
+    and every tag on the panel must come from the offers at that destination."""
 
     def __init__(
         self,
         wishes: WishRepository,
         catalog: Catalog,
         reader: DestinationReader,
+        panel_builder: PanelBuilder,
         uow: UnitOfWork,
         clock: Clock,
     ) -> None:
         self._wishes = wishes
         self._catalog = catalog
         self._reader = reader
+        self._panel_builder = panel_builder
         self._uow = uow
         self._clock = clock
 
@@ -62,7 +66,13 @@ class SendWish:
             # A country-wide entry has no city: then the wish's own city is kept.
             city = (match.city or reading.destination.city) if reading.destination.city else None
             destination = Destination(match.country, city)
-            panel = Panel.from_tags(await self._catalog.tags_at(destination))
+            tags = await self._catalog.tags_at(destination)
+            # The builder may wait on a model: do not hold the connection during that call.
+            await self._uow.rollback()
+            proposed = await self._panel_builder.build(wish.text, destination, tags)
+            panel = proposed.restricted_to(tags)
+            if not panel.sections:
+                panel = Panel.from_tags(tags)
             wish.show_panel(destination, panel, self._clock.now())
         else:
             wish.mark_not_covered(reading.destination, self._clock.now())
