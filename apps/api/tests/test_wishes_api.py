@@ -16,7 +16,6 @@ from novoya_api.shared.infrastructure.llm.errors import LLMError
 from novoya_api.wishes.application.ports.destination_reader import DestinationReading
 from novoya_api.wishes.application.use_cases.send_wish import SendWish
 from novoya_api.wishes.domain.wish import Destination
-from novoya_api.wishes.infrastructure.catalog import StaticCatalog
 from novoya_api.wishes.infrastructure.llm.destination_reader import NameMatchingReader
 from novoya_api.wishes.presentation.http import dependencies
 from novoya_api.wishes.presentation.http.dependencies import get_current_user_id, get_send_wish
@@ -31,6 +30,20 @@ class FixedClock:
 
 
 LISBON = Destination("Portugal", "Lisbon")
+
+TAGS = {
+    LISBON: ["style:beach", "style:culture", "rhythm:calm", "food:seafood"],
+    Destination("Portugal", "Porto"): ["style:culture", "style:city", "food:wine"],
+    Destination("Morocco", "Marrakech"): ["style:culture", "style:desert", "accommodation:riad"],
+}
+
+
+class FakeCatalog:
+    async def covered_destinations(self) -> list[Destination]:
+        return list(TAGS)
+
+    async def tags_at(self, destination: Destination) -> list[str]:
+        return list(TAGS.get(destination, []))
 
 
 class FakeReader:
@@ -53,6 +66,9 @@ class FakeUnitOfWork:
     async def commit(self) -> None:
         pass
 
+    async def rollback(self) -> None:
+        pass
+
 
 @pytest.fixture
 def reader() -> FakeReader:
@@ -69,7 +85,7 @@ def app(reader, wishes):
     app = create_app()
     send_wish = SendWish(
         wishes=wishes,
-        catalog=StaticCatalog(),
+        catalog=FakeCatalog(),
         reader=reader,
         uow=FakeUnitOfWork(),
         clock=FixedClock(),
@@ -124,7 +140,7 @@ async def test_uncovered_wish_returns_201_with_suggestions_and_no_panel(reader, 
 
 
 async def test_wish_without_destination_returns_a_draft_and_every_covered_destination(client):
-    covered = await StaticCatalog().covered_destinations()
+    covered = list(TAGS)
 
     response = await client.post("/wishes", json={"text": "Somewhere warm"})
 
@@ -217,3 +233,13 @@ def test_send_wish_documents_the_shared_error_responses(app):
     for status in ("401", "403", "422"):
         ref = responses[status]["content"]["application/json"]["schema"]["$ref"]
         assert ref == "#/components/schemas/ErrorResponse", status
+
+
+def test_send_wish_reads_the_catalog_through_the_request_session():
+    session = object()
+
+    use_case = dependencies.get_send_wish(session=session, reader=NameMatchingReader())
+
+    assert use_case._catalog._session is session
+    assert use_case._wishes._session is session
+    assert use_case._uow._session is session

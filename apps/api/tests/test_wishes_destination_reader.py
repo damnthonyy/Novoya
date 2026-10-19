@@ -9,7 +9,6 @@ import pytest
 from novoya_api.shared.infrastructure.llm.errors import LLMError
 from novoya_api.wishes.application.ports.destination_reader import DestinationReading
 from novoya_api.wishes.domain.wish import Destination
-from novoya_api.wishes.infrastructure.catalog import StaticCatalog
 from novoya_api.wishes.infrastructure.llm.destination_reader import (
     LlmDestinationReader,
     NameMatchingReader,
@@ -184,25 +183,3 @@ async def test_one_deadline_covers_the_answer_and_its_retry():
 
     assert time.monotonic() - started < 0.55
     assert reading == DestinationReading(destination=PORTO, suggestions=[])
-
-
-# Static catalog
-
-
-async def test_static_catalog_covers_lisbon_porto_and_marrakech():
-    covered = await StaticCatalog().covered_destinations()
-
-    assert LISBON in covered
-    assert PORTO in covered
-    assert MARRAKECH in covered
-
-
-async def test_static_catalog_tags_are_section_tag_strings():
-    tags = await StaticCatalog().tags_at(LISBON)
-
-    assert tags
-    assert all(isinstance(tag, str) and tag.count(":") == 1 for tag in tags)
-
-
-async def test_static_catalog_has_no_tags_for_an_uncovered_destination():
-    assert await StaticCatalog().tags_at(Destination("Spain", "Madrid")) == []
