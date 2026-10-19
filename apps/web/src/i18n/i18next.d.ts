@@ -3,6 +3,7 @@ import 'i18next'
 import type admin from './locales/en/admin.json'
 import type agent from './locales/en/agent.json'
 import type auth from './locales/en/auth.json'
+import type building from './locales/en/building.json'
 import type common from './locales/en/common.json'
 import type concierge from './locales/en/concierge.json'
 import type demo from './locales/en/demo.json'
@@ -10,6 +11,7 @@ import type errors from './locales/en/errors.json'
 import type header from './locales/en/header.json'
 import type home from './locales/en/home.json'
 import type plan from './locales/en/plan.json'
+import type preferences from './locales/en/preferences.json'
 import type quote from './locales/en/quote.json'
 import type trips from './locales/en/trips.json'
 import type wish from './locales/en/wish.json'
@@ -23,6 +25,7 @@ declare module 'i18next' {
       admin: typeof admin
       agent: typeof agent
       auth: typeof auth
+      building: typeof building
       common: typeof common
       concierge: typeof concierge
       demo: typeof demo
@@ -30,6 +33,7 @@ declare module 'i18next' {
       header: typeof header
       home: typeof home
       plan: typeof plan
+      preferences: typeof preferences
       quote: typeof quote
       trips: typeof trips
       wish: typeof wish

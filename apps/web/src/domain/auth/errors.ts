@@ -23,3 +23,25 @@ export function signInErrorKey(code: string | undefined): SignInErrorKey | null 
   if (!code) return null
   return KNOWN.has(code) ? (`signIn.${code}` as SignInErrorKey) : 'signIn.unknown'
 }
+
+// The codes POST /auth/login answers with when an e-mail and password sign-in fails.
+// Their texts are in errors.json, under password.<code>.
+const PASSWORD_ERROR_CODES = [
+  'invalid_credentials',
+  'email_not_verified',
+  'no_password_set',
+  'account_disabled',
+  'too_many_attempts',
+] as const
+
+type PasswordErrorCode = (typeof PASSWORD_ERROR_CODES)[number]
+export type PasswordSignInErrorKey = `password.${PasswordErrorCode | 'unknown'}`
+
+const KNOWN_PASSWORD = new Set<string>(PASSWORD_ERROR_CODES)
+
+/** The key of the message for a failed e-mail and password sign-in. */
+export function passwordSignInErrorKey(code: string | undefined): PasswordSignInErrorKey {
+  // The rate limiter answers too_many_requests; it reads the same as too_many_attempts.
+  if (code === 'too_many_requests') return 'password.too_many_attempts'
+  return code && KNOWN_PASSWORD.has(code) ? (`password.${code}` as PasswordSignInErrorKey) : 'password.unknown'
+}

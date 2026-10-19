@@ -13,5 +13,33 @@
     "too_many_attempts": "Too many attempts. Please wait a moment and try again.",
     "unknown_provider": "Sign-in with Google is not available right now.",
     "unknown": "Something went wrong while signing you in. Please try again."
+  },
+  "password": {
+    "invalid_credentials": "Wrong e-mail or password.",
+    "email_not_verified": "Please confirm your e-mail address first: open the link we sent you.",
+    "no_password_set": "This account signs in with Google. Use the “Continue with Google” button.",
+    "account_disabled": "This account is disabled.",
+    "too_many_attempts": "Too many attempts. Please wait a moment and try again.",
+    "unknown": "Something went wrong while signing you in. Please try again."
+  },
+  "wish": {
+    "empty": "Describe what you'd like in a few words.",
+    "tooLong": "Your wish is a little long: {{max}} characters at most.",
+    "invalid": "We couldn't read this wish. Please put it in one sentence.",
+    "tooManyRequests": "Too many requests at once. Please wait a moment and try again.",
+    "unknown": "Your wish couldn't be sent. Please try again in a moment."
+  },
+  "answers": {
+    "budget": "Enter a budget in euros, for example 3,500.",
+    "persons": "Between {{min}} and {{max}} travellers.",
+    "startDate": "Choose a departure date.",
+    "endDate": "Choose a return date.",
+    "endBeforeStart": "The return must be after the departure.",
+    "invalid": "Some answers don't fit. Check the dates and the budget, then try again.",
+    "wishNotFound": "We can't find this wish any more. Please start again.",
+    "alreadyAnswered": "You have already answered for this wish.",
+    "tooManyRequests": "Too many requests at once. Please wait a moment and try again.",
+    "unknown": "Your preferences couldn't be sent. Please try again in a moment.",
+    "startInPast": "The departure cannot be in the past."
   }
 }

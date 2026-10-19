@@ -1,11 +1,20 @@
-import { createFileRoute, redirect } from '@tanstack/react-router'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { createFileRoute, Link, redirect, useRouter } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
 
 import { googleSignInUrl } from '../api/auth'
-import { isUnauthenticated } from '../api/errors'
-import { getMeOptions } from '../api/generated/@tanstack/react-query.gen'
+import { ApiError, isUnauthenticated } from '../api/errors'
+import {
+  getMeOptions,
+  getMeQueryKey,
+  signInWithPasswordMutation,
+} from '../api/generated/@tanstack/react-query.gen'
 import { Button } from '../components/atoms/Button'
-import { signInErrorKey } from '../domain/auth/errors'
+import { Eyebrow } from '../components/atoms/Eyebrow'
+import { Logo } from '../components/atoms/Logo'
+import { AuthMedia } from '../components/organisms/AuthMedia'
+import { PasswordSignInForm } from '../components/organisms/PasswordSignInForm'
+import { passwordSignInErrorKey, signInErrorKey } from '../domain/auth/errors'
 import { safeRedirect } from '../domain/auth/session'
 
 type LoginSearch = {
@@ -38,20 +47,66 @@ function LoginPage() {
   const { redirect: target, error } = Route.useSearch()
   const { t } = useTranslation('auth')
   const { t: tErrors } = useTranslation('errors')
-  const errorKey = signInErrorKey(error)
+  const { t: tCommon } = useTranslation()
+  const googleErrorKey = signInErrorKey(error)
+  const next = safeRedirect(target, '/wish')
+  const queryClient = useQueryClient()
+  const router = useRouter()
+  const signIn = useMutation({
+    ...signInWithPasswordMutation(),
+    onSuccess: async () => {
+      // The 401 from before is stale: the next page asks /me again with the new session cookie.
+      queryClient.removeQueries({ queryKey: getMeQueryKey() })
+      await router.navigate({ href: next })
+    },
+  })
+  const passwordError = signIn.isError
+    ? tErrors(passwordSignInErrorKey(signIn.error instanceof ApiError ? signIn.error.code : undefined))
+    : undefined
 
   return (
-    <main className="mx-auto max-w-md px-5 pt-24">
-      <h1 className="mb-3 text-5xl">{t('title')}</h1>
-      <p className="mb-6 text-muted">{t('intro')}</p>
-      {errorKey && (
-        <p role="alert" className="mb-4 text-danger">
-          {tErrors(errorKey)}
-        </p>
-      )}
-      <Button asChild variant="outline" className="w-full">
-        <a href={googleSignInUrl(safeRedirect(target, '/wish'))}>{t('continueWithGoogle')}</a>
-      </Button>
+    <main className="min-h-screen md:grid md:h-screen md:grid-cols-[1.05fr_0.95fr]">
+      <AuthMedia
+        image="/images/aegean-boat"
+        imageAlt={t('imageAlt')}
+        logo={
+          <Link to="/" aria-label={tCommon('homeLink')} className="flex min-h-11 items-center no-underline">
+            <Logo light />
+          </Link>
+        }
+        quote={t('quote')}
+        caption={t('caption')}
+      />
+      <section className="grid place-items-center bg-paper px-[22px] py-[45px] md:overflow-y-auto md:p-[30px]">
+        <div className="w-full max-w-[420px]">
+          <Eyebrow>{t('welcomeBack')}</Eyebrow>
+          <h1 className="mb-2.5 text-[45px] leading-none md:text-[55px]">{t('title')}</h1>
+          <p className="text-muted">{t('intro')}</p>
+          {googleErrorKey && (
+            <p role="alert" className="mt-4 text-sm text-danger">
+              {tErrors(googleErrorKey)}
+            </p>
+          )}
+          <Button asChild variant="outline" className="my-5 w-full">
+            <a href={googleSignInUrl(next)}>
+              <span aria-hidden="true" className="font-[Arial] font-bold">
+                G
+              </span>
+              {t('continueWithGoogle')}
+            </a>
+          </Button>
+          <div className="mb-1 flex items-center gap-2.5 text-xs text-muted">
+            <span aria-hidden="true" className="h-px flex-1 bg-line" />
+            {t('orWithEmail')}
+            <span aria-hidden="true" className="h-px flex-1 bg-line" />
+          </div>
+          <PasswordSignInForm
+            onSubmit={(body) => signIn.mutate({ body })}
+            pending={signIn.isPending}
+            error={passwordError}
+          />
+        </div>
+      </section>
     </main>
   )
 }

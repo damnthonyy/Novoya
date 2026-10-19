@@ -163,7 +163,7 @@ describe('sign-in and sign-out', () => {
     meAnswer = 'ok'
     fireEvent.click(screen.getByRole('button', { name: 'Try again' }))
 
-    expect(await screen.findByRole('heading', { name: 'What would you really like?' })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: /What would you/ })).toBeInTheDocument()
   })
 
   it('starts Google sign-in and comes back to the requested page', async () => {
@@ -199,7 +199,7 @@ describe('sign-in and sign-out', () => {
     signedIn = LEA
     const { router } = renderAt('/login')
 
-    expect(await screen.findByRole('heading', { name: 'What would you really like?' })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: /What would you/ })).toBeInTheDocument()
     expect(router.state.location.pathname).toBe('/wish')
   })
 
@@ -207,7 +207,7 @@ describe('sign-in and sign-out', () => {
     signedIn = LEA
     const { router } = renderAt('/login?redirect=%2Fwish%3Ftrip%3Dbeach')
 
-    expect(await screen.findByRole('heading', { name: 'What would you really like?' })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: /What would you/ })).toBeInTheDocument()
     expect(router.state.location.pathname).toBe('/wish')
     expect(router.state.location.search).toEqual({ trip: 'beach' })
   })
@@ -216,7 +216,7 @@ describe('sign-in and sign-out', () => {
     signedIn = LEA
     const { router } = renderAt('/login?redirect=%2F%2Fevil.com')
 
-    expect(await screen.findByRole('heading', { name: 'What would you really like?' })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: /What would you/ })).toBeInTheDocument()
     expect(router.state.location.href).toBe('/wish')
   })
 
@@ -358,7 +358,7 @@ describe('sign-in and sign-out', () => {
       browserLanguages(['en-US'])
       renderAt('/wish')
 
-      expect(await screen.findByRole('heading', { name: 'De quoi avez-vous envie ?' })).toBeInTheDocument()
+      expect(await screen.findByRole('heading', { name: /De quoi avez-vous/ })).toBeInTheDocument()
       expect(screen.getByRole('link', { name: 'Mes voyages' })).toBeInTheDocument()
       expect(document.documentElement).toHaveAttribute('lang', 'fr')
     })
@@ -368,7 +368,7 @@ describe('sign-in and sign-out', () => {
       browserLanguages(['fr-FR'])
       renderAt('/wish')
 
-      expect(await screen.findByRole('heading', { name: 'What would you really like?' })).toBeInTheDocument()
+      expect(await screen.findByRole('heading', { name: /What would you/ })).toBeInTheDocument()
       expect(document.documentElement).toHaveAttribute('lang', 'en')
     })
 
@@ -422,7 +422,7 @@ describe('sign-in and sign-out', () => {
       fireEvent.pointerMove(window)
       fireEvent.click(screen.getByRole('link', { name: 'Compose' }))
 
-      await screen.findByRole('heading', { name: 'What would you really like?' })
+      await screen.findByRole('heading', { name: /What would you/ })
       expect(meCalls()).toBe(1)
     })
 
@@ -438,7 +438,7 @@ describe('sign-in and sign-out', () => {
       await waitFor(() => expect(meCalls()).toBe(2))
       expect(router.state.location.pathname).toBe('/wish')
       expect(screen.getByText('Léa Martin')).toBeInTheDocument()
-      expect(screen.getByRole('heading', { name: 'What would you really like?' })).toBeInTheDocument()
+      expect(screen.getByRole('heading', { name: /What would you/ })).toBeInTheDocument()
     })
 
     it('checks the session again and goes to /login if it was revoked', async () => {

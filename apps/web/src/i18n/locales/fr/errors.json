@@ -13,5 +13,33 @@
     "too_many_attempts": "Trop de tentatives. Patientez un instant, puis réessayez.",
     "unknown_provider": "La connexion avec Google n'est pas disponible pour le moment.",
     "unknown": "Une erreur est survenue pendant la connexion. Veuillez réessayer."
+  },
+  "password": {
+    "invalid_credentials": "E-mail ou mot de passe incorrect.",
+    "email_not_verified": "Confirmez d’abord votre adresse e-mail : ouvrez le lien que nous vous avons envoyé.",
+    "no_password_set": "Ce compte se connecte avec Google. Utilisez le bouton « Continuer avec Google ».",
+    "account_disabled": "Ce compte est désactivé.",
+    "too_many_attempts": "Trop de tentatives. Patientez un instant, puis réessayez.",
+    "unknown": "Une erreur est survenue pendant la connexion. Veuillez réessayer."
+  },
+  "wish": {
+    "empty": "Décrivez votre envie en quelques mots.",
+    "tooLong": "Votre envie est un peu longue : {{max}} caractères au plus.",
+    "invalid": "Nous n’avons pas pu lire cette envie. Reformulez-la en une phrase.",
+    "tooManyRequests": "Trop de demandes d’un coup. Patientez un instant, puis réessayez.",
+    "unknown": "Votre envie n’a pas pu être envoyée. Réessayez dans un instant."
+  },
+  "answers": {
+    "budget": "Indiquez un budget en euros, par exemple 3 500.",
+    "persons": "Entre {{min}} et {{max}} voyageurs.",
+    "startDate": "Choisissez une date de départ.",
+    "endDate": "Choisissez une date de retour.",
+    "endBeforeStart": "Le retour doit être après le départ.",
+    "invalid": "Certaines réponses ne conviennent pas. Vérifiez les dates et le budget, puis réessayez.",
+    "wishNotFound": "Nous ne retrouvons pas cette envie. Recommencez depuis le début.",
+    "alreadyAnswered": "Vous avez déjà répondu pour cette envie.",
+    "tooManyRequests": "Trop de demandes d’un coup. Patientez un instant, puis réessayez.",
+    "unknown": "Vos préférences n’ont pas pu être envoyées. Réessayez dans un instant.",
+    "startInPast": "Le départ ne peut pas être dans le passé."
   }
 }

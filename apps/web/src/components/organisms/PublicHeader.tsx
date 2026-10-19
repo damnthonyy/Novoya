@@ -14,10 +14,10 @@ export function PublicHeader({ signedIn = false }: { signedIn?: boolean }) {
         <Logo light />
       </Link>
       <nav aria-label={t('mainNav')} className="flex items-center gap-7 text-sm text-white">
-        <a href="#voyages" className="hidden text-white no-underline md:inline">
+        <a href="#voyages" className="hidden min-h-11 items-center text-white no-underline md:inline-flex">
           {t('inspirations')}
         </a>
-        <a href="#methode" className="hidden text-white no-underline md:inline">
+        <a href="#methode" className="hidden min-h-11 items-center text-white no-underline md:inline-flex">
           {t('ourMethod')}
         </a>
         <Button asChild variant="glass">
