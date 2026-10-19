@@ -24,7 +24,7 @@ flowchart TB
 | `accounts` | Users, sign-in with Google or email and password, sessions, the client, agent and admin roles, the language, deleting an account | #15, #49, #46, #59 |
 | `catalog` | Partners, offers, covered destinations | #17, #18, #20, #21 |
 | `wishes` | The client's wish, the coverage check, the preference panel and its answers | #23, #25, #28 |
-| `planning` | The plan built from offers and its status machine, the agent's negotiation (queue, prices) | #29, #50, #51 |
+| `planning` | The plan built from offers and its status machine, the agent's negotiation (queue, prices) | #29, #76, #50, #51 |
 | `quoting` | The quote: total, validity, PDF, email, the client's accept or reject | #52, #53, #54 |
 | `health` | Is the API up, does the database answer. The worked example to copy | done |
 | `shared` | The shared kernel: domain errors, common value objects, the database session, the LLM client | |

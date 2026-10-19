@@ -1,6 +1,7 @@
 from collections.abc import Sequence
 from datetime import date
 from typing import Protocol
+from uuid import UUID
 
 from novoya_api.planning.application.dto import OfferSummary
 
@@ -19,4 +20,8 @@ class OfferCatalog(Protocol):
     ) -> list[OfferSummary]:
         """Listed offers there that fit the group and the whole trip, best first. With tags,
         only offers matching at least one; featured offers come first among equals."""
+        ...
+
+    async def summaries_for(self, offer_ids: Sequence[UUID]) -> list[OfferSummary]:
+        """Offers by id, even inactive: a saved plan still has to show their titles."""
         ...

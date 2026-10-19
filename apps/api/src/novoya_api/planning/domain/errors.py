@@ -1,4 +1,4 @@
-from novoya_api.shared.domain.errors import InvalidInput
+from novoya_api.shared.domain.errors import InvalidInput, NotFound
 
 
 class InvalidPlan(InvalidInput):  # 422
@@ -11,3 +11,7 @@ class NoOfferFits(InvalidInput):  # 422
     """No listed offer fits the travellers and the dates: there is nothing to plan with."""
 
     code = "no_offer_fits"
+
+
+class PlanNotFound(NotFound):  # 404
+    """No plan with this id, or it is not the caller's. Same code so the id stays hidden."""

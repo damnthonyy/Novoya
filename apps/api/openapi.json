@@ -330,6 +330,19 @@
         "title": "ErrorResponse",
         "type": "object"
       },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "title": "Detail",
+            "type": "array"
+          }
+        },
+        "title": "HTTPValidationError",
+        "type": "object"
+      },
       "Health": {
         "properties": {
           "status": {
@@ -697,49 +710,61 @@
         "title": "PlanItemOut",
         "type": "object"
       },
-      "PlanResponse": {
-        "description": "The proposed plan, day by day. No price until it is quoted and no partner name.\nbased_on_preferences is false when the client picked no tag.",
+      "PlanItemResponse": {
         "properties": {
-          "based_on_preferences": {
-            "title": "Based On Preferences",
-            "type": "boolean"
+          "day": {
+            "title": "Day",
+            "type": "integer"
+          },
+          "description": {
+            "title": "Description",
+            "type": "string"
           },
           "id": {
             "format": "uuid",
             "title": "Id",
             "type": "string"
           },
-          "items": {
-            "items": {
-              "$ref": "#/components/schemas/PlanItemOut"
-            },
-            "title": "Items",
-            "type": "array"
-          },
-          "status": {
-            "const": "proposed",
-            "title": "Status",
+          "kind": {
+            "title": "Kind",
             "type": "string"
           },
-          "summary": {
-            "title": "Summary",
-            "type": "string"
+          "note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
           },
-          "wish_id": {
+          "offer_id": {
             "format": "uuid",
-            "title": "Wish Id",
+            "title": "Offer Id",
+            "type": "string"
+          },
+          "quantity": {
+            "title": "Quantity",
+            "type": "integer"
+          },
+          "title": {
+            "title": "Title",
             "type": "string"
           }
         },
         "required": [
           "id",
-          "wish_id",
-          "status",
-          "based_on_preferences",
-          "summary",
-          "items"
+          "offer_id",
+          "day",
+          "quantity",
+          "note",
+          "kind",
+          "title",
+          "description"
         ],
-        "title": "PlanResponse",
+        "title": "PlanItemResponse",
         "type": "object"
       },
       "RegisterRequest": {
@@ -1241,6 +1266,46 @@
         "title": "UserResponse",
         "type": "object"
       },
+      "ValidationError": {
+        "properties": {
+          "ctx": {
+            "title": "Context",
+            "type": "object"
+          },
+          "input": {
+            "title": "Input"
+          },
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "title": "Location",
+            "type": "array"
+          },
+          "msg": {
+            "title": "Message",
+            "type": "string"
+          },
+          "type": {
+            "title": "Error Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError",
+        "type": "object"
+      },
       "WishResponse": {
         "description": "panel_shown: show the panel. not_covered: we don't go there, offer the suggestions.\ndraft: the text names no place, ask where, with the suggestions as choices.",
         "properties": {
@@ -1294,6 +1359,95 @@
           "suggestions"
         ],
         "title": "WishResponse",
+        "type": "object"
+      },
+      "novoya_api__planning__presentation__http__schemas__PlanResponse": {
+        "description": "The plan day by day. No price until it is quoted, and never a partner name.",
+        "properties": {
+          "based_on_preferences": {
+            "title": "Based On Preferences",
+            "type": "boolean"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/PlanItemResponse"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "summary": {
+            "title": "Summary",
+            "type": "string"
+          },
+          "wish_id": {
+            "format": "uuid",
+            "title": "Wish Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "wish_id",
+          "status",
+          "based_on_preferences",
+          "summary",
+          "items"
+        ],
+        "title": "Plan",
+        "type": "object"
+      },
+      "novoya_api__wishes__presentation__http__schemas__PlanResponse": {
+        "description": "The proposed plan, day by day. No price until it is quoted and no partner name.\nbased_on_preferences is false when the client picked no tag.",
+        "properties": {
+          "based_on_preferences": {
+            "title": "Based On Preferences",
+            "type": "boolean"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/PlanItemOut"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "status": {
+            "const": "proposed",
+            "title": "Status",
+            "type": "string"
+          },
+          "summary": {
+            "title": "Summary",
+            "type": "string"
+          },
+          "wish_id": {
+            "format": "uuid",
+            "title": "Wish Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "wish_id",
+          "status",
+          "based_on_preferences",
+          "summary",
+          "items"
+        ],
+        "title": "PlanResponse",
         "type": "object"
       }
     }
@@ -3269,6 +3423,80 @@
         ]
       }
     },
+    "/plans/{plan_id}": {
+      "get": {
+        "description": "The plan day by day. No prices until it is quoted, and never the partners' names.\n404 if it is missing or not the caller's, so the id stays hidden.",
+        "operationId": "getPlan",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "plan_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Plan Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/novoya_api__planning__presentation__http__schemas__PlanResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Plan",
+        "tags": [
+          "planning"
+        ]
+      }
+    },
     "/wishes": {
       "post": {
         "description": "Send the trip the client wants, in their words. Returns the panel when we cover the\ndestination, suggestions when we don't, and asks where when the text names no place.",
@@ -3362,7 +3590,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/PlanResponse"
+                  "$ref": "#/components/schemas/novoya_api__wishes__presentation__http__schemas__PlanResponse"
                 }
               }
             },

@@ -1,9 +1,10 @@
 from collections.abc import Sequence
 from datetime import date
+from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from novoya_api.catalog.public import search_offers
+from novoya_api.catalog.public import get_offers, search_offers
 from novoya_api.planning.application.dto import OfferSummary
 
 
@@ -36,4 +37,18 @@ class PartnerOffers:
                 featured=offer.featured,
             )
             for offer in offers
+        ]
+
+    async def summaries_for(self, offer_ids: Sequence[UUID]) -> list[OfferSummary]:
+        views = await get_offers(offer_ids, session=self._session)
+        return [
+            OfferSummary(
+                id=offer.id,
+                kind=str(offer.kind),
+                title=offer.title,
+                description=offer.description,
+                tags=tuple(offer.tags),
+                featured=offer.featured,
+            )
+            for offer in views
         ]

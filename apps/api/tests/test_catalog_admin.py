@@ -1,6 +1,6 @@
 """Admin partners and offers: use cases on fakes, HTTP with a signed-in agent."""
 
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Sequence
 from datetime import date
 from uuid import UUID, uuid4
 
@@ -96,6 +96,16 @@ class FakeOffers:
 
     async def get(self, offer_id: UUID) -> Offer | None:
         return self.by_id.get(offer_id)
+
+    async def list_by_ids(self, ids: Sequence[UUID]) -> list[tuple[Offer, Partner]]:
+        assert self.partners is not None
+        pairs = []
+        for offer_id in ids:
+            offer = self.by_id.get(offer_id)
+            if offer is None:
+                continue
+            pairs.append((offer, self.partners.by_id[offer.partner_id]))
+        return pairs
 
     async def add(self, offer: Offer) -> None:
         self.by_id[offer.id] = offer

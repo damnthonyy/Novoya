@@ -4,24 +4,25 @@
 - tags_at(country, city) -> tags of listed offers there (city None = the whole country)
 - search_offers(country, city, tags, persons, start, end) -> listed offers that fit, as
   OfferView. OfferView carries partner name and contact; other modules decide who may see them.
+- get_offers(ids) -> OfferView for those ids, including inactive (a saved plan still
+  needs titles). Callers drop partner fields when the client must not see them.
 
 Country and city matching is case-insensitive. Prefer the names returned by
 covered_destinations() (English Title Case) so the LLM and the panel stay consistent.
 
 Inside a request, pass the request's session: each call then reads through it instead of
 taking a second connection from the pool.
-
-Planned:
-- get_offers(ids) -> list of OfferView, only active ones (to check a plan)
 """
 
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Sequence
 from contextlib import asynccontextmanager
 from datetime import date
+from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from novoya_api.catalog.application.dto import OfferView
+from novoya_api.catalog.application.use_cases.get_offers import GetOffers
 from novoya_api.catalog.application.use_cases.list_destinations import ListDestinations
 from novoya_api.catalog.application.use_cases.list_tags_at import ListTagsAt
 from novoya_api.catalog.application.use_cases.search_offers import SearchOffers
@@ -61,6 +62,14 @@ async def search_offers(
         return await SearchOffers(SqlOfferRepository(reading))(
             country, city, tags, persons, start, end
         )
+
+
+async def get_offers(
+    ids: Sequence[UUID], *, session: AsyncSession | None = None
+) -> list[OfferView]:
+    """Offers by id, in that order, including inactive. Missing ids are omitted."""
+    async with _reading(session) as reading:
+        return await GetOffers(SqlOfferRepository(reading))(ids)
 
 
 @asynccontextmanager
