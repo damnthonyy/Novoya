@@ -1,24 +1,46 @@
-import type { AnchorHTMLAttributes, ButtonHTMLAttributes } from 'react'
+import { cva, type VariantProps } from 'class-variance-authority'
+import { Slot } from 'radix-ui'
+import type { ButtonHTMLAttributes } from 'react'
 
-type Variant = 'primary' | 'quiet'
+import { cn } from '@/lib/utils'
 
-export function Button({
-  variant = 'primary',
-  className,
-  ...props
-}: ButtonHTMLAttributes<HTMLButtonElement> & { variant?: Variant }) {
-  return <button type="button" className={classes(variant, className)} {...props} />
-}
+const buttonVariants = cva(
+  'inline-flex items-center justify-center gap-4 rounded-full font-semibold text-sm no-underline transition duration-250 hover:-translate-y-0.5 disabled:pointer-events-none disabled:opacity-60',
+  {
+    variants: {
+      variant: {
+        coral: 'bg-coral text-ink hover:bg-coral-light',
+        ink: 'bg-ink text-white',
+        // On photos and the dark sections.
+        glass: 'border border-white/45 bg-white/10 text-white backdrop-blur-md',
+        outline: 'border border-line bg-white text-ink',
+        // Underlined text, for secondary actions.
+        link: 'rounded-none p-0 font-normal underline underline-offset-4 hover:translate-y-0',
+      },
+      size: {
+        md: 'min-h-11 px-5 py-3',
+        lg: 'min-h-14 px-6 py-4',
+        inline: '',
+      },
+    },
+    compoundVariants: [{ variant: 'link', className: 'min-h-0 px-0 py-0' }],
+    defaultVariants: { variant: 'ink', size: 'md' },
+  },
+)
 
-/** A link that looks like a button, for actions that leave the app (e.g. signing in with Google). */
-export function ButtonLink({
-  variant = 'primary',
-  className,
-  ...props
-}: AnchorHTMLAttributes<HTMLAnchorElement> & { variant?: Variant }) {
-  return <a className={classes(variant, className)} {...props} />
-}
+type Props = ButtonHTMLAttributes<HTMLButtonElement> &
+  VariantProps<typeof buttonVariants> & {
+    /** Render the child (a router `Link`, an `<a>`) with the button's look. */
+    asChild?: boolean
+  }
 
-function classes(variant: Variant, className?: string) {
-  return ['button', `button--${variant}`, className].filter(Boolean).join(' ')
+export function Button({ variant, size, asChild = false, className, ...props }: Props) {
+  const Component = asChild ? Slot.Root : 'button'
+  return (
+    <Component
+      {...(asChild ? {} : { type: 'button' as const })}
+      className={cn(buttonVariants({ variant, size }), className)}
+      {...props}
+    />
+  )
 }

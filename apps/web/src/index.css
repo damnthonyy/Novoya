@@ -1,155 +1,120 @@
-:root {
-  --text: #3d3a44;
-  --text-strong: #0e0c12;
-  --bg: #ffffff;
-  --border: #e5e4e7;
-  --ok: #157a3c;
-  --error: #b42318;
-  --sans: system-ui, 'Segoe UI', Roboto, sans-serif;
+@import 'tailwindcss';
+@import 'tw-animate-css';
+@import '@fontsource/dm-sans/400.css';
+@import '@fontsource/dm-sans/500.css';
+@import '@fontsource/dm-sans/600.css';
+@import '@fontsource/gloock/400.css';
 
-  font: 16px/1.5 var(--sans);
-  color: var(--text);
-  background: var(--bg);
-  color-scheme: light dark;
-}
+/*
+ * Novoya's design tokens, from the Figma Make mockup "UI/UX Design for Novoya".
+ * The mockup is light only, so the app is too (color-scheme: light).
+ */
+@theme {
+  --color-ink: #18332f;
+  --color-ink-2: #24443f;
+  --color-ivory: #f5f1e8;
+  --color-paper: #fbfaf6;
+  --color-sand: #dfd6c7;
+  --color-coral: #ef765e;
+  --color-coral-light: #f58a72;
+  /* Coral dark enough for small text on paper and ivory (4.5:1). */
+  --color-coral-text: #b04a33;
+  --color-sage: #b7c1ad;
+  --color-muted: #646e6a;
+  --color-line: rgb(24 51 47 / 0.16);
+  --color-ok: #65a77a;
+  --color-pending: #dba652;
+  --color-danger: #b42318;
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --text: #c9c6cf;
-    --text-strong: #f5f4f7;
-    --bg: #121015;
-    --border: #2c2a31;
-    --ok: #4ade80;
-    --error: #f87171;
+  --font-sans: 'DM Sans', Arial, sans-serif;
+  --font-serif: 'Gloock', Georgia, serif;
+
+  --tracking-display: -0.04em;
+  --tracking-eyebrow: 0.19em;
+
+  --shadow-card: 0 22px 70px rgb(24 51 47 / 0.09);
+  --shadow-float: 0 18px 70px rgb(24 51 47 / 0.2);
+  --shadow-menu: 0 15px 50px rgb(24 51 47 / 0.15);
+
+  --animate-zoom: zoom 16s ease-out both;
+  --animate-reveal: reveal 0.9s 0.2s both;
+  --animate-spin-slow: spin 2s linear infinite;
+
+  @keyframes zoom {
+    from {
+      transform: scale(1.05);
+    }
+  }
+  @keyframes reveal {
+    from {
+      opacity: 0;
+      translate: 0 1.5rem;
+    }
   }
 }
 
-* {
-  box-sizing: border-box;
+/* The names shadcn/ui components use, mapped onto Novoya's palette. */
+@theme inline {
+  --color-background: var(--color-paper);
+  --color-foreground: var(--color-ink);
+  --color-popover: #fff;
+  --color-popover-foreground: var(--color-ink);
+  --color-primary: var(--color-ink);
+  --color-primary-foreground: #fff;
+  --color-accent: var(--color-ivory);
+  --color-accent-foreground: var(--color-ink);
+  --color-muted-foreground: var(--color-muted);
+  --color-border: var(--color-line);
+  --color-input: var(--color-line);
+  --color-ring: var(--color-ink);
+  --color-destructive: var(--color-danger);
 }
 
-body {
-  margin: 0;
-  background: var(--bg);
-}
+@layer base {
+  :root {
+    color-scheme: light;
+  }
 
-h1 {
-  color: var(--text-strong);
-  font-size: 2rem;
-  line-height: 1.2;
-  margin: 0 0 0.5rem;
-}
+  html {
+    scroll-behavior: smooth;
+  }
 
-.app-header {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.5rem 1rem;
-  padding: 1rem;
-  border-bottom: 1px solid var(--border);
-}
+  body {
+    margin: 0;
+    background: var(--color-paper);
+    color: var(--color-ink);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+  }
 
-.app-header__account {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  min-width: 0;
-}
+  h1,
+  h2 {
+    font-family: var(--font-serif);
+    font-weight: 400;
+    letter-spacing: var(--tracking-display);
+  }
 
-.app-header__user {
-  color: var(--text-strong);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
+  em {
+    font-weight: 400;
+  }
 
-.brand {
-  color: var(--text-strong);
-  font-weight: 700;
-  text-decoration: none;
-}
+  button:not(:disabled),
+  [role='button']:not(:disabled) {
+    cursor: pointer;
+  }
 
-.app-main {
-  max-width: 64rem;
-  margin: 0 auto;
-  padding: 2rem 1rem;
-}
+  :focus-visible {
+    outline: 2px solid var(--color-coral);
+    outline-offset: 2px;
+  }
 
-.api-status {
-  list-style: none;
-  padding: 0;
-}
-
-.api-status [data-state='ok'] {
-  color: var(--ok);
-}
-
-.api-status [data-state='error'] {
-  color: var(--error);
-}
-
-.button {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 2.5rem;
-  padding: 0.5rem 1rem;
-  border: 1px solid transparent;
-  border-radius: 0.5rem;
-  font: inherit;
-  font-weight: 600;
-  text-decoration: none;
-  cursor: pointer;
-}
-
-.button:disabled {
-  cursor: default;
-  opacity: 0.6;
-}
-
-.button:focus-visible {
-  outline: 2px solid var(--text-strong);
-  outline-offset: 2px;
-}
-
-.button--primary {
-  background: var(--text-strong);
-  color: var(--bg);
-}
-
-.button--quiet {
-  background: transparent;
-  border-color: var(--border);
-  color: var(--text-strong);
-}
-
-.login {
-  max-width: 24rem;
-  margin: 2rem auto 0;
-}
-
-.login .button {
-  width: 100%;
-  margin-top: 1rem;
-}
-
-.login__error {
-  color: var(--error);
-}
-
-.app-header__error {
-  flex-basis: 100%;
-  margin: 0;
-  color: var(--error);
-  text-align: right;
-}
-
-.error-note {
-  max-width: 32rem;
-  margin: 2rem auto 0;
-}
-
-.error-note p {
-  color: var(--error);
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    ::before,
+    ::after {
+      animation: none !important;
+      transition: none !important;
+      scroll-behavior: auto !important;
+    }
+  }
 }

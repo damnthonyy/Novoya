@@ -8,12 +8,12 @@ const CONTROL = /[\x00-\x1f\x7f]/
 const MAX_LENGTH = 512 // RedirectPolicy.max_length and the oauth_states.redirect_to column
 
 /**
- * A page of the web app to go to after signing in, or `/`.
+ * A page of the web app to go to after signing in, or `fallback`.
  * Same rule as the API's RedirectPolicy: a relative path, never another site.
  */
-export function safeRedirect(target: unknown): string {
-  if (typeof target !== 'string' || !target || target.length > MAX_LENGTH) return '/'
-  if (!target.startsWith('/') || target.startsWith('//') || target.startsWith('/\\')) return '/'
-  if (CONTROL.test(target)) return '/'
+export function safeRedirect(target: unknown, fallback = '/'): string {
+  if (typeof target !== 'string' || !target || target.length > MAX_LENGTH) return fallback
+  if (!target.startsWith('/') || target.startsWith('//') || target.startsWith('/\\')) return fallback
+  if (CONTROL.test(target)) return fallback
   return target
 }
