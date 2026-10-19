@@ -5,16 +5,18 @@ export type QuoteRequest = {
   client: string
   title: string
   wish: string
-  budget: string
-  dates: string
+  /** Whole euros. */
+  budget: number
+  startDate: string
+  endDate: string
   travellers: number
-  received: string
+  receivedHoursAgo: number
 }
 
 const REQUESTS: QuoteRequest[] = [
-  { id: 'r1', client: 'Camille Martin', title: 'Chania, au rythme de la mer', wish: 'Une semaine calme, de bonnes tables et beaucoup de mer.', budget: '3 500 €', dates: '12—19 mai', travellers: 2, received: 'Il y a 1 h' },
-  { id: 'r2', client: 'Nora Bernard', title: 'Marrakech, derrière les portes', wish: 'Un riad au calme, la médina à pied.', budget: '2 200 €', dates: '3—7 juin', travellers: 2, received: 'Il y a 2 h' },
-  { id: 'r3', client: 'Louis Perrin', title: 'Biarritz, plein ouest', wish: 'Du surf le matin, l’océan le soir.', budget: '1 800 €', dates: '18—21 juin', travellers: 1, received: 'Il y a 3 h' },
+  { id: 'r1', client: 'Camille Martin', title: 'Chania, au rythme de la mer', wish: 'Une semaine calme, de bonnes tables et beaucoup de mer.', budget: 3500, startDate: '2026-05-12', endDate: '2026-05-19', travellers: 2, receivedHoursAgo: 1 },
+  { id: 'r2', client: 'Nora Bernard', title: 'Marrakech, derrière les portes', wish: 'Un riad au calme, la médina à pied.', budget: 2200, startDate: '2026-06-03', endDate: '2026-06-07', travellers: 2, receivedHoursAgo: 2 },
+  { id: 'r3', client: 'Louis Perrin', title: 'Biarritz, plein ouest', wish: 'Du surf le matin, l’océan le soir.', budget: 1800, startDate: '2026-06-18', endDate: '2026-06-21', travellers: 1, receivedHoursAgo: 3 },
 ]
 
 export type QueueFilter = 'unassigned' | 'in_progress' | 'decided'

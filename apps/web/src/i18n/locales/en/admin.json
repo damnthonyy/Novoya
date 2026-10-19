@@ -1,0 +1,35 @@
+{
+  "area": "Administration",
+  "nav": {
+    "users": "Users",
+    "partners": "Partners",
+    "offers": "Offers"
+  },
+  "eyebrow": "Administration",
+  "title": "Users",
+  "searchLabel": "Search by email",
+  "searchPlaceholder": "Search by email…",
+  "roleFilter": "Filter by role",
+  "allRoles": "All roles",
+  "roles": {
+    "client": "Client",
+    "agent": "Agent",
+    "admin": "Admin"
+  },
+  "changeFailed": "The role could not be changed. Please try again.",
+  "loading": "Loading users…",
+  "loadFailed": "The users could not be loaded.",
+  "empty": "No user matches this search.",
+  "note": "The Agent and Admin roles are only available for verified emails. You cannot change your own role.",
+  "table": {
+    "caption": "Users and roles",
+    "user": "User",
+    "role": "Role",
+    "status": "Status",
+    "joined": "Joined",
+    "roleOf": "Role of {{name}}",
+    "you": "You",
+    "verified": "Verified",
+    "pending": "Pending"
+  }
+}

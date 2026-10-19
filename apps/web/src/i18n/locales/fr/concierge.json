@@ -1,0 +1,20 @@
+{
+  "you": "Vous :",
+  "novoya": "Novoya :",
+  "send": "Envoyer",
+  "dockLabel": "Conversation avec le concierge",
+  "name": "Concierge Novoya",
+  "activeThread": "Fil actif · aperçu v{{version}}",
+  "collapse": "Réduire la conversation",
+  "expand": "Ouvrir la conversation",
+  "messages": "Messages",
+  "suggestions": {
+    "editDay": "Modifier un jour",
+    "editDayText": "Rendre le jour 4 plus actif",
+    "variant": "Créer une variante",
+    "variantText": "Créer une variante plus culturelle"
+  },
+  "placeholder": "Affiner, poser une question…",
+  "note": "L’aperçu peut évoluer à chaque message. Aucun prix n’est généré.",
+  "done": "C’est fait. La version {{version}} de votre aperçu intègre cette demande."
+}

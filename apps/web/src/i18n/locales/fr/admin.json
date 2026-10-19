@@ -1,0 +1,35 @@
+{
+  "area": "Administration",
+  "nav": {
+    "users": "Utilisateurs",
+    "partners": "Partenaires",
+    "offers": "Offres"
+  },
+  "eyebrow": "Administration",
+  "title": "Utilisateurs",
+  "searchLabel": "Rechercher par e-mail",
+  "searchPlaceholder": "Rechercher par e-mail…",
+  "roleFilter": "Filtrer par rôle",
+  "allRoles": "Tous les rôles",
+  "roles": {
+    "client": "Client",
+    "agent": "Agent",
+    "admin": "Admin"
+  },
+  "changeFailed": "Le rôle n’a pas pu être changé. Veuillez réessayer.",
+  "loading": "Chargement des utilisateurs…",
+  "loadFailed": "Impossible de charger les utilisateurs.",
+  "empty": "Aucun utilisateur ne correspond à cette recherche.",
+  "note": "Les rôles Agent et Admin sont disponibles uniquement pour les e-mails vérifiés. Vous ne pouvez pas modifier votre propre rôle.",
+  "table": {
+    "caption": "Utilisateurs et rôles",
+    "user": "Utilisateur",
+    "role": "Rôle",
+    "status": "Statut",
+    "joined": "Inscription",
+    "roleOf": "Rôle de {{name}}",
+    "you": "Vous",
+    "verified": "Vérifié",
+    "pending": "En attente"
+  }
+}

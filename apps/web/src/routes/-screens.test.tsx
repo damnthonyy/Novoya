@@ -13,7 +13,7 @@ const ADMIN: MeResponse = {
   email: 'arthur@novoya.fr',
   name: 'Arthur Roche',
   role: 'admin',
-  locale: 'fr',
+  locale: 'en',
   status: 'active',
   email_verified: true,
   created_at: '2026-08-18T10:00:00Z',
@@ -77,7 +77,7 @@ describe('back-office and plan screens', () => {
   it('lists the users for an admin', async () => {
     renderAt('/admin')
 
-    const table = await screen.findByRole('table', { name: 'Utilisateurs et rôles' })
+    const table = await screen.findByRole('table', { name: 'Users and roles' })
     expect(within(table).getByRole('rowheader', { name: /Léa Morel/ })).toBeInTheDocument()
     expect(within(table).getByRole('rowheader', { name: /Arthur Roche/ })).toBeInTheDocument()
   })
@@ -85,7 +85,7 @@ describe('back-office and plan screens', () => {
   it('changes a user role with PATCH /admin/users/{id}/role', async () => {
     renderAt('/admin')
 
-    const select = await screen.findByRole('combobox', { name: 'Rôle de Léa Morel' })
+    const select = await screen.findByRole('combobox', { name: 'Role of Léa Morel' })
     fireEvent.change(select, { target: { value: 'agent' } })
 
     await waitFor(() =>
@@ -93,23 +93,40 @@ describe('back-office and plan screens', () => {
         expect.objectContaining({ method: 'PATCH', path: `/admin/users/${LEA.id}/role`, body: { role: 'agent' } }),
       ),
     )
-    await waitFor(() => expect(screen.getByRole('combobox', { name: 'Rôle de Léa Morel' })).toHaveValue('agent'))
+    await waitFor(() => expect(screen.getByRole('combobox', { name: 'Role of Léa Morel' })).toHaveValue('agent'))
   })
 
   it('does not let an admin change their own role', async () => {
     renderAt('/admin')
 
-    expect(await screen.findByRole('combobox', { name: 'Rôle de Arthur Roche' })).toBeDisabled()
+    expect(await screen.findByRole('combobox', { name: 'Role of Arthur Roche' })).toBeDisabled()
   })
 
   it('filters the users by role', async () => {
     renderAt('/admin')
 
-    fireEvent.change(await screen.findByRole('combobox', { name: 'Filtrer par rôle' }), { target: { value: 'agent' } })
+    fireEvent.change(await screen.findByRole('combobox', { name: 'Filter by role' }), { target: { value: 'agent' } })
 
     await waitFor(() =>
       expect(requests).toContainEqual(expect.objectContaining({ path: '/admin/users', search: expect.stringContaining('role=agent') })),
     )
+  })
+
+  it("shows the admin page in the admin's language", async () => {
+    me = { ...ADMIN, locale: 'fr' }
+    renderAt('/admin')
+
+    expect(await screen.findByRole('heading', { level: 1, name: 'Utilisateurs' })).toBeInTheDocument()
+    expect(await screen.findByRole('table', { name: 'Utilisateurs et rôles' })).toBeInTheDocument()
+    expect(screen.getByRole('combobox', { name: 'Rôle de Léa Morel' })).toHaveDisplayValue('Client')
+    expect(document.documentElement).toHaveAttribute('lang', 'fr')
+  })
+
+  it('formats the quote amounts in the interface language', async () => {
+    renderAt('/quotes/NV-2026-0182')
+
+    expect(await screen.findByText('€2,750')).toBeInTheDocument()
+    expect(screen.getByText('7 days / 6 nights')).toBeInTheDocument()
   })
 
   it.each(['/agent', '/admin'])('sends a client away from %s', async (url) => {
@@ -123,7 +140,7 @@ describe('back-office and plan screens', () => {
     me = { ...ADMIN, role: 'agent' }
     const { router } = renderAt('/agent')
 
-    expect(await screen.findByRole('heading', { name: 'Demandes de devis' })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: 'Quote requests' })).toBeInTheDocument()
 
     await router.navigate({ to: '/admin' })
     await waitFor(() => expect(router.state.location.pathname).toBe('/wish'))
@@ -145,9 +162,9 @@ describe('back-office and plan screens', () => {
   it('confirms when the client accepts the quote', async () => {
     renderAt('/quotes/NV-2026-0182')
 
-    fireEvent.click(await screen.findByRole('button', { name: 'Accepter l’offre' }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Accept the offer' }))
 
-    expect(await screen.findByRole('status')).toHaveTextContent('Votre conseillère confirme les réservations')
+    expect(await screen.findByRole('status')).toHaveTextContent('Your advisor is confirming the bookings')
   })
 
   it('shows the conversation of the chosen trip', async () => {
@@ -155,6 +172,6 @@ describe('back-office and plan screens', () => {
 
     fireEvent.click(await screen.findByRole('button', { name: /Marrakech, derrière les portes/ }))
 
-    expect(await screen.findByRole('region', { name: 'Historique : Marrakech, derrière les portes' })).toBeInTheDocument()
+    expect(await screen.findByRole('region', { name: 'History: Marrakech, derrière les portes' })).toBeInTheDocument()
   })
 })

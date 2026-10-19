@@ -1,21 +1,17 @@
 import { useEffect, useState } from 'react'
+import { useTranslation } from 'react-i18next'
+
+import { listPlanMessages } from '../../fixtures/conversation'
+import type { Message } from '../../fixtures/trips'
 
 import { Seal } from '../atoms/Seal'
 import { ChatBubble } from '../molecules/ChatBubble'
 import { ChatComposer } from '../molecules/ChatComposer'
 
-type Message = { from: 'you' | 'novoya'; text: string }
-
-const START: Message[] = [
-  { from: 'novoya', text: 'Voici votre aperçu. J’ai gardé un rythme très doux et laissé le jour 4 presque libre.' },
-  { from: 'you', text: 'J’aimerais un peu plus de culture, sans surcharger.' },
-  { from: 'novoya', text: 'Bien sûr. J’ai ajouté une rencontre locale le jour 3. L’aperçu est maintenant en version 2.' },
-]
-
 const SUGGESTIONS = [
-  ['Modifier un jour', 'Rendre le jour 4 plus actif'],
-  ['Créer une variante', 'Créer une variante plus culturelle'],
-]
+  ['suggestions.editDay', 'suggestions.editDayText'],
+  ['suggestions.variant', 'suggestions.variantText'],
+] as const
 
 /**
  * The concierge conversation, docked at the bottom right on large screens. Below that it
@@ -25,9 +21,10 @@ const SUGGESTIONS = [
  * A preview: messages stay on this page until the conversation API exists.
  */
 export function ConversationDock({ version = 2 }: { version?: number }) {
+  const { t } = useTranslation('concierge')
   const [open, setOpen] = useState(false)
   const [current, setCurrent] = useState(version)
-  const [messages, setMessages] = useState(START)
+  const [messages, setMessages] = useState<Message[]>(listPlanMessages)
   const [draft, setDraft] = useState('')
 
   // Keep focused links and buttons from scrolling under the docked bar.
@@ -45,7 +42,8 @@ export function ConversationDock({ version = 2 }: { version?: number }) {
     setMessages([
       ...messages,
       { from: 'you', text: draft },
-      { from: 'novoya', text: `C’est fait. La version ${next} de votre aperçu intègre cette demande.` },
+      // Stands in for the concierge's answer until the conversation API exists.
+      { from: 'novoya', text: t('done', { version: next }) },
     ])
     setCurrent(next)
     setDraft('')
@@ -53,14 +51,14 @@ export function ConversationDock({ version = 2 }: { version?: number }) {
 
   return (
     <aside
-      aria-label="Conversation avec le concierge"
+      aria-label={t('dockLabel')}
       className="sticky bottom-2.5 z-10 mx-2.5 border border-line bg-white shadow-float lg:fixed lg:right-6 lg:bottom-5.5 lg:mx-0 lg:w-[390px]"
     >
       <div className="flex items-center gap-3 border-b border-line px-4 py-3">
         <Seal tone="ink" />
         <div className="grid flex-1">
-          <b className="font-serif text-sm font-normal">Concierge Novoya</b>
-          <small className="text-xs text-muted">Fil actif · aperçu v{current}</small>
+          <b className="font-serif text-sm font-normal">{t('name')}</b>
+          <small className="text-xs text-muted">{t('activeThread', { version: current })}</small>
         </div>
         <button
           type="button"
@@ -69,14 +67,14 @@ export function ConversationDock({ version = 2 }: { version?: number }) {
           className="grid size-11 place-items-center"
         >
           <span aria-hidden="true">{open ? '—' : '+'}</span>
-          <span className="sr-only">{open ? 'Réduire la conversation' : 'Ouvrir la conversation'}</span>
+          <span className="sr-only">{open ? t('collapse') : t('expand')}</span>
         </button>
       </div>
       {open && (
         <>
           <div
             role="log"
-            aria-label="Messages"
+            aria-label={t('messages')}
             tabIndex={0}
             className="max-h-24 overflow-auto bg-paper px-4 py-4 lg:max-h-40">
             {messages.slice(-4).map((message, i) => (
@@ -88,16 +86,16 @@ export function ConversationDock({ version = 2 }: { version?: number }) {
               <button
                 key={label}
                 type="button"
-                onClick={() => setDraft(text!)}
+                onClick={() => setDraft(t(text))}
                 className="min-h-8 rounded-full border border-line bg-white px-2.5 text-xs"
               >
-                {label}
+                {t(label)}
               </button>
             ))}
           </div>
-          <ChatComposer value={draft} onChange={setDraft} onSend={send} placeholder="Affiner, poser une question…" />
+          <ChatComposer value={draft} onChange={setDraft} onSend={send} placeholder={t('placeholder')} />
           <small className="hidden px-4 pb-3 text-xs text-muted lg:block">
-            L’aperçu peut évoluer à chaque message. Aucun prix n’est généré.
+            {t('note')}
           </small>
         </>
       )}

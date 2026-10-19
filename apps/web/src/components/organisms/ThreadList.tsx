@@ -1,15 +1,26 @@
-import { StatusPill } from '../atoms/StatusPill'
+import { useTranslation } from 'react-i18next'
+
+import { formatDateTime, formatDayRange, formatMonth } from '@/lib/format'
 import { cn } from '@/lib/utils'
+
+import { StatusPill } from '../atoms/StatusPill'
+
+export type ThreadStatus = 'offer_sent' | 'preview_proposed' | 'in_discussion' | 'accepted' | 'refused'
 
 export type ThreadSummary = {
   id: string
   photo: string
-  status: string
+  status: ThreadStatus
   highlight?: boolean
-  place: string
+  country: string
+  /** A range, a month (dates not set yet), or nothing yet. */
+  dates: { start: string; end: string } | { month: string } | null
   title: string
-  version: string
-  time: string
+  /** The current preview's version, or null for a draft. */
+  version: number | null
+  messageCount: number
+  /** ISO date and time of the last message. */
+  updatedAt: string
 }
 
 type Props = {
@@ -20,8 +31,16 @@ type Props = {
 
 /** The client's trips, one card each. Choosing one shows its conversation. */
 export function ThreadList({ threads, selectedId, onSelect }: Props) {
+  const { t, i18n } = useTranslation('trips')
+  const locale = i18n.language
+  const when = (dates: ThreadSummary['dates']) =>
+    dates === null
+      ? t('datesToBeSet')
+      : 'month' in dates
+        ? formatMonth(locale, dates.month)
+        : formatDayRange(locale, dates.start, dates.end)
   return (
-    <ul aria-label="Vos aperçus" className="flex flex-col gap-2">
+    <ul aria-label={t('listLabel')} className="flex flex-col gap-2">
       {threads.map((thread) => {
         const selected = thread.id === selectedId
         return (
@@ -38,13 +57,21 @@ export function ThreadList({ threads, selectedId, onSelect }: Props) {
               <img src={thread.photo} alt="" className="block h-20 w-full object-cover sm:h-25" />
               <span className="grid justify-items-start">
                 <StatusPill highlight={thread.highlight} className="mb-2">
-                  {thread.status}
+                  {t(`status.${thread.status}`)}
                 </StatusPill>
-                <small className="text-xs text-muted">{thread.place}</small>
+                <small className="text-xs text-muted">
+                  {t('placeAndDates', { country: thread.country, dates: when(thread.dates) })}
+                </small>
                 <b className="my-1 font-serif text-[17px] font-normal">{thread.title}</b>
-                <span className="text-xs text-muted">{thread.version}</span>
+                <span className="text-xs text-muted">
+                  {thread.version === null
+                    ? t('draftSummary', { count: thread.messageCount })
+                    : t('previewSummary', { version: thread.version, count: thread.messageCount })}
+                </span>
               </span>
-              <time className="hidden self-start text-xs text-muted sm:block">{thread.time}</time>
+              <time dateTime={thread.updatedAt} className="hidden self-start text-xs text-muted sm:block">
+                {formatDateTime(locale, thread.updatedAt)}
+              </time>
             </button>
           </li>
         )

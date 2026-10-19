@@ -1,0 +1,26 @@
+{
+  "eyebrow": "Your preview · version {{version}}",
+  "updated": "Updated {{date}}",
+  "travellers_one": "{{count}} traveller",
+  "travellers_other": "{{count}} travellers",
+  "wishesLabel": "Your wishes",
+  "daysLabel": "Day by day",
+  "dayDate": "Day {{number}} · {{date}}",
+  "discoverDay": "Discover this day",
+  "cta": {
+    "eyebrow": "The conversation goes on",
+    "title": "Does this preview feel like you?",
+    "text": "Keep refining it with the concierge, or hand it to a Novoya advisor when it suits you.",
+    "button": "Ask an advisor for a quote"
+  },
+  "notFound": "This preview doesn't exist.",
+  "day": {
+    "back": "← Back to the preview",
+    "notFound": "This day doesn't exist."
+  },
+  "period": {
+    "morning": "Morning",
+    "midday": "Midday",
+    "evening": "Evening"
+  }
+}

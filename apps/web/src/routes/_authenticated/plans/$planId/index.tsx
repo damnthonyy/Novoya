@@ -1,4 +1,5 @@
 import { createFileRoute, Link, notFound } from '@tanstack/react-router'
+import { useTranslation } from 'react-i18next'
 
 import { Button } from '../../../../components/atoms/Button'
 import { Eyebrow } from '../../../../components/atoms/Eyebrow'
@@ -14,12 +15,18 @@ export const Route = createFileRoute('/_authenticated/plans/$planId/')({
     if (!plan) throw notFound()
     return plan
   },
-  notFoundComponent: () => <p className="px-5 pt-32 md:px-[8vw]">Cet aperçu n’existe pas.</p>,
+  notFoundComponent: NotFound,
   component: PlanPage,
 })
 
+function NotFound() {
+  const { t } = useTranslation('plan')
+  return <p className="px-5 pt-32 md:px-[8vw]">{t('notFound')}</p>
+}
+
 function PlanPage() {
   const plan = Route.useLoaderData()
+  const { t } = useTranslation('plan')
   return (
     <AppShell>
       <main className="lg:pb-24">
@@ -27,15 +34,15 @@ function PlanPage() {
         <DayTimeline planId={plan.id} days={plan.days} />
         <section className="bg-ink px-6 py-15 text-white md:flex md:items-end md:justify-between md:px-[8vw] md:py-20">
           <div className="max-w-[660px]">
-            <Eyebrow light>La conversation continue</Eyebrow>
-            <h2 className="mb-4 text-[43px] leading-tight md:text-[56px]">Cet aperçu vous ressemble ?</h2>
+            <Eyebrow light>{t('cta.eyebrow')}</Eyebrow>
+            <h2 className="mb-4 text-[43px] leading-tight md:text-[56px]">{t('cta.title')}</h2>
             <p className="leading-relaxed text-white/70">
-              Continuez à l’affiner avec le concierge, ou transmettez-le à un conseiller Novoya lorsqu’il vous convient.
+              {t('cta.text')}
             </p>
           </div>
           <Button asChild variant="coral" size="lg" className="mt-6 w-full md:mt-0 md:w-auto">
             <Link to="/quotes/$quoteId" params={{ quoteId: plan.quoteId }}>
-              Demander un devis à un conseiller <span aria-hidden="true">↗</span>
+              {t('cta.button')} <span aria-hidden="true">↗</span>
             </Link>
           </Button>
         </section>

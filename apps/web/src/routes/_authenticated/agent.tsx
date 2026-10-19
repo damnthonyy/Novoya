@@ -1,4 +1,5 @@
 import { createFileRoute, redirect } from '@tanstack/react-router'
+import { useTranslation } from 'react-i18next'
 
 import { Eyebrow } from '../../components/atoms/Eyebrow'
 import { lineTabList, lineTabPanel, lineTabTrigger } from '../../components/molecules/lineTabs'
@@ -16,49 +17,46 @@ export const Route = createFileRoute('/_authenticated/agent')({
   component: AgentPage,
 })
 
-const FILTERS: { value: QueueFilter; label: string }[] = [
-  { value: 'unassigned', label: 'À assigner' },
-  { value: 'in_progress', label: 'En cours' },
-  { value: 'decided', label: 'Décidés' },
-]
+const FILTERS: QueueFilter[] = ['unassigned', 'in_progress', 'decided']
 
 // The queue is demo data until #51 exists: "Prendre le plan" does nothing yet.
 function AgentPage() {
+  const { t } = useTranslation('agent')
   return (
     <AppShell>
       <BackofficeLayout
-        area="Espace agence"
+        area={t('area')}
         items={[
-          { label: 'File des demandes', active: true, count: QUEUE_COUNTS.unassigned },
-          { label: 'Mes dossiers' },
-          { label: 'Devis envoyés' },
-          { label: 'Partenaires & offres' },
+          { label: t('nav.queue'), active: true, count: QUEUE_COUNTS.unassigned },
+          { label: t('nav.files') },
+          { label: t('nav.sent') },
+          { label: t('nav.partners') },
         ]}
       >
         <div className="flex items-end justify-between">
           <div>
-            <Eyebrow>File agence</Eyebrow>
-            <h1 className="m-0 text-[39px] md:text-[50px]">Demandes de devis</h1>
+            <Eyebrow>{t('eyebrow')}</Eyebrow>
+            <h1 className="m-0 text-[39px] md:text-[50px]">{t('title')}</h1>
           </div>
           <p className="m-0 flex items-center gap-2">
             <span className="font-serif text-[32px]">{QUEUE_COUNTS.unassigned}</span>
-            <small className="text-muted">à prendre</small>
+            <small className="text-muted">{t('toTake')}</small>
           </p>
         </div>
         <Tabs defaultValue="unassigned" className="mt-10">
           <TabsList className={`${lineTabList} gap-2.5`}>
             {FILTERS.map((filter) => (
-              <TabsTrigger key={filter.value} value={filter.value} className={`${lineTabTrigger} px-3.5`}>
-                {filter.label} · {QUEUE_COUNTS[filter.value]}
+              <TabsTrigger key={filter} value={filter} className={`${lineTabTrigger} px-3.5`}>
+                {t('filterTab', { label: t(`filters.${filter}`), count: QUEUE_COUNTS[filter] })}
               </TabsTrigger>
             ))}
           </TabsList>
           {FILTERS.map((filter) => {
-            const requests = listQuoteRequests(filter.value)
+            const requests = listQuoteRequests(filter)
             return (
-              <TabsContent key={filter.value} value={filter.value} className={lineTabPanel}>
+              <TabsContent key={filter} value={filter} className={lineTabPanel}>
                 {requests.length === 0 ? (
-                  <p className="py-8 text-muted">Bientôt : les dossiers de cet onglet.</p>
+                  <p className="py-8 text-muted">{t('emptySoon')}</p>
                 ) : (
                   requests.map((request) => <RequestRow key={request.id} {...request} />)
                 )}

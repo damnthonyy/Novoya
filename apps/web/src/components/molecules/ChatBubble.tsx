@@ -1,7 +1,10 @@
+import { useTranslation } from 'react-i18next'
+
 import { cn } from '@/lib/utils'
 
 /** One message in a conversation with the concierge. */
 export function ChatBubble({ from, text }: { from: 'you' | 'novoya'; text: string }) {
+  const { t } = useTranslation('concierge')
   return (
     <p
       className={cn(
@@ -9,7 +12,7 @@ export function ChatBubble({ from, text }: { from: 'you' | 'novoya'; text: strin
         from === 'you' ? 'ml-auto bg-ink text-white' : 'border border-line bg-white',
       )}
     >
-      <span className="sr-only">{from === 'you' ? 'Vous : ' : 'Novoya : '}</span>
+      <span className="sr-only">{from === 'you' ? t('you') : t('novoya')} </span>
       {text}
     </p>
   )

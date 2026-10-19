@@ -1,0 +1,35 @@
+{
+  "eyebrow": "Agency offer No. {{id}}",
+  "titleStart": "Your trip",
+  "titleEnd": "to {{place}}.",
+  "preparedBy": "Carefully prepared by {{name}}, your Novoya advisor.",
+  "notFound": "This offer doesn't exist.",
+  "sheet": {
+    "label": "Offer details",
+    "agency": "Travel agency",
+    "validity_one": "Valid for {{count}} day",
+    "validity_other": "Valid for {{count}} days",
+    "issued": "Issued on {{date}}",
+    "travellers_one": "{{count}} traveller",
+    "travellers_other": "{{count}} travellers",
+    "days_one": "{{count}} day",
+    "days_other": "{{count}} days",
+    "nights_one": "{{count}} night",
+    "nights_other": "{{count}} nights",
+    "length": "{{days}} / {{nights}}",
+    "total": "Total incl. VAT",
+    "budget": "Your stated maximum budget: {{amount}}",
+    "download": "↓ Download the offer PDF",
+    "pdfSoon": "The PDF will be available once the offer is sent."
+  },
+  "decision": {
+    "title": "Your decision",
+    "intro": "Your advisor is available before anything is confirmed.",
+    "commentLabel": "A question or a comment? (optional)",
+    "accept": "Accept the offer",
+    "refuse": "Decline the offer",
+    "accepted": "Thank you! Your advisor is confirming the bookings and will be back to you very soon.",
+    "refused": "Noted. Your advisor can suggest another version if you wish.",
+    "noSupplier": "No supplier name appears on the offer."
+  }
+}

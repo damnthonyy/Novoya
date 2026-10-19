@@ -1,4 +1,5 @@
 import { useId } from 'react'
+import { useTranslation } from 'react-i18next'
 
 import { cn } from '@/lib/utils'
 
@@ -13,6 +14,7 @@ type Props = {
 /** A message field with a round send button. Enter sends, Shift+Enter adds a line. */
 export function ChatComposer({ value, onChange, onSend, placeholder, className }: Props) {
   const id = useId()
+  const { t } = useTranslation('concierge')
   return (
     <form
       className={cn('flex items-end gap-2 px-4 py-2.5', className)}
@@ -39,7 +41,7 @@ export function ChatComposer({ value, onChange, onSend, placeholder, className }
       />
       <button
         type="submit"
-        aria-label="Envoyer"
+        aria-label={t('send')}
         className="grid size-11 shrink-0 place-items-center rounded-full bg-coral text-ink"
       >
         <span aria-hidden="true">↑</span>

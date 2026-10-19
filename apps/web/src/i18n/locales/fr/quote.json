@@ -1,0 +1,35 @@
+{
+  "eyebrow": "Offre de l’agence N° {{id}}",
+  "titleStart": "Votre voyage",
+  "titleEnd": "à {{place}}.",
+  "preparedBy": "Préparée avec soin par {{name}}, votre conseillère Novoya.",
+  "notFound": "Cette offre n’existe pas.",
+  "sheet": {
+    "label": "Détail de l’offre",
+    "agency": "Agence de voyage",
+    "validity_one": "Valable {{count}} jour",
+    "validity_other": "Valable {{count}} jours",
+    "issued": "Émise le {{date}}",
+    "travellers_one": "{{count}} voyageur",
+    "travellers_other": "{{count}} voyageurs",
+    "days_one": "{{count}} jour",
+    "days_other": "{{count}} jours",
+    "nights_one": "{{count}} nuit",
+    "nights_other": "{{count}} nuits",
+    "length": "{{days}} / {{nights}}",
+    "total": "Total TTC",
+    "budget": "Votre budget maximum communiqué : {{amount}}",
+    "download": "↓ Télécharger l’offre PDF",
+    "pdfSoon": "Le PDF sera disponible avec l’envoi de l’offre."
+  },
+  "decision": {
+    "title": "Votre décision",
+    "intro": "Votre conseillère reste disponible avant toute confirmation.",
+    "commentLabel": "Une question ou un commentaire ? (facultatif)",
+    "accept": "Accepter l’offre",
+    "refuse": "Refuser l’offre",
+    "accepted": "Merci ! Votre conseillère confirme les réservations et revient vers vous très vite.",
+    "refused": "C’est noté. Votre conseillère peut vous proposer une autre version si vous le souhaitez.",
+    "noSupplier": "Aucun nom de prestataire n’apparaît sur l’offre."
+  }
+}

@@ -1,38 +1,44 @@
 // Demo data until the API exists (issue #54, see the quote and accept or reject it).
 
-export type QuoteLine = { label: string; amount: string }
+// Line labels are written by the agent. Amounts are whole euros.
+export type QuoteLine = { label: string; amount: number }
 
 export type Quote = {
   id: string
-  place: string
+  destination: string
   agentName: string
-  validity: string
-  issued: string
-  dates: string
-  travellers: string
-  length: string
+  validDays: number
+  /** ISO date. */
+  issuedAt: string
+  startDate: string
+  endDate: string
+  travellers: number
+  days: number
+  nights: number
   lines: QuoteLine[]
-  total: string
-  budget: string
+  total: number
+  budget: number
 }
 
 const DEMO: Quote = {
   id: 'NV-2026-0182',
-  place: 'à Chania.',
+  destination: 'Chania',
   agentName: 'Léa',
-  validity: 'Valable 7 jours',
-  issued: 'Émise le 20 octobre 2026',
-  dates: '12 → 19 mai 2026',
-  travellers: '2 voyageurs',
-  length: '7 jours / 6 nuits',
+  validDays: 7,
+  issuedAt: '2026-10-20',
+  startDate: '2026-05-12',
+  endDate: '2026-05-19',
+  travellers: 2,
+  days: 7,
+  nights: 6,
   lines: [
-    { label: 'Hébergement · 6 nuits', amount: '1 860 €' },
-    { label: 'Expériences & visites', amount: '420 €' },
-    { label: 'Transferts sur place', amount: '280 €' },
-    { label: 'Accompagnement Novoya', amount: '190 €' },
+    { label: 'Hébergement · 6 nuits', amount: 1860 },
+    { label: 'Expériences & visites', amount: 420 },
+    { label: 'Transferts sur place', amount: 280 },
+    { label: 'Accompagnement Novoya', amount: 190 },
   ],
-  total: '2 750 €',
-  budget: '3 500 €',
+  total: 2750,
+  budget: 3500,
 }
 
 /** The quote to show. Replace with the API call when #54 exists. */

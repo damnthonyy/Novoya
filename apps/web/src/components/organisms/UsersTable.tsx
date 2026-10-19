@@ -1,6 +1,9 @@
 import { useId } from 'react'
+import { useTranslation } from 'react-i18next'
 
-import { ROLE_LABELS, type Role } from './roleLabels'
+import { formatShortDate } from '@/lib/format'
+
+import { ROLES, type Role } from './roles'
 
 export type UserRow = {
   id: string
@@ -10,8 +13,6 @@ export type UserRow = {
   email_verified: boolean
   created_at: string
 }
-
-const joined = new Intl.DateTimeFormat('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' })
 
 type Props = {
   users: UserRow[]
@@ -25,22 +26,23 @@ type Props = {
 /** The users with their role, which an admin can change. */
 export function UsersTable({ users, meId, savingId, onChangeRole }: Props) {
   const id = useId()
+  const { t, i18n } = useTranslation('admin')
   return (
     <table className="w-full border-collapse border-t border-line text-sm">
-      <caption className="sr-only">Utilisateurs et rôles</caption>
+      <caption className="sr-only">{t('table.caption')}</caption>
       <thead>
         <tr className="text-left text-xs tracking-widest text-muted uppercase">
           <th scope="col" className="p-4 font-normal">
-            Utilisateur
+            {t('table.user')}
           </th>
           <th scope="col" className="p-4 font-normal">
-            Rôle
+            {t('table.role')}
           </th>
           <th scope="col" className="hidden p-4 font-normal md:table-cell">
-            Statut
+            {t('table.status')}
           </th>
           <th scope="col" className="hidden p-4 font-normal md:table-cell">
-            Inscription
+            {t('table.joined')}
           </th>
         </tr>
       </thead>
@@ -59,7 +61,7 @@ export function UsersTable({ users, meId, savingId, onChangeRole }: Props) {
               </th>
               <td className="p-4">
                 <label htmlFor={`${id}-${user.id}`} className="sr-only">
-                  Rôle de {user.name ?? user.email}
+                  {t('table.roleOf', { name: user.name ?? user.email })}
                 </label>
                 <select
                   id={`${id}-${user.id}`}
@@ -68,9 +70,9 @@ export function UsersTable({ users, meId, savingId, onChangeRole }: Props) {
                   onChange={(event) => onChangeRole(user.id, event.target.value as Role)}
                   className="min-h-11 border border-line bg-white px-2.5 disabled:text-muted"
                 >
-                  {(Object.keys(ROLE_LABELS) as Role[]).map((role) => (
+                  {ROLES.map((role) => (
                     <option key={role} value={role}>
-                      {ROLE_LABELS[role]}
+                      {t(`roles.${role}`)}
                     </option>
                   ))}
                 </select>
@@ -80,9 +82,9 @@ export function UsersTable({ users, meId, savingId, onChangeRole }: Props) {
                   aria-hidden="true"
                   className={`mr-1.5 inline-block size-1.5 rounded-full ${user.email_verified ? 'bg-ok' : 'bg-pending'}`}
                 />
-                {isMe ? 'Vous' : user.email_verified ? 'Vérifié' : 'En attente'}
+                {isMe ? t('table.you') : user.email_verified ? t('table.verified') : t('table.pending')}
               </td>
-              <td className="hidden p-4 md:table-cell">{joined.format(new Date(user.created_at))}</td>
+              <td className="hidden p-4 md:table-cell">{formatShortDate(i18n.language, user.created_at)}</td>
             </tr>
           )
         })}
