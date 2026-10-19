@@ -143,14 +143,17 @@ async def test_links_or_prices_in_the_model_text_are_refused():
         answer_with(summary="Pay the deposit at https://evil.example"),
         answer_with(summary="Book at www.evil.example now"),
         answer_with(note="Total price 50 EUR"),
+        answer_with(note="Total price 50 eur"),
+        answer_with(note="eur 50 per night"),
+        answer_with(note="EUR50 per night"),
         answer_with(note="Only €49 per person"),
-        answer_with(summary="A 40 $ discount"),
+        answer_with(note="1,500 Euros for the riad"),
+        answer_with(note="euro 30 more"),
         answer_with(summary="Book extras at novoya-deals.com for the best rate"),
+        answer_with(summary="Book extras at novoya-deals.travel/book"),
+        answer_with(summary="See novoya-deals.xyz"),
+        answer_with(summary="Deals on novoya-deals.online."),
         answer_with(note="Write to deals@example.org"),
-        answer_with(note="About 900 MAD a night"),
-        answer_with(note="1500 dirhams for the riad"),
-        answer_with(summary="Only 50 GBP more"),
-        answer_with(note="CHF 200 per person"),
     ):
         orchestrator = FakeOrchestrator(bad, bad)
 
@@ -163,6 +166,8 @@ async def test_numbers_that_are_not_prices_are_fine():
         "Day 2: a 3-hour walk for 2 people",
         "Three days by the sea, e.g. a boat trip at 9 a.m. and a 2 km walk in the old town.",
         "St. Nicholas church, then dinner by the harbour.",
+        "Meet travellers from across Europe on a 2.5 km walk.",
+        "A 4 day trip in Europe for 2 people.",
     ):
         orchestrator = FakeOrchestrator(answer_with(summary=fine))
 

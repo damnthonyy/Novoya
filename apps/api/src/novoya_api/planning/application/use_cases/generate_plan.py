@@ -41,16 +41,22 @@ class GeneratePlan:
         self._clock = clock
 
     async def __call__(self, request: PlanRequest) -> PlanView:
+        # Checked first so the client gets 422 without waiting for a model run.
+        if not await self._fitting(request, ()):
+            raise NoOfferFits("no listed offer fits the travellers and dates")
+        # Nothing to save yet: end the read so the connection is not held while the model writes.
+        await self._uow.rollback()
+
+        draft = await self._writer.write(request)
+        # The model may take a minute: read the catalog again, so an offer deactivated or
+        # booked out meanwhile is neither kept nor used by the fallback.
         allowed = await self._fitting(request, ())
         if not allowed:
             raise NoOfferFits("no listed offer fits the travellers and dates")
         ranked = await self._fitting(request, request.tags) if request.tags else []
-        # Nothing to save yet: end the read so the connection is not held while the model writes.
-        await self._uow.rollback()
         offers = {offer.id: offer for offer in [*allowed, *ranked]}
         hotels = {offer.id for offer in offers.values() if offer.kind == "hotel"}
 
-        draft = await self._writer.write(request)
         valid = keep_valid(draft.items, set(offers), request.trip_days) if draft else []
         items = tidy(valid, hotels, request.trip_days)
         # The model's summary describes all its items: keep it only if none was rejected or cut.

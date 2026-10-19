@@ -384,6 +384,54 @@ async def test_the_read_ends_before_the_model_writes_and_nothing_is_committed():
     assert setup.events == ["rollback", "write"]  # the caller commits
 
 
+class CatalogChangingWriter(FakeWriter):
+    """While the model writes, the catalog changes: only `left` still fits."""
+
+    def __init__(self, draft_plan: DraftPlan, catalog: FakeCatalog, left: list[OfferSummary]):
+        super().__init__(draft_plan)
+        self.catalog = catalog
+        self.left = left
+
+    async def write(self, request: PlanRequest) -> DraftPlan | None:
+        self.catalog.fitting = self.catalog.ranked = self.left
+        return await super().write(request)
+
+
+def setup_with_changing_catalog(draft_plan: DraftPlan, left: list[OfferSummary]) -> Setup:
+    setup = Setup(FakeCatalog(ALL), draft_plan)
+    setup.writer = CatalogChangingWriter(draft_plan, setup.catalog, left)
+    setup.generate._writer = setup.writer
+    return setup
+
+
+async def test_an_offer_that_stops_fitting_while_the_model_writes_is_dropped():
+    setup = setup_with_changing_catalog(
+        draft(DraftItem(HOTEL.id, 1, 7, None), DraftItem(WALK.id, 2, 1, None)), left=[WALK]
+    )
+
+    view = await setup.generate(plan_request())
+
+    assert [i.offer_id for i in view.items] == [WALK.id]
+    assert [i.offer_id for i in setup.plans.added[0].items] == [WALK.id]
+
+
+async def test_the_fallback_uses_the_catalog_read_after_the_model_writes():
+    setup = setup_with_changing_catalog(draft(DraftItem(HOTEL.id, 1, 7, None)), left=[BOAT])
+
+    view = await setup.generate(plan_request())
+
+    assert [i.offer_id for i in view.items] == [BOAT.id]
+
+
+async def test_when_no_offer_fits_after_the_model_writes_nothing_is_stored():
+    setup = setup_with_changing_catalog(draft(DraftItem(HOTEL.id, 1, 7, None)), left=[])
+
+    with pytest.raises(NoOfferFits):
+        await setup.generate(plan_request())
+
+    assert setup.plans.added == []
+
+
 async def test_the_tag_fallback_still_books_a_fitting_hotel():
     setup = Setup(FakeCatalog(ALL, ranked=[BOAT]), None)
 

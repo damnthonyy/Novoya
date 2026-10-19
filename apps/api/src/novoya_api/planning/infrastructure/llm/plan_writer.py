@@ -42,13 +42,11 @@ WITHOUT_TAGS = (
 
 _LINK = re.compile(
     r"https?://|www\.|\S+@\S+\.\w"  # a link, or an email address
-    r"|\b[a-z0-9-]+\.(?:com|net|org|info|biz|shop|app|io|co|me|ly|[a-z]{2})\b(?!\.\w)"
+    # A bare domain with any suffix (novoya-deals.travel); "e.g." and "a.m." have one letter.
+    r"|\b[a-z0-9-]+\.[a-z]{2,24}\b(?!\.\w)"
 )
-_CURRENCY_WORDS = r"euros?|dollars?|pounds?|dirhams?|francs?|dinars?|liras?|yen|yuan"
-_MONEY = re.compile(
-    rf"[€$£¥₺₹]\s*\d|\d[\d.,]*\s*(?:[€$£¥₺₹]|(?i:{_CURRENCY_WORDS})\b)"
-    r"|\d[\d.,]*\s*[A-Z]{3}\b|\b[A-Z]{3}\s*\d"  # an ISO code: 900 MAD, CHF 200
-)
+# Prices are in euros only (#27). Case does not matter: 50 EUR, 50 eur, EUR 50, 50 euros.
+_MONEY = re.compile(r"€\s*\d|\d[\d.,]*\s*(?:€|eur\b|euros?\b)|\beur(?:os?)?\s*\d", re.IGNORECASE)
 
 
 def _plain(value: str) -> str:
