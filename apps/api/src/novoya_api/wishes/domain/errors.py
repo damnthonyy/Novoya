@@ -1,4 +1,4 @@
-from novoya_api.shared.domain.errors import InvalidInput, NotFound
+from novoya_api.shared.domain.errors import Conflict, InvalidInput, NotFound
 
 
 class InvalidWish(InvalidInput):  # 422
@@ -17,3 +17,9 @@ class WishNotFound(NotFound):  # 404
     """No such wish, or it belongs to someone else: the client cannot tell which."""
 
     code = "wish_not_found"
+
+
+class AnswerInProgress(Conflict):  # 409
+    """Another request is answering this wish and building its plan right now."""
+
+    code = "answer_in_progress"

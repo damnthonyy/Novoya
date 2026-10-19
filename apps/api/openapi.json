@@ -57,78 +57,6 @@
         "title": "AnswerPanelRequest",
         "type": "object"
       },
-      "AnsweredWishResponse": {
-        "description": "The wish with the answers saved. The plan is built from it (#29).",
-        "properties": {
-          "answers": {
-            "$ref": "#/components/schemas/AnswersOut"
-          },
-          "destination": {
-            "$ref": "#/components/schemas/DestinationOut"
-          },
-          "id": {
-            "format": "uuid",
-            "title": "Id",
-            "type": "string"
-          },
-          "status": {
-            "const": "answered",
-            "title": "Status",
-            "type": "string"
-          }
-        },
-        "required": [
-          "id",
-          "status",
-          "destination",
-          "answers"
-        ],
-        "title": "AnsweredWishResponse",
-        "type": "object"
-      },
-      "AnswersOut": {
-        "properties": {
-          "budget_max": {
-            "title": "Budget Max",
-            "type": "string"
-          },
-          "currency": {
-            "title": "Currency",
-            "type": "string"
-          },
-          "end_date": {
-            "format": "date",
-            "title": "End Date",
-            "type": "string"
-          },
-          "persons": {
-            "title": "Persons",
-            "type": "integer"
-          },
-          "selected_tags": {
-            "items": {
-              "$ref": "#/components/schemas/SelectedTagOut"
-            },
-            "title": "Selected Tags",
-            "type": "array"
-          },
-          "start_date": {
-            "format": "date",
-            "title": "Start Date",
-            "type": "string"
-          }
-        },
-        "required": [
-          "selected_tags",
-          "budget_max",
-          "currency",
-          "persons",
-          "start_date",
-          "end_date"
-        ],
-        "title": "AnswersOut",
-        "type": "object"
-      },
       "ChangePasswordRequest": {
         "properties": {
           "current_password": {
@@ -408,6 +336,108 @@
         "title": "PanelSectionOut",
         "type": "object"
       },
+      "PlanItemOut": {
+        "properties": {
+          "day": {
+            "title": "Day",
+            "type": "integer"
+          },
+          "description": {
+            "title": "Description",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          },
+          "offer_id": {
+            "format": "uuid",
+            "title": "Offer Id",
+            "type": "string"
+          },
+          "quantity": {
+            "title": "Quantity",
+            "type": "integer"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "offer_id",
+          "day",
+          "quantity",
+          "note",
+          "kind",
+          "title",
+          "description"
+        ],
+        "title": "PlanItemOut",
+        "type": "object"
+      },
+      "PlanResponse": {
+        "description": "The proposed plan, day by day. No price until it is quoted and no partner name.\nbased_on_preferences is false when the client picked no tag.",
+        "properties": {
+          "based_on_preferences": {
+            "title": "Based On Preferences",
+            "type": "boolean"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/PlanItemOut"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "status": {
+            "const": "proposed",
+            "title": "Status",
+            "type": "string"
+          },
+          "summary": {
+            "title": "Summary",
+            "type": "string"
+          },
+          "wish_id": {
+            "format": "uuid",
+            "title": "Wish Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "wish_id",
+          "status",
+          "based_on_preferences",
+          "summary",
+          "items"
+        ],
+        "title": "PlanResponse",
+        "type": "object"
+      },
       "RegisterRequest": {
         "properties": {
           "email": {
@@ -498,24 +528,6 @@
           "tag"
         ],
         "title": "SelectedTagIn",
-        "type": "object"
-      },
-      "SelectedTagOut": {
-        "properties": {
-          "section": {
-            "title": "Section",
-            "type": "string"
-          },
-          "tag": {
-            "title": "Tag",
-            "type": "string"
-          }
-        },
-        "required": [
-          "section",
-          "tag"
-        ],
-        "title": "SelectedTagOut",
         "type": "object"
       },
       "SendWishRequest": {
@@ -2314,7 +2326,7 @@
     },
     "/wishes/{wish_id}/answers": {
       "post": {
-        "description": "Save the tags the client picked, their budget in EUR, travellers and dates. 404 if the\nwish is not theirs, 409 if it is already answered or shows no panel, 422 for a tag the\npanel did not show.",
+        "description": "Save the tags the client picked, their budget in EUR, travellers and dates, and return\nthe proposed plan built from partner offers. 404 if the wish is not theirs; 409 if it is\nalready answered, shows no panel or is being answered by another request; 422 for a tag\nthe panel did not show, and 422 no_offer_fits when no offer fits the travellers and\ndates.",
         "operationId": "answerPanel",
         "parameters": [
           {
@@ -2339,11 +2351,11 @@
           "required": true
         },
         "responses": {
-          "200": {
+          "201": {
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/AnsweredWishResponse"
+                  "$ref": "#/components/schemas/PlanResponse"
                 }
               }
             },

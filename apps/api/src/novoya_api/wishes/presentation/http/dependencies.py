@@ -19,12 +19,17 @@ from novoya_api.shared.infrastructure.system_clock import SystemClock
 from novoya_api.wishes.application.ports.destination_reader import DestinationReader
 from novoya_api.wishes.application.use_cases.answer_panel import AnswerPanel
 from novoya_api.wishes.application.use_cases.send_wish import SendWish
+from novoya_api.wishes.infrastructure.answers_in_progress import InMemoryAnswersInProgress
 from novoya_api.wishes.infrastructure.catalog import PartnerCatalog
 from novoya_api.wishes.infrastructure.db.repository import SqlWishRepository
 from novoya_api.wishes.infrastructure.llm.destination_reader import (
     LlmDestinationReader,
     NameMatchingReader,
 )
+from novoya_api.wishes.infrastructure.planner import PartnerPlanner
+
+# One for the process: every request must see the answers the others are building.
+ANSWERS_IN_PROGRESS = InMemoryAnswersInProgress()
 
 
 def get_current_user_id(user: Annotated[CurrentUserView, Depends(require_client)]) -> UUID:
@@ -57,6 +62,8 @@ def get_send_wish(
 def get_answer_panel(session: Annotated[AsyncSession, Depends(get_session)]) -> AnswerPanel:
     return AnswerPanel(
         wishes=SqlWishRepository(session),
+        planner=PartnerPlanner(session),
+        in_progress=ANSWERS_IN_PROGRESS,
         uow=SqlAlchemyUnitOfWork(session),
         clock=SystemClock(),
     )

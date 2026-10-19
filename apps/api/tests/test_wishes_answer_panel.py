@@ -1,17 +1,25 @@
-"""AnswerPanel is tested with fake ports: an in-memory repository and unit of work."""
+"""AnswerPanel is tested with fake ports: an in-memory repository, planner and unit of work."""
 
+import asyncio
 from datetime import UTC, date, datetime
 from decimal import Decimal
 from uuid import UUID, uuid4
 
 import pytest
 
-from novoya_api.shared.domain.errors import InvalidTransition, NotFound
-from novoya_api.wishes.application.use_cases.answer_panel import AnswerPanel, AnswerPanelCommand
+from novoya_api.planning.domain.errors import NoOfferFits
+from novoya_api.shared.domain.errors import Conflict, InvalidTransition, NotFound
+from novoya_api.wishes.application.ports.planner import ProposedItem, ProposedPlan
+from novoya_api.wishes.application.use_cases.answer_panel import (
+    AnswerPanel,
+    AnswerPanelCommand,
+    AnswerPanelResult,
+)
 from novoya_api.wishes.domain.answers import Answers, SelectedTag
-from novoya_api.wishes.domain.errors import InvalidAnswers, WishNotFound
+from novoya_api.wishes.domain.errors import AnswerInProgress, InvalidAnswers, WishNotFound
 from novoya_api.wishes.domain.panel import Panel
 from novoya_api.wishes.domain.wish import Destination, Wish, WishStatus
+from novoya_api.wishes.infrastructure.answers_in_progress import InMemoryAnswersInProgress
 
 OWNER = UUID("00000000-0000-0000-0000-000000000001")
 OTHER = UUID("00000000-0000-0000-0000-000000000002")
@@ -47,6 +55,46 @@ class FakeWishes:
         self.saved.append(wish)
 
 
+def proposed_plan(wish_id: UUID) -> ProposedPlan:
+    item = ProposedItem(
+        id=uuid4(),
+        offer_id=uuid4(),
+        day=1,
+        quantity=7,
+        note=None,
+        kind="hotel",
+        title="Sea view hotel",
+        description="Rooms over the bay",
+    )
+    return ProposedPlan(
+        id=uuid4(),
+        wish_id=wish_id,
+        status="proposed",
+        based_on_preferences=True,
+        summary="A week by the sea",
+        items=(item,),
+    )
+
+
+class FakePlanner:
+    """Proposes a plan, or raises `error`. Records the wish's status when it is called."""
+
+    def __init__(self, events: list[str], error: Exception | None = None) -> None:
+        self.events = events
+        self.error = error
+        self.proposed: list[ProposedPlan] = []
+        self.statuses: list[WishStatus] = []
+
+    async def propose(self, wish: Wish) -> ProposedPlan:
+        self.events.append("propose")
+        self.statuses.append(wish.status)
+        if self.error is not None:
+            raise self.error
+        plan = proposed_plan(wish.id)
+        self.proposed.append(plan)
+        return plan
+
+
 class FakeUnitOfWork:
     def __init__(self, events: list[str]) -> None:
         self.events = events
@@ -56,11 +104,16 @@ class FakeUnitOfWork:
 
 
 class Setup:
-    def __init__(self, *wishes: Wish) -> None:
+    def __init__(self, *wishes: Wish, planner_error: Exception | None = None) -> None:
         self.events: list[str] = []
         self.wishes = FakeWishes(self.events, list(wishes))
+        self.planner = FakePlanner(self.events, planner_error)
         self.answer_panel = AnswerPanel(
-            wishes=self.wishes, uow=FakeUnitOfWork(self.events), clock=FixedClock()
+            wishes=self.wishes,
+            planner=self.planner,
+            in_progress=InMemoryAnswersInProgress(),
+            uow=FakeUnitOfWork(self.events),
+            clock=FixedClock(),
         )
 
     async def answer(self, wish_id: UUID, user_id: UUID = OWNER, answers: Answers = ANSWERS):
@@ -75,18 +128,47 @@ def shown_wish() -> Wish:
     return wish
 
 
-async def test_the_owner_answers_and_the_wish_is_saved_then_committed():
+async def test_the_owner_answers_and_the_wish_is_planned_saved_then_committed():
     wish = shown_wish()
     setup = Setup(wish)
 
     result = await setup.answer(wish.id)
 
-    assert result is wish
-    assert result.status is WishStatus.ANSWERED
-    assert result.answers == ANSWERS
-    assert result.updated_at == NOW
+    assert result == AnswerPanelResult(wish=wish, plan=setup.planner.proposed[0])
+    assert result.wish.status is WishStatus.PLANNED
+    assert result.wish.answers == ANSWERS
+    assert result.wish.updated_at == NOW
     assert setup.wishes.saved == [wish]
-    assert setup.events == ["save", "commit"]
+    assert setup.events == ["propose", "save", "commit"]
+
+
+async def test_the_planner_gets_the_answered_wish():
+    wish = shown_wish()
+    setup = Setup(wish)
+
+    await setup.answer(wish.id)
+
+    assert setup.planner.statuses == [WishStatus.ANSWERED]
+
+
+async def test_the_result_carries_the_proposed_plan_for_the_wish():
+    wish = shown_wish()
+    setup = Setup(wish)
+
+    result = await setup.answer(wish.id)
+
+    assert result.plan.wish_id == wish.id
+    assert result.plan.status == "proposed"
+
+
+async def test_when_no_offer_fits_nothing_is_saved_or_committed():
+    wish = shown_wish()
+    setup = Setup(wish, planner_error=NoOfferFits("no offer fits"))
+
+    with pytest.raises(NoOfferFits):
+        await setup.answer(wish.id)
+    assert setup.wishes.saved == []
+    assert setup.events == ["propose"]
 
 
 async def test_an_unknown_wish_raises_wish_not_found():
@@ -136,4 +218,81 @@ async def test_answering_twice_raises_invalid_transition():
 
     with pytest.raises(InvalidTransition):
         await setup.answer(wish.id)
-    assert setup.events == ["save", "commit"]
+    assert setup.events == ["propose", "save", "commit"]
+
+
+# A second answer while the first is being planned
+
+
+class SlowPlanner(FakePlanner):
+    """Waits until released, so a second answer arrives while the plan is being built."""
+
+    def __init__(self, events: list[str]) -> None:
+        super().__init__(events)
+        self.entered = asyncio.Event()
+        self.release = asyncio.Event()
+
+    async def propose(self, wish: Wish) -> ProposedPlan:
+        self.entered.set()
+        await self.release.wait()
+        return await super().propose(wish)
+
+
+async def test_a_second_answer_while_the_plan_is_built_gets_409_without_a_model_run():
+    setup = Setup(shown_wish())
+    wish_id = next(iter(setup.wishes.by_id))
+    slow = SlowPlanner(setup.events)
+    setup.answer_panel._planner = slow
+    first = asyncio.create_task(setup.answer(wish_id))
+    await slow.entered.wait()
+
+    with pytest.raises(AnswerInProgress) as raised:
+        await setup.answer(wish_id)
+
+    slow.release.set()
+    result = await first
+    assert result.wish.status is WishStatus.PLANNED
+    assert len(slow.proposed) == 1
+    assert raised.value.code == "answer_in_progress"
+    assert isinstance(raised.value, Conflict)  # 409
+
+
+async def test_the_wish_can_be_answered_again_after_a_failed_answer():
+    wish = shown_wish()
+    setup = Setup(wish, planner_error=NoOfferFits("no offer fits"))
+    with pytest.raises(NoOfferFits):
+        await setup.answer(wish.id)
+    wish.status, wish.answers = WishStatus.PANEL_SHOWN, None  # nothing was saved
+    setup.planner.error = None
+
+    result = await setup.answer(wish.id)
+
+    assert result.wish.status is WishStatus.PLANNED
+
+
+class PlannedMeanwhile(InMemoryAnswersInProgress):
+    """Another request plans the wish and lets go of it just before this one holds it."""
+
+    def __init__(self, wishes: FakeWishes, wish_id: UUID) -> None:
+        super().__init__()
+        self.wishes = wishes
+        self.wish_id = wish_id
+
+    def hold(self, wish_id: UUID):
+        planned = shown_wish()
+        planned.id = self.wish_id
+        planned.answer(ANSWERS, NOW)
+        planned.mark_planned(NOW)
+        self.wishes.by_id[self.wish_id] = planned
+        return super().hold(wish_id)
+
+
+async def test_a_wish_planned_while_waiting_for_the_hold_is_not_planned_again():
+    wish = shown_wish()
+    setup = Setup(wish)
+    setup.answer_panel._in_progress = PlannedMeanwhile(setup.wishes, wish.id)
+
+    with pytest.raises(InvalidTransition):
+        await setup.answer(wish.id)
+
+    assert setup.events == []  # no model run, nothing saved
