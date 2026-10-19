@@ -17,6 +17,7 @@ from novoya_api.shared.infrastructure.llm.client import get_orchestrator
 from novoya_api.shared.infrastructure.llm.errors import LLMError
 from novoya_api.shared.infrastructure.system_clock import SystemClock
 from novoya_api.wishes.application.ports.destination_reader import DestinationReader
+from novoya_api.wishes.application.ports.panel_builder import PanelBuilder
 from novoya_api.wishes.application.use_cases.answer_panel import AnswerPanel
 from novoya_api.wishes.application.use_cases.send_wish import SendWish
 from novoya_api.wishes.infrastructure.answers_in_progress import InMemoryAnswersInProgress
@@ -25,6 +26,10 @@ from novoya_api.wishes.infrastructure.db.repository import SqlWishRepository
 from novoya_api.wishes.infrastructure.llm.destination_reader import (
     LlmDestinationReader,
     NameMatchingReader,
+)
+from novoya_api.wishes.infrastructure.llm.panel_builder import (
+    LlmPanelBuilder,
+    TagsFromOffersBuilder,
 )
 from novoya_api.wishes.infrastructure.planner import PartnerPlanner
 
@@ -46,14 +51,23 @@ def get_destination_reader() -> DestinationReader:
         return NameMatchingReader()  # no API key: the app still works
 
 
+def get_panel_builder() -> PanelBuilder:
+    try:
+        return LlmPanelBuilder(get_orchestrator(deadline_seconds=20), deadline_seconds=20)
+    except LLMError:
+        return TagsFromOffersBuilder()  # no API key: the app still works
+
+
 def get_send_wish(
     session: Annotated[AsyncSession, Depends(get_session)],
     reader: Annotated[DestinationReader, Depends(get_destination_reader)],
+    panel_builder: Annotated[PanelBuilder, Depends(get_panel_builder)],
 ) -> SendWish:
     return SendWish(
         wishes=SqlWishRepository(session),
         catalog=PartnerCatalog(session),
         reader=reader,
+        panel_builder=panel_builder,
         uow=SqlAlchemyUnitOfWork(session),
         clock=SystemClock(),
     )

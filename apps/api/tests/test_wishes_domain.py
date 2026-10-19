@@ -261,6 +261,57 @@ def test_from_tags_without_tags_has_no_sections():
     assert Panel.from_tags([]).sections == ()
 
 
+def test_restricted_to_keeps_catalog_tags_and_drops_the_rest():
+    panel = Panel(
+        sections=(
+            PanelSection(
+                "style",
+                "Travel style",
+                True,
+                (Tag("beach", "Beach", True), Tag("japan", "Japan"), Tag("city", "City")),
+            ),
+            PanelSection("mystery", "Mystery", True, (Tag("ufo", "UFO"),)),
+        )
+    )
+
+    kept = panel.restricted_to(["style:beach", "style:city", "food:seafood"])
+
+    assert kept == Panel(
+        sections=(
+            PanelSection(
+                "style",
+                "Travel style",
+                True,
+                (Tag("beach", "Beach", True), Tag("city", "City")),
+            ),
+        )
+    )
+
+
+def test_restricted_to_matches_catalog_tags_case_insensitively():
+    panel = Panel(sections=(PanelSection("style", "Style", True, (Tag("beach", "Beach"),)),))
+
+    assert panel.restricted_to(["STYLE:Beach"]).sections[0].tags == (Tag("beach", "Beach"),)
+
+
+def test_restricted_to_drops_duplicate_catalog_tags():
+    panel = Panel(
+        sections=(
+            PanelSection("style", "Style", True, (Tag("beach", "Beach"), Tag("beach", "Plage"))),
+        )
+    )
+
+    kept = panel.restricted_to(["style:beach"])
+
+    assert kept.sections[0].tags == (Tag("beach", "Beach"),)
+
+
+def test_restricted_to_with_no_catalog_match_has_no_sections():
+    panel = Panel(sections=(PanelSection("style", "Style", True, (Tag("japan", "Japan"),)),))
+
+    assert panel.restricted_to(["style:beach"]).sections == ()
+
+
 def test_to_dict_returns_the_architecture_shape():
     panel = Panel.from_tags(["style:beach", "style:city", "quiet"])
 
