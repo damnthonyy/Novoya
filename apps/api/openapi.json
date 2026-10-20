@@ -1434,7 +1434,7 @@
         "type": "object"
       },
       "SetPlanItemRequest": {
-        "description": "Set a negotiated price in EUR, or mark the item removed. One of the two.",
+        "description": "Set a negotiated price in EUR, or set removed. True drops the item, false puts it back.",
         "properties": {
           "negotiated_price": {
             "anyOf": [
@@ -2904,7 +2904,7 @@
     },
     "/agent/plans/{plan_id}/items/{item_id}": {
       "patch": {
-        "description": "Set the negotiated price in EUR, or remove the item. Only the assigned agent.\n409 if the plan is no longer negotiating.",
+        "description": "Set the negotiated price in EUR, or set removed (true drops, false puts back).\nOnly the assigned agent. 409 if the plan is no longer negotiating.",
         "operationId": "setPlanItem",
         "parameters": [
           {

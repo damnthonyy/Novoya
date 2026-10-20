@@ -18,11 +18,11 @@ class SetItemCommand:
     item_id: UUID
     agent_id: UUID
     negotiated_price: Decimal | None
-    removed: bool
+    removed: bool | None
 
 
 class SetItemPrice:
-    """The assigned agent sets a negotiated price or drops an item. Only while negotiating."""
+    """The assigned agent sets a negotiated price, drops an item, or puts it back."""
 
     def __init__(
         self,
@@ -43,18 +43,23 @@ class SetItemPrice:
         if plan is None:
             raise PlanNotFound("no such plan")
         now = self._clock.now()
-        if cmd.removed:
-            if cmd.negotiated_price is not None:
-                raise InvalidPlan("set a price or remove the item, not both")
+        if cmd.negotiated_price is not None and cmd.removed is not None:
+            raise InvalidPlan("set a price or set removed, not both")
+        if cmd.removed is True:
             plan.remove_item(cmd.item_id, cmd.agent_id, now)
+        elif cmd.removed is False:
+            plan.restore_item(cmd.item_id, cmd.agent_id, now)
         elif cmd.negotiated_price is None:
-            raise InvalidPlan("set a price or remove the item, not both")
+            raise InvalidPlan("set a price or set removed, not both")
         else:
             plan.set_item_price(cmd.item_id, cmd.agent_id, cmd.negotiated_price, now)
-        await self._plans.save(plan)
-        offer_ids = [item.offer_id for item in plan.items]
+        await self._plans.save_item(plan, cmd.item_id)
+        fresh = await self._plans.get(cmd.plan_id)
+        if fresh is None:
+            raise PlanNotFound("no such plan")
+        offer_ids = [item.offer_id for item in fresh.items]
         offers = {offer.id: offer for offer in await self._catalog.contacts_for(offer_ids)}
-        briefs = await self._trips.for_wish_ids([plan.wish_id])
-        view = agent_plan_as_view(plan, offers, briefs.get(plan.wish_id))
+        briefs = await self._trips.for_wish_ids([fresh.wish_id])
+        view = agent_plan_as_view(fresh, offers, briefs.get(fresh.wish_id))
         await self._uow.commit()
         return view

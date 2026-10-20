@@ -167,6 +167,17 @@ class Plan:
         )
         self.updated_at = now
 
+    def restore_item(self, item_id: UUID, by: UUID, now: datetime) -> None:
+        """The assigned agent puts a dropped item back. It has no price until they set one."""
+        self._must_be_assigned(by)
+        item = self._item(item_id)
+        if not item.removed:
+            return
+        self.items = tuple(
+            replace(entry, removed=False) if entry.id == item_id else entry for entry in self.items
+        )
+        self.updated_at = now
+
     def priced_total(self) -> Decimal:
         """The sum of kept items that already have a negotiated price."""
         return sum(

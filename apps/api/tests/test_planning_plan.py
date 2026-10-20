@@ -243,6 +243,29 @@ def test_remove_item_cannot_drop_the_last_kept_item():
         plan.remove_item(plan.items[0].id, agent, NOW)
 
 
+def test_restore_item_puts_a_removed_item_back():
+    plan, agent = negotiating_plan()
+    item = plan.items[0]
+    plan.set_item_price(item.id, agent, Decimal("50.00"), NOW)
+    plan.remove_item(item.id, agent, NOW)
+    later = datetime(2026, 10, 19, 11, 0, tzinfo=UTC)
+
+    plan.restore_item(item.id, agent, later)
+    plan.set_item_price(item.id, agent, Decimal("40.00"), later)
+
+    assert plan.items[0].removed is False
+    assert plan.items[0].negotiated_price == Decimal("40.00")
+    assert plan.updated_at == later
+
+
+def test_set_item_price_of_a_removed_item_is_invalid():
+    plan, agent = negotiating_plan()
+    plan.remove_item(plan.items[0].id, agent, NOW)
+
+    with pytest.raises(InvalidPlan):
+        plan.set_item_price(plan.items[0].id, agent, Decimal("10.00"), NOW)
+
+
 def test_priced_total_ignores_unpriced_and_removed_items():
     plan, agent = negotiating_plan()
     plan.set_item_price(plan.items[0].id, agent, Decimal("80.00"), NOW)

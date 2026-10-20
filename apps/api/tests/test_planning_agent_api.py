@@ -67,6 +67,9 @@ class FakePlans:
     async def save(self, plan: Plan) -> None:
         self.plan = plan
 
+    async def save_item(self, plan: Plan, item_id: UUID) -> None:
+        self.plan = plan
+
 
 class FakeCatalog:
     async def contacts_for(self, offer_ids: list[UUID]) -> list[OfferContact]:
@@ -103,7 +106,12 @@ def signed_in_as(role: Role, user_id: UUID = AGENT_ID) -> CurrentUserView:
 @pytest.fixture
 def plan() -> Plan:
     plan = Plan.propose(
-        WISH_ID, True, "A week by the sea", [DraftItem(HOTEL_ID, 1, 2, None)], 3, NOW
+        WISH_ID,
+        True,
+        "A week by the sea",
+        [DraftItem(HOTEL_ID, 1, 2, None), DraftItem(HOTEL_ID, 3, 1, "Boat")],
+        4,
+        NOW,
     )
     plan.request_quote(NOW)
     return plan
@@ -178,6 +186,22 @@ async def test_the_assigned_agent_sets_a_price(plan, client):
     assert body["items"][0]["negotiated_price"] == "120.00"
     assert body["total"] == "120.00"
     assert body["over_budget"] is False
+
+
+async def test_the_assigned_agent_restores_a_removed_item(plan, client):
+    await client.post(f"/agent/plans/{plan.id}/take")
+    item_id = plan.items[1].id
+    removed = await client.patch(f"/agent/plans/{plan.id}/items/{item_id}", json={"removed": True})
+    assert removed.status_code == 200
+    assert removed.json()["items"][1]["removed"] is True
+
+    response = await client.patch(
+        f"/agent/plans/{plan.id}/items/{item_id}", json={"removed": False}
+    )
+
+    assert response.status_code == 200
+    assert response.json()["items"][1]["removed"] is False
+    assert response.json()["items"][1]["negotiated_price"] is None
 
 
 async def test_a_client_gets_403_on_agent_routes(plan):

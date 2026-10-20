@@ -173,7 +173,7 @@ async def test_save_writes_requested_status(engine, wish_id, offer_ids):
     assert all(item.negotiated_price is None for item in read.items)
 
 
-async def test_save_writes_item_prices_and_removed(engine, wish_id, offer_ids):
+async def test_save_does_not_overwrite_item_prices(engine, wish_id, offer_ids):
     hotel, _boat = offer_ids
     plan = Plan.propose(wish_id, True, "Sun and sea", [DraftItem(hotel, 1, 7, None)], 8, NOW)
     await add_plan(engine, plan)
@@ -187,8 +187,84 @@ async def test_save_writes_item_prices_and_removed(engine, wish_id, offer_ids):
 
     read = await read_plan(engine, plan.id)
     assert read is not None
+    assert read.items[0].negotiated_price is None
+    assert read.items[0].removed is False
+
+
+async def test_save_item_writes_one_item_and_leaves_the_others(engine, wish_id, offer_ids):
+    hotel, boat = offer_ids
+    later = datetime(2026, 10, 19, 10, 0, tzinfo=UTC)
+    plan = Plan.propose(
+        wish_id,
+        True,
+        "Sun and sea",
+        [DraftItem(hotel, 1, 7, None), DraftItem(boat, 3, 2, None)],
+        8,
+        NOW,
+    )
+    await add_plan(engine, plan)
+
+    async with new_session(engine) as session:
+        repo = SqlPlanRepository(session)
+        loaded = await repo.get(plan.id)
+        loaded.items = (
+            replace(loaded.items[0], negotiated_price=Decimal("120.00")),
+            loaded.items[1],
+        )
+        loaded.updated_at = later
+        await repo.save_item(loaded, loaded.items[0].id)
+        await session.commit()
+
+    read = await read_plan(engine, plan.id)
+    assert read is not None
     assert read.items[0].negotiated_price == Decimal("120.00")
-    assert read.items[0].removed is True
+    assert read.items[1].negotiated_price is None
+    assert read.updated_at == later
+
+
+async def test_two_stale_item_saves_keep_each_price(engine, wish_id, offer_ids):
+    hotel, boat = offer_ids
+    later = datetime(2026, 10, 19, 10, 0, tzinfo=UTC)
+    agent_id = uuid4()
+    plan = Plan.propose(
+        wish_id,
+        True,
+        "Sun and sea",
+        [DraftItem(hotel, 1, 7, None), DraftItem(boat, 3, 2, None)],
+        8,
+        NOW,
+    )
+    plan.request_quote(NOW)
+    await add_plan(engine, plan)
+    async with new_session(engine) as session:
+        session.add(UserModel(id=agent_id, email=f"{agent_id}@example.com", created_at=NOW))
+        await session.commit()
+
+    async with new_session(engine) as session:
+        repo = SqlPlanRepository(session)
+        taken = await repo.get(plan.id)
+        taken.take(agent_id, later)
+        await repo.save(taken)
+        await session.commit()
+
+    async with new_session(engine) as first:
+        first_repo = SqlPlanRepository(first)
+        tab_one = await first_repo.get(plan.id)
+        async with new_session(engine) as second:
+            second_repo = SqlPlanRepository(second)
+            tab_two = await second_repo.get(plan.id)
+            await second.commit()
+            tab_two.set_item_price(tab_two.items[1].id, agent_id, Decimal("90.00"), later)
+            await second_repo.save_item(tab_two, tab_two.items[1].id)
+            await second.commit()
+        tab_one.set_item_price(tab_one.items[0].id, agent_id, Decimal("700.00"), later)
+        await first_repo.save_item(tab_one, tab_one.items[0].id)
+        await first.commit()
+
+    read = await read_plan(engine, plan.id)
+    assert read is not None
+    assert read.items[0].negotiated_price == Decimal("700.00")
+    assert read.items[1].negotiated_price == Decimal("90.00")
 
 
 async def test_save_of_a_stale_read_does_not_wipe_an_agent_take(engine, wish_id, offer_ids):

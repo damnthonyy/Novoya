@@ -69,6 +69,9 @@ class FakePlans:
     async def save(self, plan: Plan) -> None:
         self.plan = plan
 
+    async def save_item(self, plan: Plan, item_id: UUID) -> None:
+        self.plan = plan
+
 
 class FakeCatalog:
     async def contacts_for(self, offer_ids: list[UUID]) -> list[OfferContact]:
@@ -188,7 +191,7 @@ async def test_the_assigned_agent_sets_a_price():
     use_case, uow = set_item(plan)
 
     view = await use_case(
-        SetItemCommand(plan.id, plan.items[0].id, AGENT_ID, Decimal("120.00"), False)
+        SetItemCommand(plan.id, plan.items[0].id, AGENT_ID, Decimal("120.00"), None)
     )
 
     assert view.items[0].negotiated_price == Decimal("120.00")
@@ -203,7 +206,7 @@ async def test_a_total_above_budget_is_flagged():
     use_case, _uow = set_item(plan)
 
     view = await use_case(
-        SetItemCommand(plan.id, plan.items[0].id, AGENT_ID, Decimal("2000.00"), False)
+        SetItemCommand(plan.id, plan.items[0].id, AGENT_ID, Decimal("2000.00"), None)
     )
 
     assert view.over_budget is True
@@ -229,12 +232,33 @@ async def test_the_assigned_agent_removes_an_item():
     assert uow.commits == 1
 
 
+async def test_the_assigned_agent_restores_a_removed_item():
+    plan = Plan.propose(
+        WISH_ID,
+        True,
+        "Sun and sea",
+        [DraftItem(HOTEL_ID, 1, 2, None), DraftItem(HOTEL_ID, 3, 1, "Boat")],
+        4,
+        NOW,
+    )
+    plan.request_quote(NOW)
+    plan.take(AGENT_ID, NOW)
+    plan.remove_item(plan.items[1].id, AGENT_ID, NOW)
+    use_case, uow = set_item(plan)
+
+    view = await use_case(SetItemCommand(plan.id, plan.items[1].id, AGENT_ID, None, False))
+
+    assert view.items[1].removed is False
+    assert view.items[1].negotiated_price is None
+    assert uow.commits == 1
+
+
 async def test_another_agent_cannot_set_a_price():
     plan = stored_plan()
     plan.take(AGENT_ID, NOW)
     use_case, uow = set_item(plan)
     with pytest.raises(PermissionDenied):
         await use_case(
-            SetItemCommand(plan.id, plan.items[0].id, OTHER_AGENT, Decimal("10.00"), False)
+            SetItemCommand(plan.id, plan.items[0].id, OTHER_AGENT, Decimal("10.00"), None)
         )
     assert uow.commits == 0

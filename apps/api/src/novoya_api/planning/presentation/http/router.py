@@ -114,8 +114,8 @@ async def set_plan_item(
     agent_id: Annotated[UUID, Depends(get_current_agent_id)],
     use_case: Annotated[SetItemPrice, Depends(get_set_item_price)],
 ) -> AgentPlan:
-    """Set the negotiated price in EUR, or remove the item. Only the assigned agent.
-    409 if the plan is no longer negotiating."""
+    """Set the negotiated price in EUR, or set removed (true drops, false puts back).
+    Only the assigned agent. 409 if the plan is no longer negotiating."""
     return AgentPlan.of(
         await use_case(
             SetItemCommand(
@@ -123,7 +123,7 @@ async def set_plan_item(
                 item_id=item_id,
                 agent_id=agent_id,
                 negotiated_price=body.negotiated_price,
-                removed=body.removed is True,
+                removed=body.removed,
             )
         )
     )

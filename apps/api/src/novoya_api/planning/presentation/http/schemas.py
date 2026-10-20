@@ -129,7 +129,7 @@ class AgentPlan(BaseModel):
 
 
 class SetPlanItemRequest(BaseModel):
-    """Set a negotiated price in EUR, or mark the item removed. One of the two."""
+    """Set a negotiated price in EUR, or set removed. True drops the item, false puts it back."""
 
     negotiated_price: Decimal | None = Field(default=None, gt=0, max_digits=10, decimal_places=2)
     removed: bool | None = None

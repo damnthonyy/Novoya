@@ -5,6 +5,7 @@ from uuid import UUID
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from novoya_api.planning.domain.errors import PlanNotFound
 from novoya_api.planning.domain.plan import Plan, PlanItem, PlanStatus
 from novoya_api.planning.infrastructure.db.models import PlanItemModel, PlanModel
 from novoya_api.shared.domain.errors import InvalidTransition
@@ -13,8 +14,9 @@ from novoya_api.shared.domain.errors import InvalidTransition
 class SqlPlanRepository:
     """PlanRepository on PostgreSQL. Maps the entity to rows; the caller commits.
 
-    save() updates the row only if its status is still the one this request read: a late
-    request-quote must not overwrite an agent's take, and two clicks must not both pass.
+    save() writes the plan row only, and only if its status is still the one this request
+    read: a late request-quote must not overwrite an agent's take. Item prices go through
+    save_item(), so two tabs pricing different lines cannot wipe each other.
     """
 
     def __init__(self, session: AsyncSession) -> None:
@@ -125,16 +127,25 @@ class SqlPlanRepository:
         if result.rowcount != 1:
             raise InvalidTransition("the plan changed meanwhile, reload it")
         self._read_status[plan.id] = plan.status.value
-        for item in plan.items:
-            await self._session.execute(
-                update(PlanItemModel)
-                .where(PlanItemModel.id == item.id, PlanItemModel.plan_id == plan.id)
-                .values(
-                    day=item.day,
-                    quantity=item.quantity,
-                    note=item.note,
-                    negotiated_price=item.negotiated_price,
-                    removed=item.removed,
-                )
-                .execution_options(synchronize_session=False)
-            )
+
+    async def save_item(self, plan: Plan, item_id: UUID) -> None:
+        read_status = self._read_status[plan.id]  # KeyError: save_item() without get() or add()
+        item = next((entry for entry in plan.items if entry.id == item_id), None)
+        if item is None:
+            raise PlanNotFound("no such item")
+        result = await self._session.execute(
+            update(PlanModel)
+            .where(PlanModel.id == plan.id, PlanModel.status == read_status)
+            .values(updated_at=plan.updated_at)
+            .execution_options(synchronize_session=False)
+        )
+        if result.rowcount != 1:
+            raise InvalidTransition("the plan changed meanwhile, reload it")
+        written = await self._session.execute(
+            update(PlanItemModel)
+            .where(PlanItemModel.id == item.id, PlanItemModel.plan_id == plan.id)
+            .values(negotiated_price=item.negotiated_price, removed=item.removed)
+            .execution_options(synchronize_session=False)
+        )
+        if written.rowcount != 1:
+            raise PlanNotFound("no such item")
