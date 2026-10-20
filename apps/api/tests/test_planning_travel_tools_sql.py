@@ -4,6 +4,7 @@ Uses the database fixtures of test_catalog_sql.py: skipped when Postgres does no
 """
 
 import json
+from datetime import timedelta
 
 import pytest
 
@@ -12,6 +13,8 @@ from novoya_api.catalog.infrastructure.seed.data import (
     O_CRETE_WALK,
     O_MARRAKECH_RIAD,
     PARTNERS,
+    SEASON_END,
+    SEASON_START,
 )
 from novoya_api.catalog.infrastructure.seed.run import seed_catalog
 from novoya_api.planning.infrastructure.llm.tools import travel_tools
@@ -22,7 +25,9 @@ from tests.test_llm_orchestrator import FakeClient, answer, tool_calls
 
 pytestmark = pytest.mark.usefixtures("session")
 
-MAY = {"start_date": "2026-05-10", "end_date": "2026-05-17"}
+# A week inside the seed season, which moves with the date the seed runs.
+MAY_10 = SEASON_START.replace(month=5, day=10)
+MAY = {"start_date": MAY_10.isoformat(), "end_date": (MAY_10 + timedelta(days=7)).isoformat()}
 
 
 def seeded_tools():
@@ -49,8 +54,12 @@ async def test_search_offers_finds_seed_offers_by_destination_tags_persons_and_d
     beach = await search(country="greece", city=None, tags=["style:beach"], persons=2, **MAY)
     marrakech = await search(country="Morocco", city="Marrakech", persons=2, **MAY)
     too_many = await search(country="Greece", city="Chania", persons=9, **MAY)
-    winter = await search(
-        country="Greece", city="Chania", persons=2, start_date="2026-12-01", end_date="2026-12-08"
+    after_season = await search(
+        country="Greece",
+        city="Chania",
+        persons=2,
+        start_date=(SEASON_END + timedelta(days=1)).isoformat(),
+        end_date=(SEASON_END + timedelta(days=8)).isoformat(),
     )
 
     def ids(result):
@@ -60,7 +69,7 @@ async def test_search_offers_finds_seed_offers_by_destination_tags_persons_and_d
     assert ids(beach) == [str(O_CRETE_STAY)]
     assert ids(marrakech) == [str(O_MARRAKECH_RIAD)]  # the agency partner is inactive
     assert ids(too_many) == []
-    assert ids(winter) == []
+    assert ids(after_season) == []
 
 
 async def test_search_offers_sends_no_partner_name_or_contact_from_the_seed():

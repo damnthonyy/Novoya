@@ -24,7 +24,9 @@ def get_llm_client() -> AsyncOpenAI:
     return create_llm_client(key.get_secret_value() if key else None)
 
 
-def get_orchestrator(deadline_seconds: float = 90) -> Orchestrator:
+def get_orchestrator(
+    deadline_seconds: float = 90, model_timeout_seconds: float | None = None
+) -> Orchestrator:
     """The orchestrator with the configured model, then its fallbacks in order.
 
     Raises LLMError without an API key: call it inside the adapter's try, not as a
@@ -34,4 +36,5 @@ def get_orchestrator(deadline_seconds: float = 90) -> Orchestrator:
         get_llm_client(),
         [settings.llm_model, *settings.llm_fallback_models],
         deadline_seconds=deadline_seconds,
+        model_timeout_seconds=model_timeout_seconds,
     )

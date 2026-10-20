@@ -37,9 +37,9 @@ class Settings(BaseSettings):
     openrouter_api_key: SecretStr | None = None
     llm_model: str = "nvidia/nemotron-3-ultra-550b-a55b:free"
     llm_fallback_models: Annotated[list[str], NoDecode] = [
-        "nvidia/nemotron-3-super-120b-a12b:free",
-        "xingchen-agi/xing4.0-29b-a4b:free",
-        "google/gemma-4-31b-it:free",
+        "minimax/minimax-m3.1-flash:free",
+        "nvidia/nemotron-3.5-super-vl:free",
+        "poolside/laguna-s-2.1:free",
     ]
 
     @field_validator("llm_fallback_models", mode="before")

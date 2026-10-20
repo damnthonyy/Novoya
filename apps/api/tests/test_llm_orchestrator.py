@@ -470,6 +470,40 @@ async def test_slow_model_raises_llm_error_after_the_deadline():
         await Orchestrator(client, MODELS, deadline_seconds=0.05).run(USER_MESSAGES)
 
 
+class SlowFirstModel:
+    """model-a takes 10 seconds; the others answer at once."""
+
+    def __init__(self) -> None:
+        self.models: list[str] = []
+
+    async def create(self, **kwargs):
+        self.models.append(kwargs["model"])
+        if kwargs["model"] == "model-a":
+            await asyncio.sleep(10)
+        return answer(f"from {kwargs['model']}")
+
+
+async def test_slow_model_hands_over_to_the_next_after_its_timeout():
+    completions = SlowFirstModel()
+    client = SimpleNamespace(chat=SimpleNamespace(completions=completions))
+    orchestrator = Orchestrator(client, MODELS, deadline_seconds=5, model_timeout_seconds=0.05)
+
+    assert await orchestrator.run(USER_MESSAGES) == "from model-b"
+    assert completions.models == ["model-a", "model-b"]
+
+
+async def test_every_model_over_its_timeout_raises_llm_error():
+    class SlowCompletions:
+        async def create(self, **kwargs):
+            await asyncio.sleep(10)
+
+    client = SimpleNamespace(chat=SimpleNamespace(completions=SlowCompletions()))
+    orchestrator = Orchestrator(client, MODELS, deadline_seconds=5, model_timeout_seconds=0.05)
+
+    with pytest.raises(LLMError, match="every model failed"):
+        await orchestrator.run(USER_MESSAGES)
+
+
 async def test_converse_returns_the_whole_conversation():
     client = FakeClient(
         tool_calls(("call-1", "get_weather", '{"city": "Lisbon"}')),

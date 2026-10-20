@@ -41,7 +41,9 @@ class Orchestrator:
     results back, until it answers in text.
 
     Limits: max_steps model calls, and deadline_seconds for the whole loop, since it runs
-    inside an HTTP request. Each call tries the models in order until one answers. A prompt
+    inside an HTTP request. Each call tries the models in order until one answers; with
+    model_timeout_seconds, a model that takes longer counts as failed, so a slow model does
+    not use the whole deadline before the next one is tried. A prompt
     injection can make the model ask for hundreds of tool calls: only max_tool_calls_per_step
     of them run per answer, and max_tool_calls in the whole loop; the others get an error."""
 
@@ -51,6 +53,7 @@ class Orchestrator:
         models: Sequence[str],
         max_steps: int = 6,
         deadline_seconds: float = 90,
+        model_timeout_seconds: float | None = None,
         max_tool_calls_per_step: int = 5,
         max_tool_calls: int = 15,
     ) -> None:
@@ -58,6 +61,7 @@ class Orchestrator:
         self._models = list(models)
         self._max_steps = max_steps
         self._deadline = deadline_seconds
+        self._model_timeout = model_timeout_seconds
         self.max_tool_calls_per_step = max_tool_calls_per_step
         self.max_tool_calls = max_tool_calls
 
@@ -104,9 +108,14 @@ class Orchestrator:
         last_error: Exception | None = None
         for model in self._models:
             try:
-                response = await self._client.chat.completions.create(
-                    model=model, messages=messages, **extra
-                )
+                async with asyncio.timeout(self._model_timeout):
+                    response = await self._client.chat.completions.create(
+                        model=model, messages=messages, **extra
+                    )
+            except TimeoutError as error:
+                logger.warning("LLM model %s took over %s seconds", model, self._model_timeout)
+                last_error = error
+                continue
             except openai.AuthenticationError as error:
                 raise LLMError("OpenRouter rejected the API key") from error
             except openai.APIError as error:

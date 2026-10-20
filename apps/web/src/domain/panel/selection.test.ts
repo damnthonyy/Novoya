@@ -60,6 +60,7 @@ describe('answerPanelErrorKey', () => {
     expect(answerPanelErrorKey('invalid_answers')).toBe('answers.invalid')
     expect(answerPanelErrorKey('wish_not_found')).toBe('answers.wishNotFound')
     expect(answerPanelErrorKey('invalid_transition')).toBe('answers.alreadyAnswered')
+    expect(answerPanelErrorKey('no_offer_fits')).toBe('answers.noOfferFits')
     expect(answerPanelErrorKey(undefined)).toBe('answers.unknown')
   })
 })

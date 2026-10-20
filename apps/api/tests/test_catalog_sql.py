@@ -7,7 +7,7 @@ Uses novoya_test so the development database is never emptied.
 import asyncio
 import os
 from collections.abc import AsyncIterator, Iterator
-from datetime import date
+from datetime import date, timedelta
 from pathlib import Path
 from uuid import uuid4
 
@@ -36,6 +36,8 @@ from novoya_api.catalog.infrastructure.seed.data import (
     OFFERS,
     P_MARRAKECH_HOTEL,
     PARTNERS,
+    SEASON_END,
+    SEASON_START,
 )
 from novoya_api.catalog.infrastructure.seed.run import seed_catalog
 from novoya_api.catalog.public import covered_destinations, search_offers, tags_at
@@ -74,6 +76,11 @@ def clear_cached_settings() -> None:
     get_settings.cache_clear()
     get_engine.cache_clear()
     get_sessionmaker.cache_clear()
+
+
+# Inside and after the seed season, which moves with the date the seed runs.
+SEED_TRIP = (SEASON_START.replace(month=5, day=10), SEASON_START.replace(month=5, day=17))
+AFTER_SEASON = (SEASON_END + timedelta(days=1), SEASON_END + timedelta(days=8))
 
 
 @pytest.fixture(scope="module")
@@ -181,7 +188,7 @@ async def test_update_partner_hides_destinations_from_search(session):
 
     listed = await ListDestinations(SqlOfferRepository(session))()
     assert ("Morocco", "Marrakech") not in listed
-    trip = (date(2026, 5, 10), date(2026, 5, 17))
+    trip = SEED_TRIP
     assert await search_offers("Morocco", "Marrakech", [], 2, *trip) == []
     still = await SqlPartnerRepository(session).get(P_MARRAKECH_HOTEL)
     assert still is not None and still.active is False
@@ -221,20 +228,20 @@ async def test_public_search_offers_reads_listed_seed_offers(session, database_u
     inactive = await session.get(OfferRow, O_CRETE_WALK)
     inactive.active = False
     await session.commit()
-    trip = (date(2026, 5, 10), date(2026, 5, 17))
+    trip = SEED_TRIP
 
     in_chania = await search_offers("greece", "chania", [], 2, *trip)
     beach = await search_offers("Greece", None, ["style:beach"], 2, *trip)
     marrakech = await search_offers("Morocco", "Marrakech", [], 2, *trip)
     too_many = await search_offers("Greece", "Chania", [], 4, *trip)
-    winter = await search_offers("Greece", "Chania", [], 2, date(2026, 12, 1), date(2026, 12, 8))
+    after_season = await search_offers("Greece", "Chania", [], 2, *AFTER_SEASON)
 
     assert [offer.id for offer in in_chania] == [O_CRETE_STAY]
     assert [offer.id for offer in beach] == [O_CRETE_STAY]
     assert beach[0].partner_name == "Elounda Bay House"
     assert [offer.id for offer in marrakech] == [O_MARRAKECH_RIAD]  # the agency is inactive
     assert too_many == []
-    assert winter == []
+    assert after_season == []
 
 
 async def test_database_rejects_invalid_person_limits(session):
