@@ -15,6 +15,7 @@ class ProposedItem:
     kind: str
     title: str
     description: str
+    available: bool = True
 
 
 @dataclass(frozen=True)

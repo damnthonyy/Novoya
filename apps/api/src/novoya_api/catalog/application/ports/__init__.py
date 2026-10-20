@@ -1,3 +1,4 @@
+from collections.abc import Sequence
 from typing import Protocol
 from uuid import UUID
 
@@ -33,6 +34,10 @@ class OfferRepository(Protocol):
         ...
 
     async def get(self, offer_id: UUID) -> Offer | None: ...
+
+    async def list_by_ids(self, ids: Sequence[UUID]) -> list[tuple[Offer, Partner]]:
+        """Offers with their partner, including inactive. Missing ids are omitted."""
+        ...
 
     async def add(self, offer: Offer) -> None: ...
 

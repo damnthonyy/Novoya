@@ -1,5 +1,6 @@
 """Repositories of the catalog module. They map rows to entities: no ORM object leaves this file."""
 
+from collections.abc import Sequence
 from uuid import UUID
 
 from sqlalchemy import func, select
@@ -128,6 +129,20 @@ class SqlOfferRepository:
     async def get(self, offer_id: UUID) -> Offer | None:
         row = await self._session.get(OfferRow, offer_id)
         return offer_to_entity(row) if row is not None else None
+
+    async def list_by_ids(self, ids: Sequence[UUID]) -> list[tuple[Offer, Partner]]:
+        if not ids:
+            return []
+        stmt = (
+            select(OfferRow, PartnerRow)
+            .join(PartnerRow, OfferRow.partner_id == PartnerRow.id)
+            .where(OfferRow.id.in_(ids))
+        )
+        found = {
+            offer.id: (offer_to_entity(offer), partner_to_entity(partner))
+            for offer, partner in (await self._session.execute(stmt)).all()
+        }
+        return [found[offer_id] for offer_id in ids if offer_id in found]
 
     async def add(self, offer: Offer) -> None:
         row = OfferRow(id=offer.id)

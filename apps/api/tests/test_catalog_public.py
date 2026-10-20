@@ -1,10 +1,12 @@
 import inspect
+from collections.abc import Sequence
 from datetime import date
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 import pytest
 
 from novoya_api.catalog import public
+from novoya_api.catalog.application.use_cases.get_offers import GetOffers
 from novoya_api.catalog.application.use_cases.list_destinations import ListDestinations
 from novoya_api.catalog.application.use_cases.list_tags_at import ListTagsAt
 from novoya_api.catalog.domain import Offer, OfferKind, Partner, PartnerKind
@@ -74,6 +76,10 @@ class FakeOffers:
                 continue
             found.append((offer, partner))
         return found
+
+    async def list_by_ids(self, ids: Sequence[UUID]) -> list[tuple[Offer, Partner]]:
+        by_id = {offer.id: (offer, partner) for offer, partner in self._pairs}
+        return [by_id[offer_id] for offer_id in ids if offer_id in by_id]
 
 
 async def test_covered_destinations_need_a_listed_offer():
@@ -150,7 +156,7 @@ def test_public_module_exposes_the_two_functions_wishes_needs():
 
 
 def test_public_functions_take_an_optional_keyword_only_session():
-    for function in (covered_destinations, tags_at, public.search_offers):
+    for function in (covered_destinations, tags_at, public.search_offers, public.get_offers):
         parameter = inspect.signature(function).parameters["session"]
         assert parameter.kind is inspect.Parameter.KEYWORD_ONLY
         assert parameter.default is None
@@ -202,3 +208,14 @@ async def test_search_offers_with_a_session_reads_through_it(seen_sessions):
 
     assert [offer.city for offer in offers] == ["Chania"]
     assert seen_sessions == [caller_session]
+
+
+async def test_get_offers_keeps_order_and_inactive_rows():
+    hotel = _partner()
+    first = _offer(hotel, title="First")
+    hidden = _offer(hotel, title="Hidden", active=False)
+    skip = uuid4()
+    found = await GetOffers(FakeOffers([(first, hotel), (hidden, hotel)]))(
+        [hidden.id, skip, first.id]
+    )
+    assert [offer.title for offer in found] == ["Hidden", "First"]

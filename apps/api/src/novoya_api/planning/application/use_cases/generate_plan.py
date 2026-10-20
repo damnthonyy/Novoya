@@ -1,6 +1,5 @@
-from uuid import UUID
-
-from novoya_api.planning.application.dto import OfferSummary, PlanItemView, PlanRequest, PlanView
+from novoya_api.planning.application.dto import OfferSummary, PlanRequest, PlanView
+from novoya_api.planning.application.plan_view import plan_as_view
 from novoya_api.planning.application.ports.offer_catalog import OfferCatalog
 from novoya_api.planning.application.ports.plan_repository import PlanRepository
 from novoya_api.planning.application.ports.plan_writer import PlanWriter
@@ -74,7 +73,7 @@ class GeneratePlan:
             self._clock.now(),
         )
         await self._plans.add(plan)
-        return _view(plan, offers)
+        return plan_as_view(plan, offers)
 
     async def _fitting(self, request: PlanRequest, tags: tuple[str, ...]) -> list[OfferSummary]:
         return await self._catalog.fitting_offers(
@@ -99,26 +98,3 @@ def _fallback_items(
     others = [offer for offer in ranked or allowed if offer.kind != "hotel"][:trip_days]
     items.extend(DraftItem(offer.id, day, 1, None) for day, offer in enumerate(others, start=1))
     return items
-
-
-def _view(plan: Plan, offers: dict[UUID, OfferSummary]) -> PlanView:
-    return PlanView(
-        id=plan.id,
-        wish_id=plan.wish_id,
-        status=plan.status.value,
-        based_on_preferences=plan.based_on_preferences,
-        summary=plan.summary,
-        items=tuple(
-            PlanItemView(
-                id=item.id,
-                offer_id=item.offer_id,
-                day=item.day,
-                quantity=item.quantity,
-                note=item.note,
-                kind=offers[item.offer_id].kind,
-                title=offers[item.offer_id].title,
-                description=offers[item.offer_id].description,
-            )
-            for item in plan.items
-        ),
-    )

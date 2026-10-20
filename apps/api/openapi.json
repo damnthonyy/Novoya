@@ -330,6 +330,19 @@
         "title": "ErrorResponse",
         "type": "object"
       },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "title": "Detail",
+            "type": "array"
+          }
+        },
+        "title": "HTTPValidationError",
+        "type": "object"
+      },
       "Health": {
         "properties": {
           "status": {
@@ -428,6 +441,17 @@
         ],
         "title": "MeResponse",
         "type": "object"
+      },
+      "OfferKind": {
+        "enum": [
+          "hotel",
+          "guide",
+          "transport",
+          "activity",
+          "agency"
+        ],
+        "title": "OfferKind",
+        "type": "string"
       },
       "OfferResponse": {
         "properties": {
@@ -640,6 +664,49 @@
         "title": "PartnerResponse",
         "type": "object"
       },
+      "Plan": {
+        "description": "The plan day by day. Never a price: the quote has it. Never a partner name.",
+        "properties": {
+          "based_on_preferences": {
+            "title": "Based On Preferences",
+            "type": "boolean"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/PlanItemResponse"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "status": {
+            "$ref": "#/components/schemas/PlanStatus"
+          },
+          "summary": {
+            "title": "Summary",
+            "type": "string"
+          },
+          "wish_id": {
+            "format": "uuid",
+            "title": "Wish Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "wish_id",
+          "status",
+          "based_on_preferences",
+          "summary",
+          "items"
+        ],
+        "title": "Plan",
+        "type": "object"
+      },
       "PlanItemOut": {
         "properties": {
           "day": {
@@ -697,6 +764,88 @@
         "title": "PlanItemOut",
         "type": "object"
       },
+      "PlanItemResponse": {
+        "properties": {
+          "available": {
+            "title": "Available",
+            "type": "boolean"
+          },
+          "day": {
+            "title": "Day",
+            "type": "integer"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "kind": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/OfferKind"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          },
+          "offer_id": {
+            "format": "uuid",
+            "title": "Offer Id",
+            "type": "string"
+          },
+          "quantity": {
+            "title": "Quantity",
+            "type": "integer"
+          },
+          "title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
+          }
+        },
+        "required": [
+          "id",
+          "offer_id",
+          "day",
+          "quantity",
+          "note",
+          "kind",
+          "title",
+          "description",
+          "available"
+        ],
+        "title": "PlanItemResponse",
+        "type": "object"
+      },
       "PlanResponse": {
         "description": "The proposed plan, day by day. No price until it is quoted and no partner name.\nbased_on_preferences is false when the client picked no tag.",
         "properties": {
@@ -741,6 +890,18 @@
         ],
         "title": "PlanResponse",
         "type": "object"
+      },
+      "PlanStatus": {
+        "enum": [
+          "proposed",
+          "requested",
+          "negotiating",
+          "quoted",
+          "accepted",
+          "rejected"
+        ],
+        "title": "PlanStatus",
+        "type": "string"
       },
       "RegisterRequest": {
         "properties": {
@@ -1239,6 +1400,46 @@
           "created_at"
         ],
         "title": "UserResponse",
+        "type": "object"
+      },
+      "ValidationError": {
+        "properties": {
+          "ctx": {
+            "title": "Context",
+            "type": "object"
+          },
+          "input": {
+            "title": "Input"
+          },
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "title": "Location",
+            "type": "array"
+          },
+          "msg": {
+            "title": "Message",
+            "type": "string"
+          },
+          "type": {
+            "title": "Error Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError",
         "type": "object"
       },
       "WishResponse": {
@@ -3266,6 +3467,80 @@
         "summary": "Get Me",
         "tags": [
           "me"
+        ]
+      }
+    },
+    "/plans/{plan_id}": {
+      "get": {
+        "description": "The plan day by day. Never a price: the quote has it. Never the partners' names.\n404 if it is missing or not the caller's, so the id stays hidden.",
+        "operationId": "getPlan",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "plan_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Plan Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Plan"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Plan",
+        "tags": [
+          "planning"
         ]
       }
     },
