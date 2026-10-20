@@ -211,6 +211,45 @@ async def test_a_tag_not_in_the_panel_is_rejected_and_nothing_is_saved():
     assert setup.events == []
 
 
+# The departure is checked against the server's day (UTC), with one day of tolerance: the web
+# app checks against the client's own day, which can be the day before in UTC-12.
+
+
+def answers_from(start: date) -> Answers:
+    return Answers(
+        selected_tags=(),
+        budget_max=Decimal("1500"),
+        currency="EUR",
+        persons=2,
+        start_date=start,
+        end_date=date(2026, 11, 9),
+    )
+
+
+async def test_a_departure_two_days_ago_is_rejected_and_nothing_is_saved():
+    wish = shown_wish()
+    setup = Setup(wish)
+
+    with pytest.raises(InvalidAnswers):
+        await setup.answer(wish.id, answers=answers_from(date(2026, 10, 17)))
+    assert setup.events == []  # no model run
+    assert wish.status is WishStatus.PANEL_SHOWN
+
+
+@pytest.mark.parametrize(
+    "start",
+    [date(2026, 10, 19), date(2026, 10, 18)],
+    ids=["today", "yesterday in UTC, today in UTC-12"],
+)
+async def test_a_departure_today_is_accepted(start):
+    wish = shown_wish()
+    setup = Setup(wish)
+
+    result = await setup.answer(wish.id, answers=answers_from(start))
+
+    assert result.wish.status is WishStatus.PLANNED
+
+
 async def test_answering_twice_raises_invalid_transition():
     wish = shown_wish()
     setup = Setup(wish)

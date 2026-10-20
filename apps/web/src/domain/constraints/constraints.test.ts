@@ -41,4 +41,9 @@ describe('constraintsErrors', () => {
     expect(constraintsErrors({ ...valid, startDate: '2026-02-28' }, TODAY).startDate).toBe('answers.startInPast')
     expect(constraintsErrors({ ...valid, startDate: TODAY }, TODAY).startDate).toBeUndefined()
   })
+
+  it('refuses a trip longer than 366 days, the first and the last included', () => {
+    expect(constraintsErrors({ ...valid, endDate: '2027-05-12' }, TODAY).endDate).toBeUndefined()
+    expect(constraintsErrors({ ...valid, endDate: '2027-05-13' }, TODAY).endDate).toBe('answers.tripTooLong')
+  })
 })

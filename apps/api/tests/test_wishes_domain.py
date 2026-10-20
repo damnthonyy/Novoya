@@ -516,6 +516,38 @@ def test_invalid_answers_raise_invalid_answers(changes):
         answers(**changes)
 
 
+TODAY = date(2026, 11, 1)
+
+
+@pytest.mark.parametrize(
+    "today",
+    [date(2026, 11, 1), date(2026, 11, 2), date(2026, 11, 3)],
+    ids=["departure tomorrow", "departure today", "departure yesterday in UTC"],
+)
+def test_check_dates_accepts_a_departure_from_the_day_before_today(today):
+    answers().check_dates(today)
+
+
+def test_check_dates_refuses_a_departure_two_days_before_today():
+    with pytest.raises(InvalidAnswers):
+        answers().check_dates(date(2026, 11, 4))
+
+
+def test_check_dates_accepts_a_trip_of_366_days_first_and_last_included():
+    answers(end_date=date(2027, 11, 2)).check_dates(TODAY)
+
+
+def test_check_dates_refuses_a_trip_of_367_days():
+    with pytest.raises(InvalidAnswers):
+        answers(end_date=date(2027, 11, 3)).check_dates(TODAY)
+
+
+def test_answers_saved_before_the_dates_rules_still_load():
+    old = answers(start_date=date(2020, 1, 1), end_date=date(2028, 1, 1))
+
+    assert old.start_date == date(2020, 1, 1)
+
+
 def test_mark_planned_sets_status_and_updated_at():
     wish = shown_wish()
     wish.answer(answers(), CREATED)

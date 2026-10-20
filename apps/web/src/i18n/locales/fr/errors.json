@@ -41,7 +41,8 @@
     "noOfferFits": "Aucune offre ne correspond à ces dates et à ce groupe. Essayez d’autres dates ou un autre nombre de voyageurs.",
     "tooManyRequests": "Trop de demandes d’un coup. Patientez un instant, puis réessayez.",
     "unknown": "Vos préférences n’ont pas pu être envoyées. Réessayez dans un instant.",
-    "startInPast": "Le départ ne peut pas être dans le passé."
+    "startInPast": "Le départ ne peut pas être dans le passé.",
+    "tripTooLong": "Un voyage dure 366 jours au plus."
   },
   "account": {
     "invalid_email": "Cette adresse e-mail ne semble pas valide.",

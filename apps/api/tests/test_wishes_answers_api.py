@@ -245,6 +245,26 @@ async def test_end_date_before_start_date_returns_422_invalid_answers(wishes, cl
 @pytest.mark.parametrize(
     "changes",
     [
+        {"start_date": "2020-01-01"},
+        {"start_date": "2026-10-17"},  # the clock is on 2026-10-19
+        {"end_date": "2027-11-03"},  # 367 days, the first and the last included
+    ],
+    ids=["years ago", "two days ago", "trip too long"],
+)
+async def test_dates_out_of_range_return_422_invalid_answers(wishes, client, changes):
+    wish = wishes.put(shown_wish())
+
+    response = await answer(client, wish.id, **changes)
+
+    assert response.status_code == 422
+    assert response.json()["code"] == "invalid_answers"
+    assert wishes.saved == []
+    assert wish.answers is None
+
+
+@pytest.mark.parametrize(
+    "changes",
+    [
         {"budget_max": "0"},
         {"budget_max": "-5"},
         {"budget_max": "12.345"},

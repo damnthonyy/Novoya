@@ -33,7 +33,7 @@ from novoya_api.wishes.infrastructure.planner import PartnerPlanner
 from tests.test_catalog_sql import database_url  # noqa: F401  (fixture)
 from tests.test_planning_repository_sql import engine, new_session, offer_ids  # noqa: F401
 
-NOW = datetime(2026, 10, 19, 9, 0, tzinfo=UTC)
+NOW = datetime(2026, 4, 19, 9, 0, tzinfo=UTC)  # before the trip: a past departure is refused
 REAL_WRITER = planning_public._writer  # kept before the autouse fixture replaces it
 
 

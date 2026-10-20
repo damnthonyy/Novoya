@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { answerPanelErrorKey, initialSelection, selectedTags, toggleTag } from './selection'
+import { answerPanelErrorKey, initialSelection, MAX_SELECTED_TAGS, selectedTags, toggleTag } from './selection'
 
 const mood = {
   id: 'mood',
@@ -24,6 +24,18 @@ describe('initialSelection', () => {
   it('picks the preselected tags, one at most in a single-choice section', () => {
     expect(initialSelection([mood, pace])).toEqual({ mood: ['calm', 'sea'], pace: ['slow'] })
   })
+
+  it(`picks ${MAX_SELECTED_TAGS} preselected tags at most in all`, () => {
+    const big = (id: string) => ({
+      id,
+      multi: true,
+      tags: Array.from({ length: 30 }, (_, i) => ({ id: `${id}-${i}`, preselected: true })),
+    })
+    const selection = initialSelection([big('a'), big('b'), big('c'), big('d'), pace])
+    expect(selectedTags(selection)).toHaveLength(MAX_SELECTED_TAGS)
+    expect(selection.d).toHaveLength(10)
+    expect(selection.pace).toEqual([])
+  })
 })
 
 describe('toggleTag', () => {
@@ -43,6 +55,39 @@ describe('toggleTag', () => {
     const before = { mood: ['calm'] }
     toggleTag(before, mood, 'sea')
     expect(before).toEqual({ mood: ['calm'] })
+  })
+})
+
+describe(`toggleTag at the limit of ${MAX_SELECTED_TAGS} tags`, () => {
+  // Tags picked in other sections, to bring the selection near the limit.
+  const others = (count: number) => Array.from({ length: count }, (_, i) => `tag-${i}`)
+
+  it('adds tags up to the limit', () => {
+    const added = toggleTag({ others: others(98), mood: ['calm'] }, mood, 'sea')
+    expect(selectedTags(added)).toHaveLength(MAX_SELECTED_TAGS)
+  })
+
+  it('refuses one more tag in a full multiple-choice section', () => {
+    const full = { others: others(99), mood: ['calm'] }
+    expect(toggleTag(full, mood, 'sea')).toBe(full)
+  })
+
+  it('refuses a first tag in an empty single-choice section', () => {
+    const full = { others: others(99), mood: ['calm'], pace: [] }
+    expect(toggleTag(full, pace, 'slow')).toBe(full)
+  })
+
+  it('still removes a tag, and replaces the tag of a single-choice section', () => {
+    const full = { others: others(98), mood: ['calm'], pace: ['slow'] }
+    expect(toggleTag(full, mood, 'calm').mood).toEqual([])
+    expect(toggleTag(full, pace, 'busy').pace).toEqual(['busy'])
+  })
+
+  it('removes and replaces tags in a selection already over the limit', () => {
+    const over = { others: others(150), mood: ['calm'], pace: ['slow'] }
+    expect(toggleTag(over, mood, 'calm').mood).toEqual([])
+    expect(toggleTag(over, pace, 'busy').pace).toEqual(['busy'])
+    expect(toggleTag(over, mood, 'sea')).toBe(over)
   })
 })
 
