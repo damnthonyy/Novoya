@@ -6,6 +6,7 @@ from enum import StrEnum
 from uuid import UUID, uuid4
 
 from novoya_api.planning.domain.errors import InvalidPlan
+from novoya_api.shared.domain.errors import InvalidTransition
 
 
 class PlanStatus(StrEnum):
@@ -121,3 +122,10 @@ class Plan:
         return cls(
             uuid4(), wish_id, PlanStatus.PROPOSED, based_on_preferences, summary, items, now, now
         )
+
+    def request_quote(self, now: datetime) -> None:
+        """The client asks an agent to price this plan. Only from proposed."""
+        if self.status is not PlanStatus.PROPOSED:
+            raise InvalidTransition("the plan is not proposed")
+        self.status = PlanStatus.REQUESTED
+        self.updated_at = now

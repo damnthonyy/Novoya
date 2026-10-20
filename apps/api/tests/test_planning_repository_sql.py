@@ -149,3 +149,21 @@ async def test_get_returns_the_items_ordered_by_day(engine, wish_id, offer_ids):
 
 async def test_get_returns_none_for_an_unknown_plan(engine):
     assert await read_plan(engine, uuid4()) is None
+
+
+async def test_save_writes_requested_status(engine, wish_id, offer_ids):
+    hotel, _boat = offer_ids
+    later = datetime(2026, 10, 19, 10, 0, tzinfo=UTC)
+    plan = Plan.propose(wish_id, True, "Sun and sea", [DraftItem(hotel, 1, 7, None)], 8, NOW)
+    await add_plan(engine, plan)
+    plan.request_quote(later)
+
+    async with new_session(engine) as session:
+        await SqlPlanRepository(session).save(plan)
+        await session.commit()
+
+    read = await read_plan(engine, plan.id)
+    assert read is not None
+    assert read.status is PlanStatus.REQUESTED
+    assert read.updated_at == later
+    assert all(item.negotiated_price is None for item in read.items)

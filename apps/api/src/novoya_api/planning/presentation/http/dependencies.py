@@ -12,10 +12,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from novoya_api.accounts.public import CurrentUserView, require_client
 from novoya_api.planning.application.use_cases.get_plan import GetPlan
+from novoya_api.planning.application.use_cases.request_quote import RequestQuote
 from novoya_api.planning.infrastructure.catalog import PartnerOffers
 from novoya_api.planning.infrastructure.db.repository import SqlPlanRepository
 from novoya_api.planning.infrastructure.wish_owners import WishOwners
 from novoya_api.shared.infrastructure.db.session import get_session
+from novoya_api.shared.infrastructure.db.unit_of_work import SqlAlchemyUnitOfWork
+from novoya_api.shared.infrastructure.system_clock import SystemClock
 
 
 def get_current_user_id(user: Annotated[CurrentUserView, Depends(require_client)]) -> UUID:
@@ -28,4 +31,14 @@ def get_get_plan(session: Annotated[AsyncSession, Depends(get_session)]) -> GetP
         plans=SqlPlanRepository(session),
         catalog=PartnerOffers(session),
         wishes=WishOwners(session),
+    )
+
+
+def get_request_quote(session: Annotated[AsyncSession, Depends(get_session)]) -> RequestQuote:
+    return RequestQuote(
+        plans=SqlPlanRepository(session),
+        catalog=PartnerOffers(session),
+        wishes=WishOwners(session),
+        uow=SqlAlchemyUnitOfWork(session),
+        clock=SystemClock(),
     )

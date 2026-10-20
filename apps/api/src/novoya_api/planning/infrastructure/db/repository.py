@@ -73,3 +73,12 @@ class SqlPlanRepository:
             updated_at=row.updated_at,
             assigned_agent_id=row.assigned_agent_id,
         )
+
+    async def save(self, plan: Plan) -> None:
+        row = await self._session.get(PlanModel, plan.id)
+        assert row is not None
+        row.status = plan.status.value
+        row.based_on_preferences = plan.based_on_preferences
+        row.summary = plan.summary
+        row.assigned_agent_id = plan.assigned_agent_id
+        row.updated_at = plan.updated_at
