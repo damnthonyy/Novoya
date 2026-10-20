@@ -50,10 +50,15 @@ export type AnswerPanelErrorKey =
   | 'answers.alreadyAnswered'
   | 'answers.noOfferFits'
   | 'answers.tooManyRequests'
+  | 'answers.planFailed'
   | 'answers.unknown'
 
-/** The key of the message for panel answers the API refused (errors.json). */
-export function answerPanelErrorKey(code: string | undefined): AnswerPanelErrorKey {
+/**
+ * The key of the message for panel answers that failed (errors.json). `status` is undefined
+ * when no response came back (network failure): like a server error, the plan was not built.
+ */
+export function answerPanelErrorKey(code: string | undefined, status: number | undefined): AnswerPanelErrorKey {
+  if (status === undefined || status >= 500) return 'answers.planFailed'
   switch (code) {
     case 'invalid_answers':
     case 'invalid_input':

@@ -42,7 +42,8 @@
     "tooManyRequests": "Trop de demandes d’un coup. Patientez un instant, puis réessayez.",
     "unknown": "Vos préférences n’ont pas pu être envoyées. Réessayez dans un instant.",
     "startInPast": "Le départ ne peut pas être dans le passé.",
-    "tripTooLong": "Un voyage dure 366 jours au plus."
+    "tripTooLong": "Un voyage dure 366 jours au plus.",
+    "planFailed": "Nous n’avons pas pu composer votre plan. Vos réponses sont toujours là : réessayez dans un instant."
   },
   "account": {
     "invalid_email": "Cette adresse e-mail ne semble pas valide.",

@@ -1,9 +1,9 @@
 {
-  "eyebrow": "Your preview is taking shape",
+  "eyebrow": "Your plan is taking shape",
   "titleStart": "Setting the evenings",
   "titleEnd": "at the right pace…",
-  "progressLabel": "Composing the preview",
+  "progressLabel": "Composing your plan",
   "progressValue": "In progress",
-  "status": "We only look through the offers of our active partners.",
-  "seeTrips": "See my trips →"
+  "wait": "This can take up to a minute. Keep this page open: your plan opens by itself.",
+  "status": "We only look through the offers of our active partners."
 }

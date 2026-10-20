@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import '../api/client'
 import { client } from '../api/generated/client.gen'
-import type { MeResponse, UserResponse } from '../api/generated/types.gen'
+import type { MeResponse, Plan, UserResponse } from '../api/generated/types.gen'
 import { createAppRouter } from '../router'
 
 const ADMIN: MeResponse = {
@@ -31,6 +31,31 @@ const LEA: UserResponse = {
   created_at: '2026-09-04T10:00:00Z',
 }
 
+const PLAN_ID = '00000000-0000-4000-8000-000000000020'
+
+const PLAN: Plan = {
+  id: PLAN_ID,
+  wish_id: '00000000-0000-4000-8000-000000000010',
+  status: 'proposed',
+  based_on_preferences: false,
+  summary: 'Une semaine calme entre mer et vieille ville.',
+  items: [
+    { id: 'i3', offer_id: 'o3', day: 2, quantity: 1, note: null, kind: null, title: null, description: null, available: false },
+    {
+      id: 'i1',
+      offer_id: 'o1',
+      day: 1,
+      quantity: 2,
+      note: 'Arrivée en fin de journée.',
+      kind: 'hotel',
+      title: 'Maison face au port',
+      description: 'Chambres sur la baie.',
+      available: true,
+    },
+    { id: 'i2', offer_id: 'o2', day: 2, quantity: 1, note: null, kind: 'guide', title: 'Chania à pied', description: null, available: true },
+  ],
+}
+
 let me: MeResponse
 let users: UserResponse[]
 let requests: { method: string; path: string; search: string; body?: unknown }[]
@@ -43,6 +68,8 @@ function mockApi() {
     requests.push({ method: request.method, path: url.pathname, search: url.search, body })
     if (url.pathname === '/me') return Response.json(me)
     if (url.pathname === '/admin/users') return Response.json(users)
+    if (url.pathname === `/plans/${PLAN_ID}`) return Response.json(PLAN)
+    if (url.pathname.startsWith('/plans/')) return Response.json({ code: 'plan_not_found', detail: 'no plan' }, { status: 404 })
     const role = url.pathname.match(/^\/admin\/users\/([^/]+)\/role$/)
     if (role && request.method === 'PATCH') {
       const next = (body as { role: UserResponse['role'] }).role
@@ -172,6 +199,28 @@ describe('back-office and plan screens', () => {
 
     expect(await screen.findByRole('heading', { level: 1, name: 'Chania, au rythme de la mer.' })).toBeInTheDocument()
     expect(document.body.textContent).not.toContain('€')
+  })
+
+  it('shows a plan from the API, day by day, without any price', async () => {
+    renderAt(`/plans/${PLAN_ID}`)
+
+    expect(await screen.findByRole('heading', { level: 1, name: 'Your trip, day by day.' })).toBeInTheDocument()
+    expect(screen.getByText(PLAN.summary)).toBeInTheDocument()
+    expect(screen.getByText(/You picked no preference/)).toBeInTheDocument()
+    const days = screen.getAllByRole('heading', { level: 2, name: /^Day / }).map((heading) => heading.textContent)
+    expect(days).toEqual(['Day 1', 'Day 2'])
+    expect(screen.getByRole('heading', { name: 'Maison face au port' })).toBeInTheDocument()
+    expect(screen.getByText('Stay')).toBeInTheDocument()
+    expect(screen.getByText('× 2')).toBeInTheDocument()
+    expect(screen.getByText('This offer is no longer available.')).toBeInTheDocument()
+    expect(screen.queryByRole('note')).not.toBeInTheDocument() // real data: no demo banner
+    expect(document.body.textContent).not.toContain('€')
+  })
+
+  it("says so when the plan is missing or not the client's", async () => {
+    renderAt('/plans/00000000-0000-4000-8000-000000000099')
+
+    expect(await screen.findByText("This preview doesn't exist.")).toBeInTheDocument()
   })
 
   it('does not lead from the plan to a priced quote', async () => {
