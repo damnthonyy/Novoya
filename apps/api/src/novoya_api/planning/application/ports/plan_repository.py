@@ -21,5 +21,6 @@ class PlanRepository(Protocol):
         """Writes one item's price or removed flag, and the plan's updated_at.
 
         Other items stay as they are in the database. Raises InvalidTransition if the
-        status changed since get()."""
+        status changed since get(). Raises InvalidPlan if a removal would drop the last
+        kept item (checked in the database, so two tabs cannot empty the plan)."""
         ...

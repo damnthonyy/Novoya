@@ -21,6 +21,7 @@ from sqlalchemy.pool import NullPool
 
 from novoya_api.accounts.infrastructure.db.models import UserModel
 from novoya_api.catalog.infrastructure.db.models import OfferRow, PartnerRow
+from novoya_api.planning.domain.errors import InvalidPlan
 from novoya_api.planning.domain.plan import DraftItem, Plan, PlanItem, PlanStatus
 from novoya_api.planning.infrastructure.db.repository import SqlPlanRepository
 from novoya_api.shared.domain.errors import InvalidTransition
@@ -267,7 +268,50 @@ async def test_two_stale_item_saves_keep_each_price(engine, wish_id, offer_ids):
     assert read.items[1].negotiated_price == Decimal("90.00")
 
 
-async def test_save_of_a_stale_read_does_not_wipe_an_agent_take(engine, wish_id, offer_ids):
+async def test_two_stale_removals_keep_one_item(engine, wish_id, offer_ids):
+    hotel, boat = offer_ids
+    later = datetime(2026, 10, 19, 10, 0, tzinfo=UTC)
+    agent_id = uuid4()
+    plan = Plan.propose(
+        wish_id,
+        True,
+        "Sun and sea",
+        [DraftItem(hotel, 1, 7, None), DraftItem(boat, 3, 2, None)],
+        8,
+        NOW,
+    )
+    plan.request_quote(NOW)
+    await add_plan(engine, plan)
+    async with new_session(engine) as session:
+        session.add(UserModel(id=agent_id, email=f"{agent_id}@example.com", created_at=NOW))
+        await session.commit()
+
+    async with new_session(engine) as session:
+        repo = SqlPlanRepository(session)
+        taken = await repo.get(plan.id)
+        taken.take(agent_id, later)
+        await repo.save(taken)
+        await session.commit()
+
+    async with new_session(engine) as first:
+        first_repo = SqlPlanRepository(first)
+        tab_one = await first_repo.get(plan.id)
+        async with new_session(engine) as second:
+            second_repo = SqlPlanRepository(second)
+            tab_two = await second_repo.get(plan.id)
+            await second.commit()
+            tab_two.remove_item(tab_two.items[1].id, agent_id, later)
+            await second_repo.save_item(tab_two, tab_two.items[1].id)
+            await second.commit()
+        tab_one.remove_item(tab_one.items[0].id, agent_id, later)
+        with pytest.raises(InvalidPlan):
+            await first_repo.save_item(tab_one, tab_one.items[0].id)
+
+    read = await read_plan(engine, plan.id)
+    assert read is not None
+    assert sum(1 for item in read.items if not item.removed) == 1
+    assert read.items[0].removed is False
+    assert read.items[1].removed is True
     hotel, _boat = offer_ids
     later = datetime(2026, 10, 19, 10, 0, tzinfo=UTC)
     agent_id = uuid4()

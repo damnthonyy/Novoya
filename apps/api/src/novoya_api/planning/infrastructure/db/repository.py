@@ -2,10 +2,10 @@ from collections import defaultdict
 from collections.abc import Iterable
 from uuid import UUID
 
-from sqlalchemy import select, update
+from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from novoya_api.planning.domain.errors import PlanNotFound
+from novoya_api.planning.domain.errors import InvalidPlan, PlanNotFound
 from novoya_api.planning.domain.plan import Plan, PlanItem, PlanStatus
 from novoya_api.planning.infrastructure.db.models import PlanItemModel, PlanModel
 from novoya_api.shared.domain.errors import InvalidTransition
@@ -16,7 +16,9 @@ class SqlPlanRepository:
 
     save() writes the plan row only, and only if its status is still the one this request
     read: a late request-quote must not overwrite an agent's take. Item prices go through
-    save_item(), so two tabs pricing different lines cannot wipe each other.
+    save_item(), so two tabs pricing different lines cannot wipe each other. A removal
+    locks the plan row and counts kept items in the database, so two tabs cannot drop
+    the last item.
     """
 
     def __init__(self, session: AsyncSession) -> None:
@@ -133,6 +135,22 @@ class SqlPlanRepository:
         item = next((entry for entry in plan.items if entry.id == item_id), None)
         if item is None:
             raise PlanNotFound("no such item")
+        if item.removed:
+            # Lock this plan so two removals run one after the other; then count in the database.
+            await self._session.execute(
+                select(PlanModel.id).where(PlanModel.id == plan.id).with_for_update()
+            )
+            others_kept = await self._session.scalar(
+                select(func.count())
+                .select_from(PlanItemModel)
+                .where(
+                    PlanItemModel.plan_id == plan.id,
+                    PlanItemModel.id != item.id,
+                    PlanItemModel.removed.is_(False),
+                )
+            )
+            if others_kept == 0:
+                raise InvalidPlan("a plan needs at least one item")
         result = await self._session.execute(
             update(PlanModel)
             .where(PlanModel.id == plan.id, PlanModel.status == read_status)
