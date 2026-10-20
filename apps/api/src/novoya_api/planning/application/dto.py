@@ -38,19 +38,22 @@ class OfferSummary:
 
 @dataclass(frozen=True)
 class PlanItemView:
+    """One day on the plan. available is false when the offer is gone from the catalog."""
+
     id: UUID
     offer_id: UUID
     day: int
     quantity: int
     note: str | None
-    kind: str
-    title: str
-    description: str
+    kind: str | None
+    title: str | None
+    description: str | None
+    available: bool
 
 
 @dataclass(frozen=True)
 class PlanView:
-    """The plan as the client sees it: no price, no partner name."""
+    """The plan as the client sees it: never a price (the quote has it), never a partner name."""
 
     id: UUID
     wish_id: UUID

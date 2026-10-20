@@ -19,6 +19,6 @@ async def get_plan(
     reader_id: Annotated[UUID, Depends(get_current_user_id)],
     use_case: Annotated[GetPlan, Depends(get_get_plan)],
 ) -> Plan:
-    """The plan day by day. No prices until it is quoted, and never the partners' names.
+    """The plan day by day. Never a price: the quote has it. Never the partners' names.
     404 if it is missing or not the caller's, so the id stays hidden."""
     return Plan.of(await use_case(plan_id, reader_id))

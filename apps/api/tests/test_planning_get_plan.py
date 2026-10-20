@@ -1,6 +1,7 @@
 """GetPlan is tested with fake ports: a stored plan, its owner, and offer titles."""
 
-from dataclasses import replace
+import logging
+from dataclasses import fields, replace
 from datetime import UTC, datetime
 from decimal import Decimal
 from uuid import UUID
@@ -33,6 +34,18 @@ WALK = OfferSummary(
     ("style:city",),
     False,
 )
+ITEM_FIELDS = {
+    "id",
+    "offer_id",
+    "day",
+    "quantity",
+    "note",
+    "kind",
+    "title",
+    "description",
+    "available",
+}
+PLAN_FIELDS = {"id", "wish_id", "status", "based_on_preferences", "summary", "items"}
 
 
 def stored_plan(*drafts: DraftItem) -> Plan:
@@ -85,12 +98,13 @@ async def test_the_owner_reads_the_plan_without_prices_or_partners():
     assert view.status == "proposed"
     assert view.based_on_preferences is True
     assert view.summary == "A week by the sea"
-    assert [(item.day, item.kind, item.title, item.note) for item in view.items] == [
-        (1, "hotel", "Sea view hotel", "Sea view"),
-        (2, "guide", "Old town walk", None),
+    shown = [(item.day, item.kind, item.title, item.note, item.available) for item in view.items]
+    assert shown == [
+        (1, "hotel", "Sea view hotel", "Sea view", True),
+        (2, "guide", "Old town walk", None, True),
     ]
-    assert not hasattr(view.items[0], "negotiated_price")
-    assert not hasattr(view, "partner_name")
+    assert {f.name for f in fields(view.items[0])} == ITEM_FIELDS
+    assert {f.name for f in fields(view)} == PLAN_FIELDS
 
 
 async def test_a_missing_plan_is_not_found():
@@ -121,9 +135,15 @@ async def test_removed_items_are_hidden_from_the_client():
     assert [item.offer_id for item in view.items] == [WALK.id]
 
 
-async def test_an_offer_missing_from_the_catalog_is_skipped():
+async def test_an_offer_missing_from_the_catalog_stays_unavailable(caplog):
     plan = stored_plan(DraftItem(HOTEL.id, 1, 2, None), DraftItem(WALK.id, 2, 1, None))
 
-    view = await get_plan(plan, FakeCatalog(WALK))(plan.id, OWNER_ID)
+    with caplog.at_level(logging.WARNING):
+        view = await get_plan(plan, FakeCatalog(WALK))(plan.id, OWNER_ID)
 
-    assert [item.offer_id for item in view.items] == [WALK.id]
+    gone, kept = view.items
+    assert gone.offer_id == HOTEL.id
+    assert (gone.available, gone.kind, gone.title, gone.description) == (False, None, None, None)
+    assert (kept.offer_id, kept.available, kept.title) == (WALK.id, True, "Old town walk")
+    assert str(plan.id) in caplog.text
+    assert str(HOTEL.id) in caplog.text

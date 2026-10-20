@@ -11,10 +11,11 @@ from novoya_api.accounts.application.dto import CurrentUserView
 from novoya_api.accounts.domain.role import Role
 from novoya_api.accounts.domain.value_objects import Email, UserId
 from novoya_api.accounts.public import current_user
+from novoya_api.catalog.public import OfferKind
 from novoya_api.main import create_app
 from novoya_api.planning.application.dto import OfferSummary
 from novoya_api.planning.application.use_cases.get_plan import GetPlan
-from novoya_api.planning.domain.plan import DraftItem, Plan
+from novoya_api.planning.domain.plan import DraftItem, Plan, PlanStatus
 from novoya_api.planning.presentation.http.dependencies import get_current_user_id, get_get_plan
 from novoya_api.shared.domain.value_objects import Locale
 
@@ -89,9 +90,26 @@ async def test_the_owner_reads_the_plan(plan, client):
     assert body["based_on_preferences"] is True
     assert body["summary"] == "A week by the sea"
     assert body["items"][0]["title"] == "Sea view hotel"
-    assert "negotiated_price" not in body["items"][0]
-    assert "partner_name" not in body
-    assert "partner_name" not in body["items"][0]
+    assert body["items"][0]["available"] is True
+    assert set(body) == {
+        "id",
+        "wish_id",
+        "status",
+        "based_on_preferences",
+        "summary",
+        "items",
+    }
+    assert set(body["items"][0]) == {
+        "id",
+        "offer_id",
+        "day",
+        "quantity",
+        "note",
+        "kind",
+        "title",
+        "description",
+        "available",
+    }
 
 
 async def test_without_a_session_returns_401(plan):
@@ -123,6 +141,17 @@ async def test_an_unknown_plan_gets_404(client):
     assert response.json()["code"] == "not_found"
 
 
+def _enum_values(schema: dict, components: dict) -> set[str]:
+    if "enum" in schema:
+        return set(schema["enum"])
+    if "$ref" in schema:
+        return _enum_values(components[schema["$ref"].rsplit("/", 1)[-1]], components)
+    for option in schema.get("anyOf", []):
+        if option.get("type") != "null":
+            return _enum_values(option, components)
+    raise AssertionError(schema)
+
+
 def test_get_plan_documents_the_shared_error_responses(app):
     spec = app.openapi()
     responses = spec["paths"]["/plans/{plan_id}"]["get"]["responses"]
@@ -135,4 +164,9 @@ def test_get_plan_documents_the_shared_error_responses(app):
     answers = spec["paths"]["/wishes/{wish_id}/answers"]["post"]["responses"]["201"]
     assert answers["content"]["application/json"]["schema"]["$ref"] == (
         "#/components/schemas/PlanResponse"
+    )
+    schemas = spec["components"]["schemas"]
+    assert _enum_values(schemas["Plan"]["properties"]["status"], schemas) == set(PlanStatus)
+    assert _enum_values(schemas["PlanItemResponse"]["properties"]["kind"], schemas) == set(
+        OfferKind
     )

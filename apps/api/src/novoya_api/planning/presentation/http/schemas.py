@@ -2,7 +2,9 @@ from uuid import UUID
 
 from pydantic import BaseModel
 
+from novoya_api.catalog.public import OfferKind
 from novoya_api.planning.application.dto import PlanView
+from novoya_api.planning.domain.plan import PlanStatus
 
 
 class PlanItemResponse(BaseModel):
@@ -11,17 +13,18 @@ class PlanItemResponse(BaseModel):
     day: int
     quantity: int
     note: str | None
-    kind: str
-    title: str
-    description: str
+    kind: OfferKind | None
+    title: str | None
+    description: str | None
+    available: bool
 
 
 class Plan(BaseModel):
-    """The plan day by day. No price until it is quoted, and never a partner name."""
+    """The plan day by day. Never a price: the quote has it. Never a partner name."""
 
     id: UUID
     wish_id: UUID
-    status: str
+    status: PlanStatus
     based_on_preferences: bool
     summary: str
     items: list[PlanItemResponse]

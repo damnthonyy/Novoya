@@ -202,6 +202,20 @@ async def test_public_functions_read_listed_seed_offers(session, database_url):
     assert "style:package" not in tags
 
 
+async def test_list_by_ids_keeps_order_includes_inactive_and_skips_unknown(session):
+    await seed_catalog()
+    inactive = await session.get(OfferRow, O_CRETE_WALK)
+    inactive.active = False
+    await session.commit()
+    missing = uuid4()
+
+    pairs = await SqlOfferRepository(session).list_by_ids([O_CRETE_WALK, missing, O_CRETE_STAY])
+
+    assert [offer.id for offer, _partner in pairs] == [O_CRETE_WALK, O_CRETE_STAY]
+    assert pairs[0][0].active is False
+    assert await SqlOfferRepository(session).list_by_ids([]) == []
+
+
 async def test_public_search_offers_reads_listed_seed_offers(session, database_url):
     await seed_catalog()
     inactive = await session.get(OfferRow, O_CRETE_WALK)

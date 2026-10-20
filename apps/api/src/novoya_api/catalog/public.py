@@ -6,6 +6,7 @@
   OfferView. OfferView carries partner name and contact; other modules decide who may see them.
 - get_offers(ids) -> OfferView for those ids, including inactive (a saved plan still
   needs titles). Callers drop partner fields when the client must not see them.
+- OfferKind: hotel, guide, transport, activity, agency (for OpenAPI on the plan).
 
 Country and city matching is case-insensitive. Prefer the names returned by
 covered_destinations() (English Title Case) so the LLM and the panel stay consistent.
@@ -26,6 +27,7 @@ from novoya_api.catalog.application.use_cases.get_offers import GetOffers
 from novoya_api.catalog.application.use_cases.list_destinations import ListDestinations
 from novoya_api.catalog.application.use_cases.list_tags_at import ListTagsAt
 from novoya_api.catalog.application.use_cases.search_offers import SearchOffers
+from novoya_api.catalog.domain.kinds import OfferKind as OfferKind
 from novoya_api.catalog.infrastructure.db.repositories import SqlOfferRepository
 from novoya_api.shared.infrastructure.db.session import get_sessionmaker
 

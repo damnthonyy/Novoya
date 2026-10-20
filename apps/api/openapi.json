@@ -442,6 +442,17 @@
         "title": "MeResponse",
         "type": "object"
       },
+      "OfferKind": {
+        "enum": [
+          "hotel",
+          "guide",
+          "transport",
+          "activity",
+          "agency"
+        ],
+        "title": "OfferKind",
+        "type": "string"
+      },
       "OfferResponse": {
         "properties": {
           "active": {
@@ -654,7 +665,7 @@
         "type": "object"
       },
       "Plan": {
-        "description": "The plan day by day. No price until it is quoted, and never a partner name.",
+        "description": "The plan day by day. Never a price: the quote has it. Never a partner name.",
         "properties": {
           "based_on_preferences": {
             "title": "Based On Preferences",
@@ -673,8 +684,7 @@
             "type": "array"
           },
           "status": {
-            "title": "Status",
-            "type": "string"
+            "$ref": "#/components/schemas/PlanStatus"
           },
           "summary": {
             "title": "Summary",
@@ -756,13 +766,24 @@
       },
       "PlanItemResponse": {
         "properties": {
+          "available": {
+            "title": "Available",
+            "type": "boolean"
+          },
           "day": {
             "title": "Day",
             "type": "integer"
           },
           "description": {
-            "title": "Description",
-            "type": "string"
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
           },
           "id": {
             "format": "uuid",
@@ -770,8 +791,14 @@
             "type": "string"
           },
           "kind": {
-            "title": "Kind",
-            "type": "string"
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/OfferKind"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "note": {
             "anyOf": [
@@ -794,8 +821,15 @@
             "type": "integer"
           },
           "title": {
-            "title": "Title",
-            "type": "string"
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
           }
         },
         "required": [
@@ -806,7 +840,8 @@
           "note",
           "kind",
           "title",
-          "description"
+          "description",
+          "available"
         ],
         "title": "PlanItemResponse",
         "type": "object"
@@ -855,6 +890,18 @@
         ],
         "title": "PlanResponse",
         "type": "object"
+      },
+      "PlanStatus": {
+        "enum": [
+          "proposed",
+          "requested",
+          "negotiating",
+          "quoted",
+          "accepted",
+          "rejected"
+        ],
+        "title": "PlanStatus",
+        "type": "string"
       },
       "RegisterRequest": {
         "properties": {
@@ -3425,7 +3472,7 @@
     },
     "/plans/{plan_id}": {
       "get": {
-        "description": "The plan day by day. No prices until it is quoted, and never the partners' names.\n404 if it is missing or not the caller's, so the id stays hidden.",
+        "description": "The plan day by day. Never a price: the quote has it. Never the partners' names.\n404 if it is missing or not the caller's, so the id stays hidden.",
         "operationId": "getPlan",
         "parameters": [
           {
