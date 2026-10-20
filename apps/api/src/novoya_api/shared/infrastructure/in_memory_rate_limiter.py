@@ -1,9 +1,10 @@
 import asyncio
 import math
+from collections.abc import Callable
 from datetime import datetime, timedelta
 
-from novoya_api.accounts.domain.errors import TooManyAttempts
 from novoya_api.shared.application.clock import Clock
+from novoya_api.shared.domain.errors import TooManyRequests
 
 
 class InMemoryRateLimiter:
@@ -11,12 +12,18 @@ class InMemoryRateLimiter:
 
     Enough for one API instance: counters are lost on restart and not shared between
     instances. With several instances, write a database-backed one behind the same port.
+
+    Past the limit it raises `error(retry_after_seconds)`: TooManyRequests, or a module's
+    own subclass so its API keeps its code (accounts answers too_many_attempts).
     """
 
     MAX_KEYS = 50_000  # past this, finished windows are dropped: keys come from user input
 
-    def __init__(self, clock: Clock) -> None:
+    def __init__(
+        self, clock: Clock, error: Callable[[int], TooManyRequests] = TooManyRequests
+    ) -> None:
         self._clock = clock
+        self._error = error
         self._windows: dict[str, tuple[datetime, timedelta, int]] = {}
         self._lock = asyncio.Lock()
 
@@ -32,7 +39,7 @@ class InMemoryRateLimiter:
             self._windows[key] = (started, window, count)
             if count > limit:
                 retry_after = math.ceil((started + window - now).total_seconds())
-                raise TooManyAttempts(max(retry_after, 1))
+                raise self._error(max(retry_after, 1))
 
     def _prune(self, now: datetime) -> None:
         self._windows = {

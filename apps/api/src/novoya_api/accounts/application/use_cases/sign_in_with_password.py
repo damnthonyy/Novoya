@@ -2,7 +2,6 @@ from dataclasses import dataclass
 from datetime import timedelta
 
 from novoya_api.accounts.application.dto import ClientInfo
-from novoya_api.accounts.application.ports.rate_limiter import RateLimiter
 from novoya_api.accounts.application.ports.repositories import (
     PasswordCredentialRepository,
     UserRepository,
@@ -17,6 +16,7 @@ from novoya_api.accounts.domain.value_objects import (
     SessionToken,
 )
 from novoya_api.shared.application.clock import Clock
+from novoya_api.shared.application.rate_limiter import RateLimiter
 from novoya_api.shared.application.unit_of_work import UnitOfWork
 
 WINDOW = timedelta(minutes=15)

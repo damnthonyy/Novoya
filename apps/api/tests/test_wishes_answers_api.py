@@ -11,12 +11,18 @@ from novoya_api.accounts.domain.role import Role
 from novoya_api.accounts.public import current_user
 from novoya_api.main import create_app
 from novoya_api.planning.domain.errors import NoOfferFits
+from novoya_api.shared.infrastructure.in_memory_rate_limiter import InMemoryRateLimiter
 from novoya_api.wishes.application.ports.planner import ProposedItem, ProposedPlan
-from novoya_api.wishes.application.use_cases.answer_panel import AnswerPanel
+from novoya_api.wishes.application.use_cases.answer_panel import (
+    ANSWER_LIMIT,
+    ANSWER_WINDOW,
+    AnswerPanel,
+)
 from novoya_api.wishes.domain.panel import Panel, PanelSection, Tag
 from novoya_api.wishes.domain.wish import Destination, Wish, WishStatus
 from novoya_api.wishes.infrastructure.answers_in_progress import InMemoryAnswersInProgress
 from novoya_api.wishes.presentation.http.dependencies import get_answer_panel, get_current_user_id
+from tests.accounts.fakes import FrozenClock
 from tests.test_wishes_api import signed_in_as
 
 USER_ID = UUID("00000000-0000-0000-0000-000000000001")
@@ -29,6 +35,7 @@ PANEL = Panel(
         PanelSection("rhythm", "Rhythm", False, (Tag("slow", "Slow"), Tag("busy", "Busy"))),
     )
 )
+
 BODY = {
     "selected_tags": [{"section": "style", "tag": "beach"}, {"section": "rhythm", "tag": "slow"}],
     "budget_max": "1500.50",
@@ -116,12 +123,23 @@ def planner() -> FakePlanner:
 
 
 @pytest.fixture
-def app(wishes, planner):
+def limiter_clock() -> FrozenClock:
+    return FrozenClock()
+
+
+@pytest.fixture
+def limiter(limiter_clock) -> InMemoryRateLimiter:
+    return InMemoryRateLimiter(limiter_clock)
+
+
+@pytest.fixture
+def app(wishes, planner, limiter):
     app = create_app()
     use_case = AnswerPanel(
         wishes=wishes,
         planner=planner,
         in_progress=InMemoryAnswersInProgress(),
+        rate_limiter=limiter,
         uow=FakeUnitOfWork(),
         clock=FixedClock(),
     )
@@ -354,3 +372,37 @@ def test_answer_panel_route_is_documented_with_the_shared_error_responses(app):
     for status in ("401", "403", "404", "409", "422"):
         ref = operation["responses"][status]["content"]["application/json"]["schema"]["$ref"]
         assert ref == "#/components/schemas/ErrorResponse", status
+
+
+# Rate limit
+
+
+async def test_past_the_limit_returns_429_with_retry_after(wishes, planner, client):
+    for _ in range(ANSWER_LIMIT):
+        assert (await answer(client, uuid4())).status_code == 404  # rejected answers count
+    wish = wishes.put(shown_wish())
+
+    response = await answer(client, wish.id)
+
+    assert response.status_code == 429
+    assert response.json()["code"] == "too_many_requests"
+    assert response.headers["Retry-After"] == str(int(ANSWER_WINDOW.total_seconds()))
+    assert wish.status is WishStatus.PANEL_SHOWN
+
+
+async def test_another_client_still_answers_when_one_is_limited(app, wishes, client):
+    for _ in range(ANSWER_LIMIT + 1):
+        await answer(client, uuid4())
+    app.dependency_overrides[get_current_user_id] = lambda: OTHER_ID
+    wish = wishes.put(shown_wish(user_id=OTHER_ID))
+
+    response = await answer(client, wish.id)
+
+    assert response.status_code == 201
+
+
+def test_answer_panel_documents_429(app):
+    operation = app.openapi()["paths"]["/wishes/{wish_id}/answers"]["post"]
+
+    ref = operation["responses"]["429"]["content"]["application/json"]["schema"]["$ref"]
+    assert ref == "#/components/schemas/ErrorResponse"
