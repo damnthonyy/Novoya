@@ -1,7 +1,9 @@
 from dataclasses import dataclass
+from datetime import timedelta
 from uuid import UUID
 
 from novoya_api.shared.application.clock import Clock
+from novoya_api.shared.application.rate_limiter import RateLimiter
 from novoya_api.shared.application.unit_of_work import UnitOfWork
 from novoya_api.wishes.application.ports.catalog import Catalog
 from novoya_api.wishes.application.ports.destination_reader import DestinationReader
@@ -11,6 +13,9 @@ from novoya_api.wishes.domain.panel import Panel
 from novoya_api.wishes.domain.wish import Destination, Wish, find_covered
 
 MAX_SUGGESTIONS = 3
+# Each wish may call the model twice; free models share their quota between all clients.
+SEND_LIMIT = 20
+SEND_WINDOW = timedelta(hours=1)
 
 
 @dataclass(frozen=True)
@@ -33,7 +38,8 @@ class SendWish:
     a draft and every covered destination is suggested.
 
     The reader and the builder may use an LLM. Coverage is decided here, from the catalog,
-    and every tag on the panel must come from the offers at that destination."""
+    and every tag on the panel must come from the offers at that destination. Each client
+    sends at most SEND_LIMIT wishes per SEND_WINDOW, counted before any model call."""
 
     def __init__(
         self,
@@ -41,6 +47,7 @@ class SendWish:
         catalog: Catalog,
         reader: DestinationReader,
         panel_builder: PanelBuilder,
+        rate_limiter: RateLimiter,
         uow: UnitOfWork,
         clock: Clock,
     ) -> None:
@@ -48,10 +55,12 @@ class SendWish:
         self._catalog = catalog
         self._reader = reader
         self._panel_builder = panel_builder
+        self._rate_limiter = rate_limiter
         self._uow = uow
         self._clock = clock
 
     async def __call__(self, cmd: SendWishCommand) -> SendWishResult:
+        await self._rate_limiter.hit(f"wishes:send:{cmd.user_id}", SEND_LIMIT, SEND_WINDOW)
         wish = Wish.create(cmd.user_id, cmd.text, self._clock.now())
         covered = await self._catalog.covered_destinations()
         # Nothing to save yet: end the read so the connection is not held while the model reads.

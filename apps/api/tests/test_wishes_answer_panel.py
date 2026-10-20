@@ -8,9 +8,17 @@ from uuid import UUID, uuid4
 import pytest
 
 from novoya_api.planning.domain.errors import NoOfferFits
-from novoya_api.shared.domain.errors import Conflict, InvalidTransition, NotFound
+from novoya_api.shared.domain.errors import (
+    Conflict,
+    InvalidTransition,
+    NotFound,
+    TooManyRequests,
+)
+from novoya_api.shared.infrastructure.in_memory_rate_limiter import InMemoryRateLimiter
 from novoya_api.wishes.application.ports.planner import ProposedItem, ProposedPlan
 from novoya_api.wishes.application.use_cases.answer_panel import (
+    ANSWER_LIMIT,
+    ANSWER_WINDOW,
     AnswerPanel,
     AnswerPanelCommand,
     AnswerPanelResult,
@@ -20,6 +28,7 @@ from novoya_api.wishes.domain.errors import AnswerInProgress, InvalidAnswers, Wi
 from novoya_api.wishes.domain.panel import Panel
 from novoya_api.wishes.domain.wish import Destination, Wish, WishStatus
 from novoya_api.wishes.infrastructure.answers_in_progress import InMemoryAnswersInProgress
+from tests.accounts.fakes import FrozenClock
 
 OWNER = UUID("00000000-0000-0000-0000-000000000001")
 OTHER = UUID("00000000-0000-0000-0000-000000000002")
@@ -108,10 +117,13 @@ class Setup:
         self.events: list[str] = []
         self.wishes = FakeWishes(self.events, list(wishes))
         self.planner = FakePlanner(self.events, planner_error)
+        self.limiter_clock = FrozenClock()
+        self.limiter = InMemoryRateLimiter(self.limiter_clock)
         self.answer_panel = AnswerPanel(
             wishes=self.wishes,
             planner=self.planner,
             in_progress=InMemoryAnswersInProgress(),
+            rate_limiter=self.limiter,
             uow=FakeUnitOfWork(self.events),
             clock=FixedClock(),
         )
@@ -296,3 +308,59 @@ async def test_a_wish_planned_while_waiting_for_the_hold_is_not_planned_again():
         await setup.answer(wish.id)
 
     assert setup.events == []  # no model run, nothing saved
+
+
+# Rate limit
+
+
+async def test_a_client_answers_the_limit_then_gets_too_many_requests_before_any_model_call():
+    wishes = [shown_wish() for _ in range(ANSWER_LIMIT + 1)]
+    setup = Setup(*wishes)
+    for wish in wishes[:ANSWER_LIMIT]:
+        await setup.answer(wish.id)
+    setup.events.clear()
+
+    with pytest.raises(TooManyRequests) as error:
+        await setup.answer(wishes[-1].id)
+
+    assert error.value.code == "too_many_requests"
+    assert error.value.retry_after_seconds == ANSWER_WINDOW.total_seconds()
+    assert setup.events == []  # no plan, no save
+    assert wishes[-1].status is WishStatus.PANEL_SHOWN
+
+
+async def test_rejected_answers_count_toward_the_limit():
+    setup = Setup()
+    for _ in range(ANSWER_LIMIT):
+        with pytest.raises(WishNotFound):
+            await setup.answer(uuid4())
+
+    with pytest.raises(TooManyRequests):
+        await setup.answer(uuid4())
+
+
+async def test_the_answer_limit_is_per_client():
+    setup = Setup()
+    for _ in range(ANSWER_LIMIT):
+        with pytest.raises(WishNotFound):
+            await setup.answer(uuid4())
+    theirs = Wish.create(OTHER, "A week in Lisbon", CREATED)
+    theirs.show_panel(Destination("Portugal", "Lisbon"), PANEL, CREATED)
+    setup.wishes.by_id[theirs.id] = theirs
+
+    result = await setup.answer(theirs.id, user_id=OTHER)
+
+    assert result.wish.status is WishStatus.PLANNED
+
+
+async def test_the_answer_limit_resets_after_the_window():
+    wish = shown_wish()
+    setup = Setup(wish)
+    for _ in range(ANSWER_LIMIT):
+        with pytest.raises(WishNotFound):
+            await setup.answer(uuid4())
+    setup.limiter_clock.advance(ANSWER_WINDOW)
+
+    result = await setup.answer(wish.id)
+
+    assert result.wish.status is WishStatus.PLANNED

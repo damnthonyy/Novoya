@@ -1,7 +1,9 @@
 from dataclasses import dataclass
+from datetime import timedelta
 from uuid import UUID
 
 from novoya_api.shared.application.clock import Clock
+from novoya_api.shared.application.rate_limiter import RateLimiter
 from novoya_api.shared.application.unit_of_work import UnitOfWork
 from novoya_api.wishes.application.ports.answers_in_progress import AnswersInProgress
 from novoya_api.wishes.application.ports.planner import Planner, ProposedPlan
@@ -9,6 +11,10 @@ from novoya_api.wishes.application.ports.wish_repository import WishRepository
 from novoya_api.wishes.domain.answers import Answers
 from novoya_api.wishes.domain.errors import WishNotFound
 from novoya_api.wishes.domain.wish import Wish
+
+# Each answer runs the planner's model; free models share their quota between all clients.
+ANSWER_LIMIT = 20
+ANSWER_WINDOW = timedelta(hours=1)
 
 
 @dataclass(frozen=True)
@@ -31,23 +37,27 @@ class AnswerPanel:
     existence does not leak. The answers, the plan and the planned wish are committed
     together: when no offer fits, nothing is saved and the client can change the dates or
     the travellers and send again. While a plan is built, another answer to the same wish
-    is turned away (409) before it starts a model run."""
+    is turned away (409) before it starts a model run. Each client sends at most
+    ANSWER_LIMIT answers per ANSWER_WINDOW, counted before anything else."""
 
     def __init__(
         self,
         wishes: WishRepository,
         planner: Planner,
         in_progress: AnswersInProgress,
+        rate_limiter: RateLimiter,
         uow: UnitOfWork,
         clock: Clock,
     ) -> None:
         self._wishes = wishes
         self._planner = planner
         self._in_progress = in_progress
+        self._rate_limiter = rate_limiter
         self._uow = uow
         self._clock = clock
 
     async def __call__(self, cmd: AnswerPanelCommand) -> AnswerPanelResult:
+        await self._rate_limiter.hit(f"wishes:answer:{cmd.user_id}", ANSWER_LIMIT, ANSWER_WINDOW)
         wish = await self._wishes.get(cmd.wish_id)
         if wish is None or wish.user_id != cmd.user_id:
             raise WishNotFound("no such wish")

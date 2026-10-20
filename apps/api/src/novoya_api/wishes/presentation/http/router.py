@@ -19,7 +19,8 @@ from novoya_api.wishes.presentation.http.schemas import (
 )
 
 # Every error body is {code, detail} (shared handler), not FastAPI's default 422 list.
-ERRORS = {status_code: {"model": ErrorResponse} for status_code in (401, 403, 422)}
+# 429: each client sends a limited number of wishes and answers per hour (they call the model).
+ERRORS = {status_code: {"model": ErrorResponse} for status_code in (401, 403, 422, 429)}
 
 router = APIRouter(prefix="/wishes", tags=["wishes"], responses=ERRORS)
 

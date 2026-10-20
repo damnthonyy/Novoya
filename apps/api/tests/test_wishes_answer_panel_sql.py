@@ -30,6 +30,7 @@ from novoya_api.wishes.infrastructure.answers_in_progress import InMemoryAnswers
 from novoya_api.wishes.infrastructure.db.models import WishModel
 from novoya_api.wishes.infrastructure.db.repository import SqlWishRepository
 from novoya_api.wishes.infrastructure.planner import PartnerPlanner
+from tests.accounts.fakes import NoopRateLimiter
 from tests.test_catalog_sql import database_url  # noqa: F401  (fixture)
 from tests.test_planning_repository_sql import engine, new_session, offer_ids  # noqa: F401
 
@@ -77,6 +78,7 @@ async def answer(engine, wish: Wish, persons: int = 2):  # noqa: F811
             wishes=SqlWishRepository(session),
             planner=PartnerPlanner(session),
             in_progress=InMemoryAnswersInProgress(),
+            rate_limiter=NoopRateLimiter(),
             uow=SqlAlchemyUnitOfWork(session),
             clock=FixedClock(),
         )

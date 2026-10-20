@@ -20,7 +20,6 @@ from novoya_api.accounts.application.ports.identity_provider import (
     OAuthStateStore,
 )
 from novoya_api.accounts.application.ports.mailer import AuthMailer
-from novoya_api.accounts.application.ports.rate_limiter import RateLimiter
 from novoya_api.accounts.application.ports.repositories import (
     OAuthIdentityRepository,
     OneTimeTokenRepository,
@@ -49,7 +48,7 @@ from novoya_api.accounts.application.use_cases.sign_in_with_password import Sign
 from novoya_api.accounts.application.use_cases.sign_out import SignOut, SignOutEverywhere
 from novoya_api.accounts.application.use_cases.start_sign_in import StartSignIn
 from novoya_api.accounts.application.use_cases.verify_email import VerifyEmail
-from novoya_api.accounts.domain.errors import NotAllowed, SessionInvalid
+from novoya_api.accounts.domain.errors import NotAllowed, SessionInvalid, TooManyAttempts
 from novoya_api.accounts.domain.policies import PasswordPolicy, RedirectPolicy
 from novoya_api.accounts.domain.role import Role
 from novoya_api.accounts.domain.value_objects import PasswordHash, PlainPassword
@@ -65,7 +64,6 @@ from novoya_api.accounts.infrastructure.db.repositories import (
 from novoya_api.accounts.infrastructure.email.smtp_auth_mailer import SmtpAuthMailer
 from novoya_api.accounts.infrastructure.google_oauth import GoogleIdentityProvider
 from novoya_api.accounts.infrastructure.identity_providers import DictIdentityProviders
-from novoya_api.accounts.infrastructure.in_memory_rate_limiter import InMemoryRateLimiter
 from novoya_api.accounts.infrastructure.security import (
     Argon2PasswordHasher,
     SecureTokenGenerator,
@@ -73,6 +71,7 @@ from novoya_api.accounts.infrastructure.security import (
 from novoya_api.accounts.presentation.http.cookies import read_session_cookie
 from novoya_api.config import Settings, get_settings
 from novoya_api.shared.application.clock import Clock
+from novoya_api.shared.application.rate_limiter import RateLimiter
 from novoya_api.shared.application.unit_of_work import UnitOfWork
 from novoya_api.shared.infrastructure.db.session import (
     get_engine,
@@ -80,6 +79,7 @@ from novoya_api.shared.infrastructure.db.session import (
     get_sessionmaker,
 )
 from novoya_api.shared.infrastructure.db.unit_of_work import SqlAlchemyUnitOfWork
+from novoya_api.shared.infrastructure.in_memory_rate_limiter import InMemoryRateLimiter
 from novoya_api.shared.infrastructure.system_clock import SystemClock
 
 SettingsDep = Annotated[Settings, Depends(get_settings)]
@@ -119,7 +119,7 @@ def get_store(session: Annotated[AsyncSession, Depends(get_session)]) -> Account
 # Built once: they hold state (rate limit counters) or are costly (the dummy hash).
 @lru_cache
 def get_rate_limiter() -> RateLimiter:
-    return InMemoryRateLimiter(SystemClock())
+    return InMemoryRateLimiter(SystemClock(), error=TooManyAttempts)
 
 
 @lru_cache

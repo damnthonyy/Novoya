@@ -6,10 +6,10 @@ from novoya_api.accounts.application.ports.identity_provider import (
     OAuthStateStore,
     PendingSignIn,
 )
-from novoya_api.accounts.application.ports.rate_limiter import RateLimiter
 from novoya_api.accounts.application.ports.security import TokenGenerator
 from novoya_api.accounts.domain.policies import RedirectPolicy
 from novoya_api.shared.application.clock import Clock
+from novoya_api.shared.application.rate_limiter import RateLimiter
 from novoya_api.shared.application.unit_of_work import UnitOfWork
 
 STATE_TTL = timedelta(minutes=10)

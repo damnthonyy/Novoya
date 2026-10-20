@@ -2,7 +2,6 @@ from datetime import timedelta
 
 from novoya_api.accounts.application.dto import CurrentUserView
 from novoya_api.accounts.application.ports.mailer import AuthMailer
-from novoya_api.accounts.application.ports.rate_limiter import RateLimiter
 from novoya_api.accounts.application.ports.repositories import (
     PasswordCredentialRepository,
     SessionRepository,
@@ -12,6 +11,7 @@ from novoya_api.accounts.domain.errors import InvalidCredentials, NoPasswordSet
 from novoya_api.accounts.domain.policies import PasswordPolicy
 from novoya_api.accounts.domain.value_objects import PlainPassword
 from novoya_api.shared.application.clock import Clock
+from novoya_api.shared.application.rate_limiter import RateLimiter
 from novoya_api.shared.application.unit_of_work import UnitOfWork
 
 
