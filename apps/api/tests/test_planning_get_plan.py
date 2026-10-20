@@ -1,9 +1,9 @@
 """GetPlan is tested with fake ports: a stored plan, its owner, and offer titles."""
 
-import logging
 from dataclasses import fields, replace
 from datetime import UTC, datetime
 from decimal import Decimal
+from unittest.mock import patch
 from uuid import UUID
 
 import pytest
@@ -135,15 +135,14 @@ async def test_removed_items_are_hidden_from_the_client():
     assert [item.offer_id for item in view.items] == [WALK.id]
 
 
-async def test_an_offer_missing_from_the_catalog_stays_unavailable(caplog):
+async def test_an_offer_missing_from_the_catalog_stays_unavailable():
     plan = stored_plan(DraftItem(HOTEL.id, 1, 2, None), DraftItem(WALK.id, 2, 1, None))
 
-    with caplog.at_level(logging.WARNING):
+    with patch("novoya_api.planning.application.plan_view.logger.warning") as warning:
         view = await get_plan(plan, FakeCatalog(WALK))(plan.id, OWNER_ID)
 
     gone, kept = view.items
     assert gone.offer_id == HOTEL.id
     assert (gone.available, gone.kind, gone.title, gone.description) == (False, None, None, None)
     assert (kept.offer_id, kept.available, kept.title) == (WALK.id, True, "Old town walk")
-    assert str(plan.id) in caplog.text
-    assert str(HOTEL.id) in caplog.text
+    warning.assert_called_once_with("plan %s: offer %s not found", plan.id, HOTEL.id)
