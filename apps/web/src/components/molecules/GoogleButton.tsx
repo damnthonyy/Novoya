@@ -1,6 +1,7 @@
 import { useTranslation } from 'react-i18next'
 
 import { Button } from '../atoms/Button'
+import { GoogleLogo } from '../atoms/GoogleLogo'
 
 /**
  * "Continue with Google". A link, not a fetch: the browser goes to the API, which redirects
@@ -11,9 +12,7 @@ export function GoogleButton({ href }: { href: string }) {
   return (
     <Button asChild variant="outline" className="w-full">
       <a href={href}>
-        <span aria-hidden="true" className="font-[Arial] font-bold">
-          G
-        </span>
+        <GoogleLogo />
         {t('continueWithGoogle')}
       </a>
     </Button>

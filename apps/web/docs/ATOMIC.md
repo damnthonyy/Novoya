@@ -106,6 +106,7 @@ Un atome = un élément. Pas de label + champ + bouton ensemble. Pas d’histoir
 | `Avatar` | photo / initiale |
 | `Divider` | séparation |
 | `LogoMark` | marque |
+| `GoogleLogo` | le « G » de Google (`public/icons/google.svg`) |
 | `SkeletonBone` | placeholder de chargement |
 | `ProgressDot` | un point du rituel de génération |
 | `Price` | montant formaté (1 800 €), seulement dans le devis et le budget |

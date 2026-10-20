@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next'
 import { googleSignInUrl } from '../api/auth'
 import { getMeOptions } from '../api/generated/@tanstack/react-query.gen'
 import { Button } from '../components/atoms/Button'
+import { GoogleLogo } from '../components/atoms/GoogleLogo'
 import { TripCard } from '../components/molecules/TripCard'
 import { LandingHero } from '../components/organisms/LandingHero'
 import { Closing, Manifesto, Method, PopularTrips, Trust } from '../components/organisms/LandingSections'
@@ -44,9 +45,7 @@ function LandingPage() {
               {!signedIn && (
                 <Button asChild variant="glass" size="lg">
                   <a href={googleSignInUrl('/wish')}>
-                    <span aria-hidden="true" className="font-[Arial] font-bold">
-                      G
-                    </span>
+                    <GoogleLogo />
                     {t('continueWithGoogle')}
                   </a>
                 </Button>
