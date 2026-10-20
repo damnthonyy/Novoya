@@ -1,17 +1,19 @@
 import type { ReactNode } from 'react'
 
-type AuthTemplateProps = {
+type Props = {
+  /** The photo side (AuthMedia). On phones, a band above the form. */
   media: ReactNode
   children: ReactNode
 }
 
-export function AuthTemplate({ media, children }: AuthTemplateProps) {
+/** The account pages: a photo, then the form in a narrow column. */
+export function AuthTemplate({ media, children }: Props) {
   return (
-    <div className="grid min-h-screen lg:grid-cols-2">
-      <div className="hidden lg:block">{media}</div>
-      <main className="flex flex-col justify-center gap-6 px-8 py-12 lg:px-16">
-        {children}
-      </main>
-    </div>
+    <main className="min-h-screen md:grid md:h-screen md:grid-cols-[1.05fr_0.95fr]">
+      {media}
+      <section className="grid place-items-center bg-paper px-[22px] py-[45px] md:overflow-y-auto md:p-[30px]">
+        <div className="w-full max-w-[420px]">{children}</div>
+      </section>
+    </main>
   )
 }

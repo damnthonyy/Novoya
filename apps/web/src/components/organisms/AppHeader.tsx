@@ -84,6 +84,9 @@ export function AppHeader({ userName, role = 'client', onSignOut, signingOut = f
                   )}
                   <DropdownMenuSeparator />
                 </div>
+                <DropdownMenuItem asChild>
+                  <Link to="/settings">{t('settings')}</Link>
+                </DropdownMenuItem>
                 <DropdownMenuItem disabled={signingOut} onSelect={onSignOut}>
                   {signingOut ? t('signingOut') : t('signOut')}
                 </DropdownMenuItem>

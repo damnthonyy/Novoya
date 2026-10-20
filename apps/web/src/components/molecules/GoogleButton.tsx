@@ -1,16 +1,21 @@
-type GoogleButtonProps = {
-    onClick?: () => void
-  }
-  
-  export function GoogleButton({ onClick }: GoogleButtonProps) {
-    return (
-      <button
-        type="button"
-        onClick={onClick}
-        className="flex w-full items-center justify-center gap-3 rounded-full border border-line bg-white px-6 py-3.5 text-base text-ink"
-      >
-        <span aria-hidden="true">G</span>
-        Continuer avec Google
-      </button>
-    )
-  }
+import { useTranslation } from 'react-i18next'
+
+import { Button } from '../atoms/Button'
+
+/**
+ * "Continue with Google". A link, not a fetch: the browser goes to the API, which redirects
+ * to Google and back.
+ */
+export function GoogleButton({ href }: { href: string }) {
+  const { t } = useTranslation('auth')
+  return (
+    <Button asChild variant="outline" className="w-full">
+      <a href={href}>
+        <span aria-hidden="true" className="font-[Arial] font-bold">
+          G
+        </span>
+        {t('continueWithGoogle')}
+      </a>
+    </Button>
+  )
+}

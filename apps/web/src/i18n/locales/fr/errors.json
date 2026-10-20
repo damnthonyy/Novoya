@@ -41,5 +41,16 @@
     "tooManyRequests": "Trop de demandes d’un coup. Patientez un instant, puis réessayez.",
     "unknown": "Vos préférences n’ont pas pu être envoyées. Réessayez dans un instant.",
     "startInPast": "Le départ ne peut pas être dans le passé."
+  },
+  "account": {
+    "invalid_email": "Cette adresse e-mail ne semble pas valide.",
+    "weak_password": "Choisissez un mot de passe plus solide : au moins 12 caractères, pas un mot de passe courant, et sans votre e-mail.",
+    "email_already_used": "Cet e-mail a déjà un compte. Connectez-vous, ou réinitialisez votre mot de passe.",
+    "invalid_credentials": "Votre mot de passe actuel est incorrect.",
+    "invalid_token": "Ce lien a expiré ou a déjà servi.",
+    "no_password_set": "Ce compte n’a pas encore de mot de passe.",
+    "account_disabled": "Ce compte est désactivé.",
+    "too_many_attempts": "Trop de tentatives. Patientez un instant, puis réessayez.",
+    "unknown": "Une erreur est survenue. Réessayez dans un instant."
   }
 }

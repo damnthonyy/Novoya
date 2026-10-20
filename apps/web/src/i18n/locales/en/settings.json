@@ -1,0 +1,14 @@
+{
+  "eyebrow": "Your account",
+  "title": "Account settings",
+  "email": "E-mail",
+  "passwordTitle": "Password",
+  "currentPassword": "Current password",
+  "newPassword": "New password",
+  "passwordHint": "At least 12 characters.",
+  "submit": "Change the password",
+  "submitting": "Saving…",
+  "changed": "Your password is changed. Your other devices are signed out.",
+  "googleOnly": "You sign in with Google, so there is no password to change.",
+  "setPassword": "Set a password by e-mail"
+}

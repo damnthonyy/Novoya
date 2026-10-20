@@ -41,5 +41,16 @@
     "tooManyRequests": "Too many requests at once. Please wait a moment and try again.",
     "unknown": "Your preferences couldn't be sent. Please try again in a moment.",
     "startInPast": "The departure cannot be in the past."
+  },
+  "account": {
+    "invalid_email": "This e-mail address doesn't look right.",
+    "weak_password": "Choose a stronger password: at least 12 characters, not a common one, and without your e-mail.",
+    "email_already_used": "This e-mail already has an account. Sign in, or reset your password.",
+    "invalid_credentials": "Your current password is wrong.",
+    "invalid_token": "This link has expired or was already used.",
+    "no_password_set": "This account has no password yet.",
+    "account_disabled": "This account is disabled.",
+    "too_many_attempts": "Too many attempts. Please wait a moment and try again.",
+    "unknown": "Something went wrong. Please try again in a moment."
   }
 }

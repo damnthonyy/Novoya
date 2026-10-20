@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import en from '../../i18n/locales/en/errors.json'
-import { passwordSignInErrorKey, signInErrorKey } from './errors'
+import { accountError, passwordSignInErrorKey, signInErrorKey } from './errors'
 import { displayName, safeRedirect } from './session'
 
 describe('displayName', () => {
@@ -73,6 +73,34 @@ describe('passwordSignInErrorKey', () => {
     for (const code of [...Object.keys(en.password), 'too_many_requests', 'something_new']) {
       const key = passwordSignInErrorKey(code).replace('password.', '')
       expect(en.password).toHaveProperty(key)
+    }
+  })
+})
+
+describe('accountError', () => {
+  it('puts an e-mail or password error next to its field', () => {
+    expect(accountError('invalid_email')).toEqual({ key: 'account.invalid_email', field: 'email' })
+    expect(accountError('email_already_used')).toEqual({ key: 'account.email_already_used', field: 'email' })
+    expect(accountError('weak_password')).toEqual({ key: 'account.weak_password', field: 'password' })
+  })
+
+  it('reads a wrong password as the current one: only the change of password sends it', () => {
+    expect(accountError('invalid_credentials')).toEqual({
+      key: 'account.invalid_credentials',
+      field: 'currentPassword',
+    })
+  })
+
+  it('leaves the other errors to the whole form', () => {
+    expect(accountError('invalid_token')).toEqual({ key: 'account.invalid_token' })
+    expect(accountError('too_many_requests')).toEqual({ key: 'account.too_many_attempts' })
+    expect(accountError('something_new')).toEqual({ key: 'account.unknown' })
+    expect(accountError(undefined)).toEqual({ key: 'account.unknown' })
+  })
+
+  it('has a text for every key it can give', () => {
+    for (const code of [...Object.keys(en.account), 'too_many_requests', 'something_new']) {
+      expect(en.account).toHaveProperty(accountError(code).key.replace('account.', ''))
     }
   })
 })

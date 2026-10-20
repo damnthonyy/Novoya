@@ -1,0 +1,14 @@
+{
+  "eyebrow": "Votre compte",
+  "title": "Réglages du compte",
+  "email": "E-mail",
+  "passwordTitle": "Mot de passe",
+  "currentPassword": "Mot de passe actuel",
+  "newPassword": "Nouveau mot de passe",
+  "passwordHint": "Au moins 12 caractères.",
+  "submit": "Changer le mot de passe",
+  "submitting": "Enregistrement…",
+  "changed": "Votre mot de passe est changé. Vos autres appareils sont déconnectés.",
+  "googleOnly": "Vous vous connectez avec Google : il n’y a pas de mot de passe à changer.",
+  "setPassword": "Définir un mot de passe par e-mail"
+}
