@@ -21,6 +21,7 @@ from novoya_api.wishes.domain.panel import Panel
 from novoya_api.wishes.domain.wish import Destination, WishStatus
 from novoya_api.wishes.infrastructure.catalog import PartnerCatalog
 from novoya_api.wishes.infrastructure.llm.panel_builder import TagsFromOffersBuilder
+from tests.accounts.fakes import NoopRateLimiter
 from tests.test_catalog_sql import database_url, session  # noqa: F401  (fixtures)
 
 pytestmark = pytest.mark.usefixtures("session")
@@ -96,6 +97,7 @@ def send_wish(session, reading: DestinationReading) -> SendWish:  # noqa: F811
         catalog=PartnerCatalog(session),
         reader=FakeReader(reading),
         panel_builder=TagsFromOffersBuilder(),
+        rate_limiter=NoopRateLimiter(),
         uow=FakeUnitOfWork(),
         clock=FixedClock(),
     )
@@ -221,6 +223,7 @@ async def test_the_request_session_holds_no_transaction_while_the_reader_runs(se
         catalog=PartnerCatalog(session),
         reader=reader,
         panel_builder=TagsFromOffersBuilder(),
+        rate_limiter=NoopRateLimiter(),
         uow=SqlAlchemyUnitOfWork(session),
         clock=FixedClock(),
     )
@@ -251,6 +254,7 @@ async def test_the_request_session_holds_no_transaction_while_the_builder_runs(s
         catalog=PartnerCatalog(session),
         reader=FakeReader(DestinationReading(destination=CHANIA, suggestions=[])),
         panel_builder=builder,
+        rate_limiter=NoopRateLimiter(),
         uow=SqlAlchemyUnitOfWork(session),
         clock=FixedClock(),
     )

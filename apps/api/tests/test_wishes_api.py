@@ -12,16 +12,19 @@ from novoya_api.accounts.domain.value_objects import Email, UserId
 from novoya_api.accounts.public import CurrentUserView, current_user
 from novoya_api.main import create_app
 from novoya_api.shared.domain.value_objects import Locale
+from novoya_api.shared.infrastructure.in_memory_rate_limiter import InMemoryRateLimiter
 from novoya_api.shared.infrastructure.llm.errors import LLMError
 from novoya_api.wishes.application.ports.destination_reader import DestinationReading
-from novoya_api.wishes.application.use_cases.send_wish import SendWish
+from novoya_api.wishes.application.use_cases.send_wish import SEND_LIMIT, SEND_WINDOW, SendWish
 from novoya_api.wishes.domain.wish import Destination
 from novoya_api.wishes.infrastructure.llm.destination_reader import NameMatchingReader
 from novoya_api.wishes.infrastructure.llm.panel_builder import TagsFromOffersBuilder
 from novoya_api.wishes.presentation.http import dependencies
 from novoya_api.wishes.presentation.http.dependencies import get_current_user_id, get_send_wish
+from tests.accounts.fakes import FrozenClock
 
 USER_ID = UUID("00000000-0000-0000-0000-000000000001")
+OTHER_USER_ID = UUID("00000000-0000-0000-0000-000000000002")
 NOW = datetime(2026, 10, 18, 9, 0, tzinfo=UTC)
 
 
@@ -82,13 +85,24 @@ def wishes() -> FakeWishes:
 
 
 @pytest.fixture
-def app(reader, wishes):
+def limiter_clock() -> FrozenClock:
+    return FrozenClock()
+
+
+@pytest.fixture
+def limiter(limiter_clock) -> InMemoryRateLimiter:
+    return InMemoryRateLimiter(limiter_clock)
+
+
+@pytest.fixture
+def app(reader, wishes, limiter):
     app = create_app()
     send_wish = SendWish(
         wishes=wishes,
         catalog=FakeCatalog(),
         reader=reader,
         panel_builder=TagsFromOffersBuilder(),
+        rate_limiter=limiter,
         uow=FakeUnitOfWork(),
         clock=FixedClock(),
     )
@@ -241,10 +255,54 @@ def test_send_wish_documents_the_shared_error_responses(app):
 def test_send_wish_reads_the_catalog_through_the_request_session():
     session = object()
 
+    limiter = dependencies.get_rate_limiter()
     use_case = dependencies.get_send_wish(
-        session=session, reader=NameMatchingReader(), panel_builder=TagsFromOffersBuilder()
+        session=session,
+        reader=NameMatchingReader(),
+        panel_builder=TagsFromOffersBuilder(),
+        rate_limiter=limiter,
     )
 
     assert use_case._catalog._session is session
     assert use_case._wishes._session is session
     assert use_case._uow._session is session
+    assert use_case._rate_limiter is limiter
+
+
+# Rate limit
+
+
+async def test_past_the_limit_returns_429_with_retry_after(app, wishes, client):
+    for _ in range(SEND_LIMIT):
+        assert (await client.post("/wishes", json={"text": "A week in Lisbon"})).status_code == 201
+
+    response = await client.post("/wishes", json={"text": "A week in Lisbon"})
+
+    assert response.status_code == 429
+    assert response.json() == {
+        "code": "too_many_requests",
+        "detail": f"try again in {int(SEND_WINDOW.total_seconds())} seconds",
+    }
+    assert response.headers["Retry-After"] == str(int(SEND_WINDOW.total_seconds()))
+    assert len(wishes.added) == SEND_LIMIT
+
+
+async def test_another_client_still_sends_wishes_when_one_is_limited(app, client):
+    for _ in range(SEND_LIMIT + 1):
+        await client.post("/wishes", json={"text": "A week in Lisbon"})
+    app.dependency_overrides[get_current_user_id] = lambda: OTHER_USER_ID
+
+    response = await client.post("/wishes", json={"text": "A week in Lisbon"})
+
+    assert response.status_code == 201
+
+
+def test_send_wish_documents_429(app):
+    responses = app.openapi()["paths"]["/wishes"]["post"]["responses"]
+
+    ref = responses["429"]["content"]["application/json"]["schema"]["$ref"]
+    assert ref == "#/components/schemas/ErrorResponse"
+
+
+def test_the_wishes_rate_limiter_is_built_once():
+    assert dependencies.get_rate_limiter() is dependencies.get_rate_limiter()

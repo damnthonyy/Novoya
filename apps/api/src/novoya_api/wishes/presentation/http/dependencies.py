@@ -4,6 +4,7 @@ In each module, this file is the only place outside infrastructure that may impo
 infrastructure. Tests replace these dependencies with fakes.
 """
 
+from functools import lru_cache
 from typing import Annotated
 from uuid import UUID
 
@@ -11,8 +12,10 @@ from fastapi import Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from novoya_api.accounts.public import CurrentUserView, require_client
+from novoya_api.shared.application.rate_limiter import RateLimiter
 from novoya_api.shared.infrastructure.db.session import get_session
 from novoya_api.shared.infrastructure.db.unit_of_work import SqlAlchemyUnitOfWork
+from novoya_api.shared.infrastructure.in_memory_rate_limiter import InMemoryRateLimiter
 from novoya_api.shared.infrastructure.llm.client import get_orchestrator
 from novoya_api.shared.infrastructure.llm.errors import LLMError
 from novoya_api.shared.infrastructure.system_clock import SystemClock
@@ -42,6 +45,12 @@ def get_current_user_id(user: Annotated[CurrentUserView, Depends(require_client)
     return user.user_id.value
 
 
+# Built once: the counters must outlive the request (too_many_requests, 429).
+@lru_cache
+def get_rate_limiter() -> RateLimiter:
+    return InMemoryRateLimiter(SystemClock())
+
+
 def get_destination_reader() -> DestinationReader:
     try:
         # Short: the client waits for this answer, and name matching is the fallback. The
@@ -62,22 +71,28 @@ def get_send_wish(
     session: Annotated[AsyncSession, Depends(get_session)],
     reader: Annotated[DestinationReader, Depends(get_destination_reader)],
     panel_builder: Annotated[PanelBuilder, Depends(get_panel_builder)],
+    rate_limiter: Annotated[RateLimiter, Depends(get_rate_limiter)],
 ) -> SendWish:
     return SendWish(
         wishes=SqlWishRepository(session),
         catalog=PartnerCatalog(session),
         reader=reader,
         panel_builder=panel_builder,
+        rate_limiter=rate_limiter,
         uow=SqlAlchemyUnitOfWork(session),
         clock=SystemClock(),
     )
 
 
-def get_answer_panel(session: Annotated[AsyncSession, Depends(get_session)]) -> AnswerPanel:
+def get_answer_panel(
+    session: Annotated[AsyncSession, Depends(get_session)],
+    rate_limiter: Annotated[RateLimiter, Depends(get_rate_limiter)],
+) -> AnswerPanel:
     return AnswerPanel(
         wishes=SqlWishRepository(session),
         planner=PartnerPlanner(session),
         in_progress=ANSWERS_IN_PROGRESS,
+        rate_limiter=rate_limiter,
         uow=SqlAlchemyUnitOfWork(session),
         clock=SystemClock(),
     )

@@ -5,8 +5,12 @@ from uuid import UUID
 
 import pytest
 
+from novoya_api.shared.domain.errors import TooManyRequests
+from novoya_api.shared.infrastructure.in_memory_rate_limiter import InMemoryRateLimiter
 from novoya_api.wishes.application.ports.destination_reader import DestinationReading
 from novoya_api.wishes.application.use_cases.send_wish import (
+    SEND_LIMIT,
+    SEND_WINDOW,
     SendWish,
     SendWishCommand,
     SendWishResult,
@@ -14,8 +18,10 @@ from novoya_api.wishes.application.use_cases.send_wish import (
 from novoya_api.wishes.domain.errors import InvalidWish
 from novoya_api.wishes.domain.panel import Panel, PanelSection, Tag
 from novoya_api.wishes.domain.wish import Destination, WishStatus
+from tests.accounts.fakes import FrozenClock
 
 USER_ID = UUID("00000000-0000-0000-0000-000000000001")
+OTHER_USER_ID = UUID("00000000-0000-0000-0000-000000000002")
 NOW = datetime(2026, 10, 18, 9, 0, tzinfo=UTC)
 
 
@@ -106,11 +112,14 @@ class Setup:
         self.reader = FakeReader(reading, self.events)
         self.builder = FakePanelBuilder(self.events, panel)
         self.uow = FakeUnitOfWork(self.events)
+        self.limiter_clock = FrozenClock()
+        self.limiter = InMemoryRateLimiter(self.limiter_clock)
         self.send_wish = SendWish(
             wishes=self.wishes,
             catalog=self.catalog,
             reader=self.reader,
             panel_builder=self.builder,
+            rate_limiter=self.limiter,
             uow=self.uow,
             clock=FixedClock(),
         )
@@ -401,3 +410,42 @@ async def test_country_wide_coverage_keeps_the_city_of_the_wish():
 
     assert result.wish.destination == Destination("Morocco", "Fes")
     assert setup.catalog.tags_asked == [Destination("Morocco", "Fes")]
+
+
+# Rate limit
+
+
+async def test_a_client_sends_the_limit_then_gets_too_many_requests_before_any_model_call():
+    setup = Setup(DestinationReading(destination=LISBON, suggestions=[]))
+    for _ in range(SEND_LIMIT):
+        await send(setup)
+    setup.events.clear()
+
+    with pytest.raises(TooManyRequests) as error:
+        await send(setup)
+
+    assert error.value.code == "too_many_requests"
+    assert error.value.retry_after_seconds == SEND_WINDOW.total_seconds()
+    assert setup.events == []  # no read, no model, no save
+    assert len(setup.wishes.added) == SEND_LIMIT
+
+
+async def test_the_send_limit_is_per_client():
+    setup = Setup(DestinationReading(destination=LISBON, suggestions=[]))
+    for _ in range(SEND_LIMIT):
+        await send(setup)
+
+    result = await setup.send_wish(SendWishCommand(user_id=OTHER_USER_ID, text="A week in Lisbon"))
+
+    assert result.wish.user_id == OTHER_USER_ID
+
+
+async def test_the_send_limit_resets_after_the_window():
+    setup = Setup(DestinationReading(destination=LISBON, suggestions=[]))
+    for _ in range(SEND_LIMIT):
+        await send(setup)
+    setup.limiter_clock.advance(SEND_WINDOW)
+
+    await send(setup)
+
+    assert len(setup.wishes.added) == SEND_LIMIT + 1
