@@ -1,6 +1,6 @@
 from collections import defaultdict
 from dataclasses import dataclass
-from datetime import date
+from datetime import date, timedelta
 from decimal import Decimal
 
 from novoya_api.wishes.domain.errors import InvalidAnswers
@@ -8,6 +8,12 @@ from novoya_api.wishes.domain.panel import Panel
 
 # The budget is in euros (#27): quotes are in EUR, so the agent compares like with like.
 CURRENCY = "EUR"
+# The days of a trip, the first and the last included (TripRequest.trip_days): the plan
+# writer numbers them up to 366.
+MAX_TRIP_DAYS = 366
+# The web app checks the departure against the client's own day, which can be the day before
+# the server's (UTC) day, down to UTC-12.
+START_TOLERANCE = timedelta(days=1)
 
 
 @dataclass(frozen=True, slots=True)
@@ -22,7 +28,12 @@ class SelectedTag:
 class Answers:
     """What the client chose on the panel: the tags, then budget, travellers and dates.
 
-    No tags is a valid answer: the plan then starts from featured offers."""
+    No tags is a valid answer: the plan then starts from featured offers.
+
+    The dates rule, the same as in the web app's constraints.ts: the departure is not in the
+    past, the return is after it and the trip lasts 366 days at most, the first and the last
+    day included. Only new answers are checked against the past and the length
+    (check_dates): answers saved before these rules still load."""
 
     selected_tags: tuple[SelectedTag, ...]
     budget_max: Decimal
@@ -42,6 +53,16 @@ class Answers:
             raise InvalidAnswers("the end date must be after the start date")
         if len(set(self.selected_tags)) != len(self.selected_tags):
             raise InvalidAnswers("a tag is selected twice")
+
+    def check_dates(self, today: date) -> None:
+        """New answers: the departure is not in the past and the trip is not too long.
+
+        `today` is the server's day (UTC): one day earlier is still accepted, because it can be
+        today for the client."""
+        if self.start_date < today - START_TOLERANCE:
+            raise InvalidAnswers("the start date is in the past")
+        if (self.end_date - self.start_date).days + 1 > MAX_TRIP_DAYS:
+            raise InvalidAnswers(f"a trip lasts {MAX_TRIP_DAYS} days at most")
 
     def check_against(self, panel: Panel) -> None:
         """Every tag must come from the panel shown, at most one in a single-choice section."""

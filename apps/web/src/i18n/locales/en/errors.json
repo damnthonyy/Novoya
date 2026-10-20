@@ -41,7 +41,8 @@
     "noOfferFits": "No offer fits these dates and this group. Try other dates or another number of travellers.",
     "tooManyRequests": "Too many requests at once. Please wait a moment and try again.",
     "unknown": "Your preferences couldn't be sent. Please try again in a moment.",
-    "startInPast": "The departure cannot be in the past."
+    "startInPast": "The departure cannot be in the past.",
+    "tripTooLong": "A trip lasts 366 days at most."
   },
   "account": {
     "invalid_email": "This e-mail address doesn't look right.",

@@ -37,8 +37,9 @@ class AnswerPanel:
     existence does not leak. The answers, the plan and the planned wish are committed
     together: when no offer fits, nothing is saved and the client can change the dates or
     the travellers and send again. While a plan is built, another answer to the same wish
-    is turned away (409) before it starts a model run. Each client sends at most
-    ANSWER_LIMIT answers per ANSWER_WINDOW, counted before anything else."""
+    is turned away (409) before it starts a model run. A departure in the past or a trip
+    too long is refused before anything else runs (Answers.check_dates). Each client sends
+    at most ANSWER_LIMIT answers per ANSWER_WINDOW."""
 
     def __init__(
         self,
@@ -57,6 +58,7 @@ class AnswerPanel:
         self._clock = clock
 
     async def __call__(self, cmd: AnswerPanelCommand) -> AnswerPanelResult:
+        cmd.answers.check_dates(self._clock.now().date())
         await self._rate_limiter.hit(f"wishes:answer:{cmd.user_id}", ANSWER_LIMIT, ANSWER_WINDOW)
         wish = await self._wishes.get(cmd.wish_id)
         if wish is None or wish.user_id != cmd.user_id:
