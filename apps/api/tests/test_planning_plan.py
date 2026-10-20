@@ -7,7 +7,7 @@ import pytest
 
 from novoya_api.planning.domain.errors import InvalidPlan, NoOfferFits
 from novoya_api.planning.domain.plan import DraftItem, Plan, PlanStatus, keep_valid
-from novoya_api.shared.domain.errors import InvalidInput
+from novoya_api.shared.domain.errors import InvalidInput, InvalidTransition
 
 WISH_ID = UUID("00000000-0000-0000-0000-0000000000a1")
 HOTEL = UUID("00000000-0000-0000-0000-0000000000b1")
@@ -117,6 +117,31 @@ def test_propose_accepts_an_item_on_the_last_day():
 def test_propose_with_invalid_items_raises_invalid_plan(drafts):
     with pytest.raises(InvalidPlan):
         propose(drafts, trip_days=8)
+
+
+# request_quote
+
+
+def test_request_quote_moves_a_proposed_plan_to_requested():
+    plan = propose()
+    later = datetime(2026, 10, 19, 10, 0, tzinfo=UTC)
+
+    plan.request_quote(later)
+
+    assert plan.status is PlanStatus.REQUESTED
+    assert plan.updated_at == later
+    assert all(item.negotiated_price is None for item in plan.items)
+
+
+@pytest.mark.parametrize("status", [s for s in PlanStatus if s is not PlanStatus.PROPOSED])
+def test_request_quote_from_any_other_status_raises_invalid_transition(status):
+    plan = propose()
+    plan.status = status
+
+    with pytest.raises(InvalidTransition):
+        plan.request_quote(NOW)
+
+    assert plan.status is status
 
 
 # keep_valid

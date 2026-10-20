@@ -1,4 +1,4 @@
-"""GET /plans/{id} is tested with GetPlan on fakes: no database."""
+"""GET /plans/{id} and POST /plans/{id}/request-quote, with use cases on fakes: no database."""
 
 from collections.abc import AsyncIterator
 from datetime import UTC, datetime
@@ -15,8 +15,13 @@ from novoya_api.catalog.public import OfferKind
 from novoya_api.main import create_app
 from novoya_api.planning.application.dto import OfferSummary
 from novoya_api.planning.application.use_cases.get_plan import GetPlan
+from novoya_api.planning.application.use_cases.request_quote import RequestQuote
 from novoya_api.planning.domain.plan import DraftItem, Plan, PlanStatus
-from novoya_api.planning.presentation.http.dependencies import get_current_user_id, get_get_plan
+from novoya_api.planning.presentation.http.dependencies import (
+    get_current_user_id,
+    get_get_plan,
+    get_request_quote,
+)
 from novoya_api.shared.domain.value_objects import Locale
 
 USER_ID = UUID("00000000-0000-0000-0000-000000000001")
@@ -33,6 +38,20 @@ class FakePlans:
 
     async def get(self, plan_id: UUID) -> Plan | None:
         return self.plan if self.plan.id == plan_id else None
+
+    async def save(self, plan: Plan) -> None:
+        self.plan = plan
+
+
+class FakeUow:
+    async def commit(self) -> None: ...
+
+    async def rollback(self) -> None: ...
+
+
+class FixedClock:
+    def now(self) -> datetime:
+        return NOW
 
 
 class FakeCatalog:
@@ -65,9 +84,11 @@ def plan() -> Plan:
 
 @pytest.fixture
 def app(plan):
+    plans, catalog, wishes = FakePlans(plan), FakeCatalog(), FakeWishes()
     app = create_app()
-    app.dependency_overrides[get_get_plan] = lambda: GetPlan(
-        FakePlans(plan), FakeCatalog(), FakeWishes()
+    app.dependency_overrides[get_get_plan] = lambda: GetPlan(plans, catalog, wishes)
+    app.dependency_overrides[get_request_quote] = lambda: RequestQuote(
+        plans, catalog, wishes, FakeUow(), FixedClock()
     )
     app.dependency_overrides[get_current_user_id] = lambda: USER_ID
     return app
@@ -141,6 +162,64 @@ async def test_an_unknown_plan_gets_404(client):
     assert response.json()["code"] == "not_found"
 
 
+async def test_the_owner_requests_a_quote(plan, client):
+    response = await client.post(f"/plans/{plan.id}/request-quote")
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["status"] == "requested"
+    assert body["items"][0]["title"] == "Sea view hotel"
+    assert body["items"][0]["available"] is True
+    assert set(body) == {
+        "id",
+        "wish_id",
+        "status",
+        "based_on_preferences",
+        "summary",
+        "items",
+    }
+    assert set(body["items"][0]) == {
+        "id",
+        "offer_id",
+        "day",
+        "quantity",
+        "note",
+        "kind",
+        "title",
+        "description",
+        "available",
+    }
+
+
+async def test_requesting_a_quote_twice_returns_409(plan, client):
+    assert (await client.post(f"/plans/{plan.id}/request-quote")).status_code == 200
+    response = await client.post(f"/plans/{plan.id}/request-quote")
+    assert response.status_code == 409
+    assert response.json()["code"] == "invalid_transition"
+
+
+async def test_request_quote_without_a_session_returns_401(plan):
+    app = create_app()
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        assert (await client.post(f"/plans/{plan.id}/request-quote")).status_code == 401
+
+
+async def test_an_agent_cannot_request_a_quote(app, plan, client):
+    del app.dependency_overrides[get_current_user_id]
+    app.dependency_overrides[current_user] = lambda: signed_in_as(Role.AGENT)
+
+    assert (await client.post(f"/plans/{plan.id}/request-quote")).status_code == 403
+
+
+async def test_another_client_cannot_request_a_quote(app, plan, client):
+    app.dependency_overrides[get_current_user_id] = lambda: OTHER_ID
+
+    response = await client.post(f"/plans/{plan.id}/request-quote")
+
+    assert response.status_code == 404
+    assert response.json()["code"] == "not_found"
+
+
 def _enum_values(schema: dict, components: dict) -> set[str]:
     if "enum" in schema:
         return set(schema["enum"])
@@ -161,6 +240,11 @@ def test_get_plan_documents_the_shared_error_responses(app):
         ref = responses[status]["content"]["application/json"]["schema"]["$ref"]
         assert ref == "#/components/schemas/ErrorResponse", status
     assert spec["paths"]["/plans/{plan_id}"]["get"]["operationId"] == "getPlan"
+    quote = spec["paths"]["/plans/{plan_id}/request-quote"]["post"]
+    assert quote["operationId"] == "requestQuote"
+    for status in ("401", "403", "404", "409"):
+        ref = quote["responses"][status]["content"]["application/json"]["schema"]["$ref"]
+        assert ref == "#/components/schemas/ErrorResponse", status
     answers = spec["paths"]["/wishes/{wish_id}/answers"]["post"]["responses"]["201"]
     assert answers["content"]["application/json"]["schema"]["$ref"] == (
         "#/components/schemas/PlanResponse"

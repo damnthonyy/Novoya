@@ -6,6 +6,7 @@ Uses the database fixture of test_catalog_sql.py: skipped when Postgres does not
 from collections.abc import AsyncIterator
 from dataclasses import replace
 from datetime import UTC, date, datetime
+from decimal import Decimal
 from uuid import UUID, uuid4
 
 import pytest
@@ -22,6 +23,7 @@ from novoya_api.accounts.infrastructure.db.models import UserModel
 from novoya_api.catalog.infrastructure.db.models import OfferRow, PartnerRow
 from novoya_api.planning.domain.plan import DraftItem, Plan, PlanItem, PlanStatus
 from novoya_api.planning.infrastructure.db.repository import SqlPlanRepository
+from novoya_api.shared.domain.errors import InvalidTransition
 from novoya_api.wishes.domain.wish import Wish
 from novoya_api.wishes.infrastructure.db.repository import SqlWishRepository
 from tests.test_catalog_sql import database_url  # noqa: F401  (fixture)
@@ -149,3 +151,81 @@ async def test_get_returns_the_items_ordered_by_day(engine, wish_id, offer_ids):
 
 async def test_get_returns_none_for_an_unknown_plan(engine):
     assert await read_plan(engine, uuid4()) is None
+
+
+async def test_save_writes_requested_status(engine, wish_id, offer_ids):
+    hotel, _boat = offer_ids
+    later = datetime(2026, 10, 19, 10, 0, tzinfo=UTC)
+    plan = Plan.propose(wish_id, True, "Sun and sea", [DraftItem(hotel, 1, 7, None)], 8, NOW)
+    await add_plan(engine, plan)
+
+    async with new_session(engine) as session:
+        repo = SqlPlanRepository(session)
+        loaded = await repo.get(plan.id)
+        loaded.request_quote(later)
+        await repo.save(loaded)
+        await session.commit()
+
+    read = await read_plan(engine, plan.id)
+    assert read is not None
+    assert read.status is PlanStatus.REQUESTED
+    assert read.updated_at == later
+    assert all(item.negotiated_price is None for item in read.items)
+
+
+async def test_save_writes_item_prices_and_removed(engine, wish_id, offer_ids):
+    hotel, _boat = offer_ids
+    plan = Plan.propose(wish_id, True, "Sun and sea", [DraftItem(hotel, 1, 7, None)], 8, NOW)
+    await add_plan(engine, plan)
+
+    async with new_session(engine) as session:
+        repo = SqlPlanRepository(session)
+        loaded = await repo.get(plan.id)
+        loaded.items = (replace(loaded.items[0], negotiated_price=Decimal("120.00"), removed=True),)
+        await repo.save(loaded)
+        await session.commit()
+
+    read = await read_plan(engine, plan.id)
+    assert read is not None
+    assert read.items[0].negotiated_price == Decimal("120.00")
+    assert read.items[0].removed is True
+
+
+async def test_save_of_a_stale_read_does_not_wipe_an_agent_take(engine, wish_id, offer_ids):
+    hotel, _boat = offer_ids
+    later = datetime(2026, 10, 19, 10, 0, tzinfo=UTC)
+    agent_id = uuid4()
+    plan = Plan.propose(wish_id, True, "Sun and sea", [DraftItem(hotel, 1, 7, None)], 8, NOW)
+    await add_plan(engine, plan)
+    async with new_session(engine) as session:
+        session.add(UserModel(id=agent_id, email=f"{agent_id}@example.com", created_at=NOW))
+        await session.commit()
+
+    async with new_session(engine) as first:
+        first_repo = SqlPlanRepository(first)
+        stale = await first_repo.get(plan.id)
+
+        async with new_session(engine) as second:
+            second_repo = SqlPlanRepository(second)
+            current = await second_repo.get(plan.id)
+            await second.commit()
+            current.request_quote(later)
+            await second_repo.save(current)
+            await second.commit()
+
+        async with new_session(engine) as agent_session:
+            agent_repo = SqlPlanRepository(agent_session)
+            taken = await agent_repo.get(plan.id)
+            taken.status = PlanStatus.NEGOTIATING
+            taken.assigned_agent_id = agent_id
+            await agent_repo.save(taken)
+            await agent_session.commit()
+
+        stale.request_quote(later)
+        with pytest.raises(InvalidTransition):
+            await first_repo.save(stale)
+
+    read = await read_plan(engine, plan.id)
+    assert read is not None
+    assert read.status is PlanStatus.NEGOTIATING
+    assert read.assigned_agent_id == agent_id
