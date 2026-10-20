@@ -38,6 +38,7 @@
     "invalid": "Some answers don't fit. Check the dates and the budget, then try again.",
     "wishNotFound": "We can't find this wish any more. Please start again.",
     "alreadyAnswered": "You have already answered for this wish.",
+    "noOfferFits": "No offer fits these dates and this group. Try other dates or another number of travellers.",
     "tooManyRequests": "Too many requests at once. Please wait a moment and try again.",
     "unknown": "Your preferences couldn't be sent. Please try again in a moment.",
     "startInPast": "The departure cannot be in the past."

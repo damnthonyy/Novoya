@@ -1,3 +1,5 @@
+from datetime import date, timedelta
+
 import pytest
 
 from novoya_api.catalog.domain.kinds import OfferKind, PartnerKind
@@ -46,6 +48,14 @@ def test_seed_partners_have_contact_phone():
 def test_seed_has_every_partner_kind():
     kinds = {row["kind"] for row in PARTNERS}
     assert kinds == set(PartnerKind)
+
+
+def test_seed_season_never_expires_for_a_trip_in_the_coming_year():
+    """Computed when the seed runs, so a developer can always plan a trip from today."""
+    today = date.today()
+    for row in OFFERS:
+        assert row["available_from"] <= today
+        assert row["available_to"] >= today + timedelta(days=365)
 
 
 def test_seed_offers_have_no_price_field():

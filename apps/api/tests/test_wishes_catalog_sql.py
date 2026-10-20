@@ -4,14 +4,14 @@ PostgreSQL, reading through the caller's session.
 Uses the database fixtures of test_catalog_sql.py: skipped when Postgres does not answer.
 """
 
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from uuid import UUID
 
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from novoya_api.catalog import public
-from novoya_api.catalog.infrastructure.seed.data import OFFERS, PARTNERS
+from novoya_api.catalog.infrastructure.seed.data import OFFERS, PARTNERS, SEASON_START
 from novoya_api.catalog.infrastructure.seed.run import seed_catalog
 from novoya_api.planning.infrastructure.llm.tools import travel_tools
 from novoya_api.shared.infrastructure.db.unit_of_work import SqlAlchemyUnitOfWork
@@ -192,8 +192,13 @@ async def test_travel_tools_with_a_session_search_the_seed_offers(session):  # n
     await seed_catalog()
     tools = {tool.name: tool for tool in travel_tools(session=session)}
 
+    start = SEASON_START.replace(month=5, day=10)  # the seed season moves with the date
     result = await tools["search_offers"].handler(
-        country="Greece", city="Chania", persons=2, start_date="2026-05-10", end_date="2026-05-17"
+        country="Greece",
+        city="Chania",
+        persons=2,
+        start_date=start.isoformat(),
+        end_date=(start + timedelta(days=7)).isoformat(),
     )
 
     assert {offer["city"] for offer in result["offers"]} == {"Chania"}

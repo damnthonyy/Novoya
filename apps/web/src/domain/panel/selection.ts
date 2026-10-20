@@ -34,6 +34,7 @@ export type AnswerPanelErrorKey =
   | 'answers.invalid'
   | 'answers.wishNotFound'
   | 'answers.alreadyAnswered'
+  | 'answers.noOfferFits'
   | 'answers.tooManyRequests'
   | 'answers.unknown'
 
@@ -48,6 +49,8 @@ export function answerPanelErrorKey(code: string | undefined): AnswerPanelErrorK
     case 'invalid_transition':
     case 'conflict':
       return 'answers.alreadyAnswered'
+    case 'no_offer_fits':
+      return 'answers.noOfferFits'
     case 'too_many_requests':
       return 'answers.tooManyRequests'
     default:

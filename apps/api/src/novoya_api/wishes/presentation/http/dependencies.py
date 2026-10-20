@@ -15,6 +15,7 @@ from novoya_api.shared.infrastructure.db.session import get_session
 from novoya_api.shared.infrastructure.db.unit_of_work import SqlAlchemyUnitOfWork
 from novoya_api.shared.infrastructure.llm.client import get_orchestrator
 from novoya_api.shared.infrastructure.llm.errors import LLMError
+from novoya_api.shared.infrastructure.llm.orchestrator import Orchestrator
 from novoya_api.shared.infrastructure.system_clock import SystemClock
 from novoya_api.wishes.application.ports.destination_reader import DestinationReader
 from novoya_api.wishes.application.ports.panel_builder import PanelBuilder
@@ -36,6 +37,11 @@ from novoya_api.wishes.infrastructure.planner import PartnerPlanner
 # One for the process: every request must see the answers the others are building.
 ANSWERS_IN_PROGRESS = InMemoryAnswersInProgress()
 
+# The client waits for both wish calls. A model slower than MODEL_TIMEOUT_SECONDS gives way
+# to the next one, so a slow free model does not use the whole deadline.
+DEADLINE_SECONDS = 20
+MODEL_TIMEOUT_SECONDS = 8
+
 
 def get_current_user_id(user: Annotated[CurrentUserView, Depends(require_client)]) -> UUID:
     """The signed-in client: 401 without a session, 403 for an agent (the admin passes)."""
@@ -46,16 +52,22 @@ def get_destination_reader() -> DestinationReader:
     try:
         # Short: the client waits for this answer, and name matching is the fallback. The
         # reader's deadline covers the answer and its retry.
-        return LlmDestinationReader(get_orchestrator(deadline_seconds=20), deadline_seconds=20)
+        return LlmDestinationReader(_wish_orchestrator(), deadline_seconds=DEADLINE_SECONDS)
     except LLMError:
         return NameMatchingReader()  # no API key: the app still works
 
 
 def get_panel_builder() -> PanelBuilder:
     try:
-        return LlmPanelBuilder(get_orchestrator(deadline_seconds=20), deadline_seconds=20)
+        return LlmPanelBuilder(_wish_orchestrator(), deadline_seconds=DEADLINE_SECONDS)
     except LLMError:
         return TagsFromOffersBuilder()  # no API key: the app still works
+
+
+def _wish_orchestrator() -> Orchestrator:
+    return get_orchestrator(
+        deadline_seconds=DEADLINE_SECONDS, model_timeout_seconds=MODEL_TIMEOUT_SECONDS
+    )
 
 
 def get_send_wish(

@@ -22,8 +22,10 @@ O_BASQUE_SURF = UUID("bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbb2")
 O_MARRAKECH_RIAD = UUID("cccccccc-cccc-4ccc-8ccc-ccccccccccc1")
 O_MARRAKECH_DESK = UUID("cccccccc-cccc-4ccc-8ccc-ccccccccccc2")
 
-SEASON_START = date(2026, 4, 1)
-SEASON_END = date(2026, 10, 31)
+# From the date the seed runs, so the season never ends under a developer: this year and next.
+# Running the seed again refreshes the dates.
+SEASON_START = date(date.today().year, 1, 1)
+SEASON_END = date(date.today().year + 1, 12, 31)
 
 PARTNERS: list[dict] = [
     {

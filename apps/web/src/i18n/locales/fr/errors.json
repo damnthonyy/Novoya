@@ -38,6 +38,7 @@
     "invalid": "Certaines réponses ne conviennent pas. Vérifiez les dates et le budget, puis réessayez.",
     "wishNotFound": "Nous ne retrouvons pas cette envie. Recommencez depuis le début.",
     "alreadyAnswered": "Vous avez déjà répondu pour cette envie.",
+    "noOfferFits": "Aucune offre ne correspond à ces dates et à ce groupe. Essayez d’autres dates ou un autre nombre de voyageurs.",
     "tooManyRequests": "Trop de demandes d’un coup. Patientez un instant, puis réessayez.",
     "unknown": "Vos préférences n’ont pas pu être envoyées. Réessayez dans un instant.",
     "startInPast": "Le départ ne peut pas être dans le passé."
