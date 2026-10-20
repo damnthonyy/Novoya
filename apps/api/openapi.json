@@ -3546,7 +3546,7 @@
     },
     "/plans/{plan_id}/request-quote": {
       "post": {
-        "description": "Ask an agent to price this plan. proposed becomes requested. Never a price here.\n404 if it is missing or not the caller's. 409 if it is not proposed.",
+        "description": "Ask an agent to price this plan. proposed becomes requested. Never a price here.\n404 if it is missing or not the caller's. 409 if it is not proposed (a second click too).",
         "operationId": "requestQuote",
         "parameters": [
           {

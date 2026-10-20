@@ -9,4 +9,8 @@ class PlanRepository(Protocol):
 
     async def get(self, plan_id: UUID) -> Plan | None: ...
 
-    async def save(self, plan: Plan) -> None: ...
+    async def save(self, plan: Plan) -> None:
+        """Writes the plan and its items.
+
+        Raises InvalidTransition if another request changed the plan since get()."""
+        ...

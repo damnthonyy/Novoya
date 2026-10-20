@@ -1,17 +1,23 @@
 from uuid import UUID
 
-from sqlalchemy import select
+from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from novoya_api.planning.domain.plan import Plan, PlanItem, PlanStatus
 from novoya_api.planning.infrastructure.db.models import PlanItemModel, PlanModel
+from novoya_api.shared.domain.errors import InvalidTransition
 
 
 class SqlPlanRepository:
-    """PlanRepository on PostgreSQL. Maps the entity to rows; the caller commits."""
+    """PlanRepository on PostgreSQL. Maps the entity to rows; the caller commits.
+
+    save() updates the row only if its status is still the one this request read: a late
+    request-quote must not overwrite an agent's take, and two clicks must not both pass.
+    """
 
     def __init__(self, session: AsyncSession) -> None:
         self._session = session
+        self._read_status: dict[UUID, str] = {}
 
     async def add(self, plan: Plan) -> None:
         self._session.add(
@@ -41,6 +47,7 @@ class SqlPlanRepository:
             )
             for item in plan.items
         )
+        self._read_status[plan.id] = plan.status.value
 
     async def get(self, plan_id: UUID) -> Plan | None:
         row = await self._session.get(PlanModel, plan_id)
@@ -51,6 +58,7 @@ class SqlPlanRepository:
             .where(PlanItemModel.plan_id == plan_id)
             .order_by(PlanItemModel.day, PlanItemModel.id)
         )
+        self._read_status[row.id] = row.status
         return Plan(
             id=row.id,
             wish_id=row.wish_id,
@@ -75,10 +83,32 @@ class SqlPlanRepository:
         )
 
     async def save(self, plan: Plan) -> None:
-        row = await self._session.get(PlanModel, plan.id)
-        assert row is not None
-        row.status = plan.status.value
-        row.based_on_preferences = plan.based_on_preferences
-        row.summary = plan.summary
-        row.assigned_agent_id = plan.assigned_agent_id
-        row.updated_at = plan.updated_at
+        read_status = self._read_status[plan.id]  # KeyError: save() without get() or add()
+        result = await self._session.execute(
+            update(PlanModel)
+            .where(PlanModel.id == plan.id, PlanModel.status == read_status)
+            .values(
+                status=plan.status.value,
+                based_on_preferences=plan.based_on_preferences,
+                summary=plan.summary,
+                assigned_agent_id=plan.assigned_agent_id,
+                updated_at=plan.updated_at,
+            )
+            .execution_options(synchronize_session=False)
+        )
+        if result.rowcount != 1:
+            raise InvalidTransition("the plan changed meanwhile, reload it")
+        self._read_status[plan.id] = plan.status.value
+        for item in plan.items:
+            await self._session.execute(
+                update(PlanItemModel)
+                .where(PlanItemModel.id == item.id, PlanItemModel.plan_id == plan.id)
+                .values(
+                    day=item.day,
+                    quantity=item.quantity,
+                    note=item.note,
+                    negotiated_price=item.negotiated_price,
+                    removed=item.removed,
+                )
+                .execution_options(synchronize_session=False)
+            )

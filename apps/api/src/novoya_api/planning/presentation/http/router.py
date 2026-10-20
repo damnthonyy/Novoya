@@ -40,5 +40,5 @@ async def request_quote(
     use_case: Annotated[RequestQuote, Depends(get_request_quote)],
 ) -> Plan:
     """Ask an agent to price this plan. proposed becomes requested. Never a price here.
-    404 if it is missing or not the caller's. 409 if it is not proposed."""
+    404 if it is missing or not the caller's. 409 if it is not proposed (a second click too)."""
     return Plan.of(await use_case(plan_id, client_id))
