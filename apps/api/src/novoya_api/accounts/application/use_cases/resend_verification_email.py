@@ -1,7 +1,6 @@
 from datetime import timedelta
 
 from novoya_api.accounts.application.ports.mailer import AuthMailer
-from novoya_api.accounts.application.ports.rate_limiter import RateLimiter
 from novoya_api.accounts.application.ports.repositories import (
     OneTimeTokenRepository,
     UserRepository,
@@ -11,6 +10,7 @@ from novoya_api.accounts.application.services.one_time_tokens import issue_token
 from novoya_api.accounts.domain.one_time_token import TokenPurpose
 from novoya_api.accounts.domain.value_objects import Email
 from novoya_api.shared.application.clock import Clock
+from novoya_api.shared.application.rate_limiter import RateLimiter
 from novoya_api.shared.application.unit_of_work import UnitOfWork
 
 

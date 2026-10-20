@@ -35,8 +35,8 @@ from novoya_api.accounts.domain.role import Role
 from novoya_api.accounts.domain.user import UserStatus
 from novoya_api.accounts.domain.value_objects import Email, PasswordHash
 from novoya_api.accounts.infrastructure.identity_providers import DictIdentityProviders
-from novoya_api.accounts.infrastructure.in_memory_rate_limiter import InMemoryRateLimiter
 from novoya_api.shared.domain.value_objects import Locale
+from novoya_api.shared.infrastructure.in_memory_rate_limiter import InMemoryRateLimiter
 from tests.accounts.fakes import (
     FakeIdentityProvider,
     FrozenClock,
@@ -64,7 +64,7 @@ class Google:
         self.provider = FakeIdentityProvider()
         providers = DictIdentityProviders([self.provider])
         self.opener = SessionOpener(self.store.sessions, self.tokens, self.clock, SessionPolicy())
-        self.rate_limiter = InMemoryRateLimiter(self.clock)
+        self.rate_limiter = InMemoryRateLimiter(self.clock, error=TooManyAttempts)
         self.start = StartSignIn(
             providers,
             self.store.oauth_states,

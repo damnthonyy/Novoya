@@ -39,8 +39,8 @@ from novoya_api.accounts.domain.errors import (
 from novoya_api.accounts.domain.policies import PasswordPolicy
 from novoya_api.accounts.domain.role import Role
 from novoya_api.accounts.domain.value_objects import Email, PasswordHash
-from novoya_api.accounts.infrastructure.in_memory_rate_limiter import InMemoryRateLimiter
 from novoya_api.shared.domain.value_objects import Locale
+from novoya_api.shared.infrastructure.in_memory_rate_limiter import InMemoryRateLimiter
 from tests.accounts.fakes import (
     FrozenClock,
     InMemoryStore,
@@ -64,7 +64,11 @@ class Accounts:
         self.tokens = SequentialTokenGenerator()
         self.mailer = RecordingMailer()
         self.hasher = PlainTextPasswordHasher()
-        self.limiter = InMemoryRateLimiter(self.clock) if real_rate_limits else NoopRateLimiter()
+        self.limiter = (
+            InMemoryRateLimiter(self.clock, error=TooManyAttempts)
+            if real_rate_limits
+            else NoopRateLimiter()
+        )
         s = self.store
         self.opener = SessionOpener(s.sessions, self.tokens, self.clock, SessionPolicy())
         self.register = Register(
@@ -331,18 +335,6 @@ async def test_change_password_checks_the_current_one(accounts):
         await accounts.change_password(me, "not my password", "a brand new passphrase")
 
 
-async def test_rate_limiter_blocks_past_the_limit():
-    clock = FrozenClock()
-    limiter = InMemoryRateLimiter(clock)
-    for _ in range(3):
-        await limiter.hit("key", 3, timedelta(minutes=15))
-    with pytest.raises(TooManyAttempts) as error:
-        await limiter.hit("key", 3, timedelta(minutes=15))
-    assert error.value.retry_after_seconds == 15 * 60
-    clock.advance(timedelta(minutes=15))
-    await limiter.hit("key", 3, timedelta(minutes=15))
-
-
 async def test_failed_logins_from_another_ip_do_not_lock_the_owner_out():
     accounts = Accounts(real_rate_limits=True)
     await accounts.signed_up()
@@ -365,16 +357,3 @@ async def test_resending_the_verification_email_does_not_block_a_password_reset(
     await accounts.forgot("alice@example.com")
 
     assert accounts.mailer.last_token("alice@example.com", "password_reset")
-
-
-async def test_rate_limiter_drops_finished_windows_when_it_is_full():
-    clock = FrozenClock()
-    limiter = InMemoryRateLimiter(clock)
-    limiter.MAX_KEYS = 3
-    for key in ("a@x.io", "b@x.io", "c@x.io"):
-        await limiter.hit(key, 3, timedelta(minutes=15))
-    clock.advance(timedelta(minutes=15))
-
-    await limiter.hit("d@x.io", 3, timedelta(minutes=15))
-
-    assert list(limiter._windows) == ["d@x.io"]
