@@ -106,6 +106,7 @@ Un atome = un élément. Pas de label + champ + bouton ensemble. Pas d’histoir
 | `Avatar` | photo / initiale |
 | `Divider` | séparation |
 | `LogoMark` | marque |
+| `GoogleLogo` | le « G » de Google (`public/icons/google.svg`) |
 | `SkeletonBone` | placeholder de chargement |
 | `ProgressDot` | un point du rituel de génération |
 | `Price` | montant formaté (1 800 €), seulement dans le devis et le budget |
@@ -160,6 +161,9 @@ Un organisme est une **région** que tu poses dans un template. Toujours aliment
 | `DayDetail` | contenu d’un jour ouvert | détail |
 | `SignInForm` | GoogleButton, Divider, TextField × 2, Button, lien “mot de passe oublié” | connexion |
 | `SignUpForm` | GoogleButton, Divider, TextField × 2, Button | inscription |
+| `EmailForm` | TextField e-mail + Button | mot de passe oublié, renvoyer l’e-mail de vérification |
+| `ResetPasswordForm` | TextField mot de passe + Button | nouveau mot de passe |
+| `ChangePasswordForm` | TextField × 2 + Button | réglages du compte |
 | `QuoteSummary` | lignes du devis, Price total, lien PDF, Button accepter / refuser | le devis |
 | `SavedTripCard` | titre, dates, Badge (statut du devis) | liste “mes voyages” |
 | `OnboardingSlide` | titre + texte + visuel | intro |

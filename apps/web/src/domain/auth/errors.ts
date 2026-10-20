@@ -45,3 +45,40 @@ export function passwordSignInErrorKey(code: string | undefined): PasswordSignIn
   if (code === 'too_many_requests') return 'password.too_many_attempts'
   return code && KNOWN_PASSWORD.has(code) ? (`password.${code}` as PasswordSignInErrorKey) : 'password.unknown'
 }
+
+// The codes the account forms (sign-up, verification, reset, change of password) answer with.
+// Their texts are in errors.json, under account.<code>.
+const ACCOUNT_ERROR_CODES = [
+  'invalid_email',
+  'weak_password',
+  'email_already_used',
+  'invalid_credentials',
+  'invalid_token',
+  'no_password_set',
+  'account_disabled',
+  'too_many_attempts',
+] as const
+
+type AccountErrorCode = (typeof ACCOUNT_ERROR_CODES)[number]
+export type AccountErrorKey = `account.${AccountErrorCode | 'unknown'}`
+
+/** The field an error belongs to. Without one, the form shows it above its button. */
+export type AccountErrorField = 'email' | 'password' | 'currentPassword'
+
+const FIELD_OF: Partial<Record<AccountErrorCode, AccountErrorField>> = {
+  invalid_email: 'email',
+  email_already_used: 'email',
+  weak_password: 'password',
+  // Only the change of password sends it: the current password is wrong.
+  invalid_credentials: 'currentPassword',
+}
+
+const KNOWN_ACCOUNT = new Set<string>(ACCOUNT_ERROR_CODES)
+
+/** The message key of a failed account request, and the field to show it next to. */
+export function accountError(code: string | undefined): { key: AccountErrorKey; field?: AccountErrorField } {
+  const known = code === 'too_many_requests' ? 'too_many_attempts' : code
+  if (!known || !KNOWN_ACCOUNT.has(known)) return { key: 'account.unknown' }
+  const accountCode = known as AccountErrorCode
+  return { key: `account.${accountCode}`, field: FIELD_OF[accountCode] }
+}

@@ -13,6 +13,7 @@ import type home from './locales/en/home.json'
 import type plan from './locales/en/plan.json'
 import type preferences from './locales/en/preferences.json'
 import type quote from './locales/en/quote.json'
+import type settings from './locales/en/settings.json'
 import type trips from './locales/en/trips.json'
 import type wish from './locales/en/wish.json'
 
@@ -35,6 +36,7 @@ declare module 'i18next' {
       plan: typeof plan
       preferences: typeof preferences
       quote: typeof quote
+      settings: typeof settings
       trips: typeof trips
       wish: typeof wish
     }
