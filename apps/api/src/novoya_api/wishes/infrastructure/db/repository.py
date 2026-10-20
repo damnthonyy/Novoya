@@ -1,7 +1,8 @@
+from collections.abc import Sequence
 from typing import Any
 from uuid import UUID
 
-from sqlalchemy import update
+from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from novoya_api.shared.domain.errors import InvalidTransition
@@ -80,6 +81,13 @@ class SqlWishRepository:
             return None
         self._read_status[row.id] = row.status
         return wish_to_entity(row)
+
+    async def list_by_ids(self, ids: Sequence[UUID]) -> list[Wish]:
+        if not ids:
+            return []
+        rows = await self._session.scalars(select(WishModel).where(WishModel.id.in_(ids)))
+        found = {row.id: wish_to_entity(row) for row in rows}
+        return [found[wish_id] for wish_id in ids if wish_id in found]
 
     async def add(self, wish: Wish) -> None:
         self._session.add(

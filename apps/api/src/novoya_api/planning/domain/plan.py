@@ -5,8 +5,8 @@ from decimal import Decimal
 from enum import StrEnum
 from uuid import UUID, uuid4
 
-from novoya_api.planning.domain.errors import InvalidPlan
-from novoya_api.shared.domain.errors import InvalidTransition
+from novoya_api.planning.domain.errors import InvalidPlan, PlanNotFound
+from novoya_api.shared.domain.errors import InvalidTransition, PermissionDenied
 
 
 class PlanStatus(StrEnum):
@@ -129,3 +129,63 @@ class Plan:
             raise InvalidTransition("the plan is not proposed")
         self.status = PlanStatus.REQUESTED
         self.updated_at = now
+
+    def take(self, agent_id: UUID, now: datetime) -> None:
+        """An agent claims this plan to negotiate prices. Only from requested."""
+        if self.status is not PlanStatus.REQUESTED:
+            raise InvalidTransition("the plan is not requested")
+        self.status = PlanStatus.NEGOTIATING
+        self.assigned_agent_id = agent_id
+        self.updated_at = now
+
+    def set_item_price(self, item_id: UUID, by: UUID, price: Decimal, now: datetime) -> None:
+        """The assigned agent sets the negotiated price of one kept item. Only while negotiating."""
+        self._must_be_assigned(by)
+        if price <= 0:
+            raise InvalidPlan("the price must be more than 0")
+        item = self._item(item_id)
+        if item.removed:
+            raise InvalidPlan("a removed item has no price")
+        self.items = tuple(
+            replace(entry, negotiated_price=price) if entry.id == item_id else entry
+            for entry in self.items
+        )
+        self.updated_at = now
+
+    def remove_item(self, item_id: UUID, by: UUID, now: datetime) -> None:
+        """The assigned agent drops an item so it is not quoted. At least one item must stay."""
+        self._must_be_assigned(by)
+        item = self._item(item_id)
+        if item.removed:
+            return
+        kept = sum(1 for entry in self.items if not entry.removed)
+        if kept <= 1:
+            raise InvalidPlan("a plan needs at least one item")
+        self.items = tuple(
+            replace(entry, removed=True, negotiated_price=None) if entry.id == item_id else entry
+            for entry in self.items
+        )
+        self.updated_at = now
+
+    def priced_total(self) -> Decimal:
+        """The sum of kept items that already have a negotiated price."""
+        return sum(
+            (
+                item.negotiated_price
+                for item in self.items
+                if not item.removed and item.negotiated_price
+            ),
+            Decimal("0"),
+        )
+
+    def _must_be_assigned(self, agent_id: UUID) -> None:
+        if self.status is not PlanStatus.NEGOTIATING:
+            raise InvalidTransition("the plan is not being negotiated")
+        if self.assigned_agent_id != agent_id:
+            raise PermissionDenied("only the assigned agent can price this plan")
+
+    def _item(self, item_id: UUID) -> PlanItem:
+        for item in self.items:
+            if item.id == item_id:
+                return item
+        raise PlanNotFound("no such item")

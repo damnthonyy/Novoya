@@ -1,3 +1,5 @@
+from collections import defaultdict
+from collections.abc import Iterable
 from uuid import UUID
 
 from sqlalchemy import select, update
@@ -58,6 +60,30 @@ class SqlPlanRepository:
             .where(PlanItemModel.plan_id == plan_id)
             .order_by(PlanItemModel.day, PlanItemModel.id)
         )
+        return self._to_plan(row, items)
+
+    async def list_by_status(self, status: PlanStatus) -> list[Plan]:
+        rows = (
+            await self._session.scalars(
+                select(PlanModel)
+                .where(PlanModel.status == status.value)
+                .order_by(PlanModel.updated_at, PlanModel.id)
+            )
+        ).all()
+        if not rows:
+            return []
+        ids = [row.id for row in rows]
+        item_rows = await self._session.scalars(
+            select(PlanItemModel)
+            .where(PlanItemModel.plan_id.in_(ids))
+            .order_by(PlanItemModel.day, PlanItemModel.id)
+        )
+        by_plan: dict[UUID, list[PlanItemModel]] = defaultdict(list)
+        for item in item_rows:
+            by_plan[item.plan_id].append(item)
+        return [self._to_plan(row, by_plan[row.id]) for row in rows]
+
+    def _to_plan(self, row: PlanModel, items: Iterable[PlanItemModel]) -> Plan:
         self._read_status[row.id] = row.status
         return Plan(
             id=row.id,

@@ -1,13 +1,14 @@
 """The plan and its items are plain objects: tested without any port."""
 
 from datetime import UTC, datetime
-from uuid import UUID
+from decimal import Decimal
+from uuid import UUID, uuid4
 
 import pytest
 
-from novoya_api.planning.domain.errors import InvalidPlan, NoOfferFits
+from novoya_api.planning.domain.errors import InvalidPlan, NoOfferFits, PlanNotFound
 from novoya_api.planning.domain.plan import DraftItem, Plan, PlanStatus, keep_valid
-from novoya_api.shared.domain.errors import InvalidInput, InvalidTransition
+from novoya_api.shared.domain.errors import InvalidInput, InvalidTransition, PermissionDenied
 
 WISH_ID = UUID("00000000-0000-0000-0000-0000000000a1")
 HOTEL = UUID("00000000-0000-0000-0000-0000000000b1")
@@ -142,6 +143,113 @@ def test_request_quote_from_any_other_status_raises_invalid_transition(status):
         plan.request_quote(NOW)
 
     assert plan.status is status
+
+
+# take
+
+
+def test_take_moves_a_requested_plan_to_negotiating():
+    plan = propose()
+    plan.request_quote(NOW)
+    agent = uuid4()
+    later = datetime(2026, 10, 19, 10, 0, tzinfo=UTC)
+
+    plan.take(agent, later)
+
+    assert plan.status is PlanStatus.NEGOTIATING
+    assert plan.assigned_agent_id == agent
+    assert plan.updated_at == later
+
+
+@pytest.mark.parametrize("status", [s for s in PlanStatus if s is not PlanStatus.REQUESTED])
+def test_take_from_any_other_status_raises_invalid_transition(status):
+    plan = propose()
+    plan.status = status
+    if status is PlanStatus.PROPOSED:
+        plan.assigned_agent_id = None
+
+    with pytest.raises(InvalidTransition):
+        plan.take(uuid4(), NOW)
+
+    assert plan.status is status
+
+
+# set_item_price / remove_item
+
+
+def negotiating_plan() -> tuple[Plan, UUID]:
+    plan = propose()
+    plan.request_quote(NOW)
+    agent = uuid4()
+    plan.take(agent, NOW)
+    return plan, agent
+
+
+def test_set_item_price_stores_the_negotiated_price():
+    plan, agent = negotiating_plan()
+    item = plan.items[0]
+    later = datetime(2026, 10, 19, 11, 0, tzinfo=UTC)
+
+    plan.set_item_price(item.id, agent, Decimal("120.00"), later)
+
+    assert plan.items[0].negotiated_price == Decimal("120.00")
+    assert plan.priced_total() == Decimal("120.00")
+    assert plan.updated_at == later
+
+
+def test_set_item_price_by_another_agent_is_forbidden():
+    plan, _agent = negotiating_plan()
+    with pytest.raises(PermissionDenied):
+        plan.set_item_price(plan.items[0].id, uuid4(), Decimal("10.00"), NOW)
+
+
+def test_set_item_price_when_not_negotiating_raises_invalid_transition():
+    plan = propose()
+    with pytest.raises(InvalidTransition):
+        plan.set_item_price(plan.items[0].id, uuid4(), Decimal("10.00"), NOW)
+
+
+def test_set_item_price_must_be_more_than_zero():
+    plan, agent = negotiating_plan()
+    with pytest.raises(InvalidPlan):
+        plan.set_item_price(plan.items[0].id, agent, Decimal("0"), NOW)
+
+
+def test_set_item_price_of_an_unknown_item_is_not_found():
+    plan, agent = negotiating_plan()
+    with pytest.raises(PlanNotFound):
+        plan.set_item_price(uuid4(), agent, Decimal("10.00"), NOW)
+
+
+def test_remove_item_hides_it_from_the_total():
+    plan, agent = negotiating_plan()
+    first, second = plan.items[0], plan.items[1]
+    plan.set_item_price(first.id, agent, Decimal("50.00"), NOW)
+
+    plan.remove_item(first.id, agent, NOW)
+
+    assert plan.items[0].removed is True
+    assert plan.items[0].negotiated_price is None
+    assert plan.priced_total() == Decimal("0")
+    assert second.id in {item.id for item in plan.items if not item.removed}
+
+
+def test_remove_item_cannot_drop_the_last_kept_item():
+    plan, agent = negotiating_plan()
+    for item in plan.items[1:]:
+        plan.remove_item(item.id, agent, NOW)
+
+    with pytest.raises(InvalidPlan):
+        plan.remove_item(plan.items[0].id, agent, NOW)
+
+
+def test_priced_total_ignores_unpriced_and_removed_items():
+    plan, agent = negotiating_plan()
+    plan.set_item_price(plan.items[0].id, agent, Decimal("80.00"), NOW)
+    plan.set_item_price(plan.items[1].id, agent, Decimal("20.00"), NOW)
+    plan.remove_item(plan.items[1].id, agent, NOW)
+
+    assert plan.priced_total() == Decimal("80.00")
 
 
 # keep_valid

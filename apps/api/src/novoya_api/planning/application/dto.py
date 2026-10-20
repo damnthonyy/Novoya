@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from datetime import date
+from datetime import date, datetime
 from decimal import Decimal
 from uuid import UUID
 
@@ -61,3 +61,92 @@ class PlanView:
     based_on_preferences: bool
     summary: str
     items: tuple[PlanItemView, ...]
+
+
+@dataclass(frozen=True)
+class OfferContact:
+    """An offer as the agent needs it: titles plus the partner to call."""
+
+    id: UUID
+    kind: str
+    title: str
+    description: str
+    partner_name: str
+    partner_contact_email: str
+    partner_contact_phone: str
+
+
+@dataclass(frozen=True)
+class TripBrief:
+    """The wish as the quote queue shows it: text, place, dates, travellers, budget."""
+
+    wish_id: UUID
+    text: str
+    country: str | None
+    city: str | None
+    budget_max: Decimal | None
+    currency: str | None
+    persons: int | None
+    start_date: date | None
+    end_date: date | None
+
+
+@dataclass(frozen=True)
+class QueueEntryView:
+    """One waiting plan in the agent's queue. No prices and no partner names."""
+
+    id: UUID
+    wish_id: UUID
+    status: str
+    summary: str
+    updated_at: datetime
+    wish_text: str
+    country: str | None
+    city: str | None
+    persons: int | None
+    start_date: date | None
+    end_date: date | None
+    budget_max: Decimal | None
+    currency: str | None
+
+
+@dataclass(frozen=True)
+class AgentPlanItemView:
+    """One day on the agent's plan: prices, removed flag, and who to call."""
+
+    id: UUID
+    offer_id: UUID
+    day: int
+    quantity: int
+    note: str | None
+    kind: str | None
+    title: str | None
+    description: str | None
+    available: bool
+    negotiated_price: Decimal | None
+    removed: bool
+    partner_name: str | None
+    partner_contact_email: str | None
+    partner_contact_phone: str | None
+
+
+@dataclass(frozen=True)
+class AgentPlanView:
+    """The plan as the assigned agent sees it: prices, partners, total and the client's budget."""
+
+    id: UUID
+    wish_id: UUID
+    status: str
+    summary: str
+    assigned_agent_id: UUID | None
+    items: tuple[AgentPlanItemView, ...]
+    total: Decimal
+    budget_max: Decimal | None
+    currency: str | None
+    over_budget: bool
+    wish_text: str | None
+    country: str | None
+    city: str | None
+    persons: int | None
+    start_date: date | None
+    end_date: date | None

@@ -1,0 +1,240 @@
+"""ListQuoteQueue, TakePlan and SetItemPrice are tested with fake ports: no database."""
+
+from datetime import UTC, date, datetime
+from decimal import Decimal
+from uuid import UUID
+
+import pytest
+
+from novoya_api.planning.application.dto import OfferContact, TripBrief
+from novoya_api.planning.application.use_cases.get_agent_plan import GetAgentPlan
+from novoya_api.planning.application.use_cases.list_quote_queue import ListQuoteQueue
+from novoya_api.planning.application.use_cases.set_item_price import SetItemCommand, SetItemPrice
+from novoya_api.planning.application.use_cases.take_plan import TakePlan
+from novoya_api.planning.domain.errors import PlanNotFound
+from novoya_api.planning.domain.plan import DraftItem, Plan, PlanStatus
+from novoya_api.shared.domain.errors import InvalidTransition, PermissionDenied
+
+WISH_ID = UUID("00000000-0000-0000-0000-0000000000a1")
+OWNER_ID = UUID("00000000-0000-0000-0000-000000000001")
+AGENT_ID = UUID("00000000-0000-0000-0000-0000000000aa")
+OTHER_AGENT = UUID("00000000-0000-0000-0000-0000000000ab")
+NOW = datetime(2026, 10, 19, 9, 0, tzinfo=UTC)
+LATER = datetime(2026, 10, 19, 10, 0, tzinfo=UTC)
+HOTEL_ID = UUID("00000000-0000-0000-0000-0000000000b1")
+HOTEL = OfferContact(
+    HOTEL_ID,
+    "hotel",
+    "Sea view hotel",
+    "Rooms over the bay",
+    "Elounda Bay House",
+    "stay@elounda.example",
+    "+30 28210 00001",
+)
+TRIP = TripBrief(
+    WISH_ID,
+    "A week in Chania",
+    "Greece",
+    "Chania",
+    Decimal("1500.00"),
+    "EUR",
+    2,
+    date(2026, 5, 10),
+    date(2026, 5, 17),
+)
+
+
+def stored_plan() -> Plan:
+    plan = Plan.propose(
+        WISH_ID, True, "A week by the sea", [DraftItem(HOTEL_ID, 1, 2, None)], 3, NOW
+    )
+    plan.request_quote(NOW)
+    return plan
+
+
+class FakePlans:
+    def __init__(self, plan: Plan | None = None) -> None:
+        self.plan = plan
+
+    async def get(self, plan_id: UUID) -> Plan | None:
+        if self.plan is None or self.plan.id != plan_id:
+            return None
+        return self.plan
+
+    async def list_by_status(self, status: PlanStatus) -> list[Plan]:
+        if self.plan is None or self.plan.status is not status:
+            return []
+        return [self.plan]
+
+    async def save(self, plan: Plan) -> None:
+        self.plan = plan
+
+
+class FakeCatalog:
+    async def contacts_for(self, offer_ids: list[UUID]) -> list[OfferContact]:
+        return [HOTEL] if HOTEL_ID in offer_ids else []
+
+
+class FakeTrips:
+    def __init__(self, briefs: dict[UUID, TripBrief] | None = None) -> None:
+        self.briefs = {WISH_ID: TRIP} if briefs is None else briefs
+
+    async def for_wish_ids(self, wish_ids: list[UUID]) -> dict[UUID, TripBrief]:
+        return {wish_id: self.briefs[wish_id] for wish_id in wish_ids if wish_id in self.briefs}
+
+
+class FakeUow:
+    def __init__(self) -> None:
+        self.commits = 0
+
+    async def commit(self) -> None:
+        self.commits += 1
+
+    async def rollback(self) -> None: ...
+
+
+class FixedClock:
+    def now(self) -> datetime:
+        return LATER
+
+
+def take_plan(plan: Plan | None) -> tuple[TakePlan, FakeUow]:
+    uow = FakeUow()
+    return (
+        TakePlan(FakePlans(plan), FakeCatalog(), FakeTrips(), uow, FixedClock()),
+        uow,
+    )
+
+
+async def test_the_queue_lists_requested_plans_with_the_wish():
+    plan = stored_plan()
+    entries = await ListQuoteQueue(FakePlans(plan), FakeTrips())(PlanStatus.REQUESTED)
+
+    assert len(entries) == 1
+    assert entries[0].id == plan.id
+    assert entries[0].wish_text == "A week in Chania"
+    assert entries[0].country == "Greece"
+    assert entries[0].city == "Chania"
+    assert entries[0].persons == 2
+    assert entries[0].budget_max == Decimal("1500.00")
+    assert entries[0].start_date == date(2026, 5, 10)
+
+
+async def test_the_queue_is_empty_when_nothing_is_requested():
+    plan = stored_plan()
+    plan.take(AGENT_ID, LATER)
+    assert await ListQuoteQueue(FakePlans(plan), FakeTrips())() == []
+
+
+async def test_an_agent_takes_a_requested_plan():
+    plan = stored_plan()
+    use_case, uow = take_plan(plan)
+
+    view = await use_case(plan.id, AGENT_ID)
+
+    assert view.status == "negotiating"
+    assert view.assigned_agent_id == AGENT_ID
+    assert view.items[0].partner_name == "Elounda Bay House"
+    assert view.items[0].partner_contact_phone == "+30 28210 00001"
+    assert view.total == Decimal("0")
+    assert view.over_budget is False
+    assert view.budget_max == Decimal("1500.00")
+    assert plan.status is PlanStatus.NEGOTIATING
+    assert uow.commits == 1
+
+
+async def test_taking_a_missing_plan_is_not_found():
+    use_case, uow = take_plan(stored_plan())
+    with pytest.raises(PlanNotFound):
+        await use_case(UUID("00000000-0000-0000-0000-0000000000ff"), AGENT_ID)
+    assert uow.commits == 0
+
+
+async def test_taking_an_already_taken_plan_is_an_invalid_transition():
+    plan = stored_plan()
+    plan.take(AGENT_ID, LATER)
+    use_case, uow = take_plan(plan)
+    with pytest.raises(InvalidTransition):
+        await use_case(plan.id, OTHER_AGENT)
+    assert uow.commits == 0
+
+
+async def test_the_assigned_agent_reads_the_plan_with_partners():
+    plan = stored_plan()
+    plan.take(AGENT_ID, LATER)
+    view = await GetAgentPlan(FakePlans(plan), FakeCatalog(), FakeTrips())(plan.id, AGENT_ID)
+    assert view.items[0].partner_name == "Elounda Bay House"
+    assert view.items[0].negotiated_price is None
+
+
+async def test_another_agent_cannot_read_a_taken_plan():
+    plan = stored_plan()
+    plan.take(AGENT_ID, LATER)
+    with pytest.raises(PermissionDenied):
+        await GetAgentPlan(FakePlans(plan), FakeCatalog(), FakeTrips())(plan.id, OTHER_AGENT)
+
+
+def set_item(plan: Plan) -> tuple[SetItemPrice, FakeUow]:
+    uow = FakeUow()
+    return (
+        SetItemPrice(FakePlans(plan), FakeCatalog(), FakeTrips(), uow, FixedClock()),
+        uow,
+    )
+
+
+async def test_the_assigned_agent_sets_a_price():
+    plan = stored_plan()
+    plan.take(AGENT_ID, NOW)
+    use_case, uow = set_item(plan)
+
+    view = await use_case(
+        SetItemCommand(plan.id, plan.items[0].id, AGENT_ID, Decimal("120.00"), False)
+    )
+
+    assert view.items[0].negotiated_price == Decimal("120.00")
+    assert view.total == Decimal("120.00")
+    assert view.over_budget is False
+    assert uow.commits == 1
+
+
+async def test_a_total_above_budget_is_flagged():
+    plan = stored_plan()
+    plan.take(AGENT_ID, NOW)
+    use_case, _uow = set_item(plan)
+
+    view = await use_case(
+        SetItemCommand(plan.id, plan.items[0].id, AGENT_ID, Decimal("2000.00"), False)
+    )
+
+    assert view.over_budget is True
+    assert view.total == Decimal("2000.00")
+
+
+async def test_the_assigned_agent_removes_an_item():
+    plan = Plan.propose(
+        WISH_ID,
+        True,
+        "Sun and sea",
+        [DraftItem(HOTEL_ID, 1, 2, None), DraftItem(HOTEL_ID, 3, 1, "Boat")],
+        4,
+        NOW,
+    )
+    plan.request_quote(NOW)
+    plan.take(AGENT_ID, NOW)
+    use_case, uow = set_item(plan)
+
+    view = await use_case(SetItemCommand(plan.id, plan.items[1].id, AGENT_ID, None, True))
+
+    assert view.items[1].removed is True
+    assert uow.commits == 1
+
+
+async def test_another_agent_cannot_set_a_price():
+    plan = stored_plan()
+    plan.take(AGENT_ID, NOW)
+    use_case, uow = set_item(plan)
+    with pytest.raises(PermissionDenied):
+        await use_case(
+            SetItemCommand(plan.id, plan.items[0].id, OTHER_AGENT, Decimal("10.00"), False)
+        )
+    assert uow.commits == 0

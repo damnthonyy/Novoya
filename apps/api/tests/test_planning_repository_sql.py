@@ -229,3 +229,62 @@ async def test_save_of_a_stale_read_does_not_wipe_an_agent_take(engine, wish_id,
     assert read is not None
     assert read.status is PlanStatus.NEGOTIATING
     assert read.assigned_agent_id == agent_id
+
+
+async def test_list_by_status_returns_requested_plans_oldest_first(engine, wish_id, offer_ids):
+    hotel, _boat = offer_ids
+    first = Plan.propose(wish_id, True, "First", [DraftItem(hotel, 1, 7, None)], 8, NOW)
+    second = Plan.propose(
+        wish_id,
+        True,
+        "Second",
+        [DraftItem(hotel, 1, 7, None)],
+        8,
+        datetime(2026, 10, 19, 10, 0, tzinfo=UTC),
+    )
+    first.request_quote(NOW)
+    second.request_quote(datetime(2026, 10, 19, 10, 0, tzinfo=UTC))
+    await add_plan(engine, second)
+    await add_plan(engine, first)
+
+    async with new_session(engine) as session:
+        listed = await SqlPlanRepository(session).list_by_status(PlanStatus.REQUESTED)
+
+    assert [plan.id for plan in listed] == [first.id, second.id]
+    assert all(plan.status is PlanStatus.REQUESTED for plan in listed)
+
+
+async def test_a_second_take_does_not_steal_the_plan(engine, wish_id, offer_ids):
+    hotel, _boat = offer_ids
+    later = datetime(2026, 10, 19, 10, 0, tzinfo=UTC)
+    first_agent, second_agent = uuid4(), uuid4()
+    plan = Plan.propose(wish_id, True, "Sun and sea", [DraftItem(hotel, 1, 7, None)], 8, NOW)
+    plan.request_quote(NOW)
+    await add_plan(engine, plan)
+    async with new_session(engine) as session:
+        session.add_all(
+            [
+                UserModel(id=first_agent, email=f"{first_agent}@example.com", created_at=NOW),
+                UserModel(id=second_agent, email=f"{second_agent}@example.com", created_at=NOW),
+            ]
+        )
+        await session.commit()
+
+    async with new_session(engine) as first:
+        first_repo = SqlPlanRepository(first)
+        held = await first_repo.get(plan.id)
+        async with new_session(engine) as second:
+            second_repo = SqlPlanRepository(second)
+            rival = await second_repo.get(plan.id)
+            await second.commit()
+            rival.take(second_agent, later)
+            await second_repo.save(rival)
+            await second.commit()
+        held.take(first_agent, later)
+        with pytest.raises(InvalidTransition):
+            await first_repo.save(held)
+
+    read = await read_plan(engine, plan.id)
+    assert read is not None
+    assert read.status is PlanStatus.NEGOTIATING
+    assert read.assigned_agent_id == second_agent
