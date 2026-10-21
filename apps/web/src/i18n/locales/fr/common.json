@@ -5,7 +5,12 @@
   "homeLink": "{{name}}, accueil",
   "footer": {
     "since": "Depuis {{year}}",
+    "destinations": "Destinations et avis",
     "legalNotices": "Mentions légales",
     "copyright": "© {{year}} {{name}}"
+  },
+  "language": {
+    "label": "Langue",
+    "failed": "La langue n’a pas pu être changée."
   }
 }

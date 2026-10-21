@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 
 import { useAgency } from '../../hooks/ui/useAgency'
 import { HomeLink } from '../molecules/HomeLink'
+import { LanguageChoice } from './LanguageChoice'
 
 const YEAR = new Date().getFullYear()
 
@@ -51,9 +52,13 @@ export function SiteFooter() {
         )}
       </address>
       <div className="grid gap-3 text-sm">
+        <Link to="/destinations" className="min-h-11 w-fit content-center text-ink underline-offset-4 hover:underline">
+          {t('footer.destinations')}
+        </Link>
         <Link to="/legal" className="min-h-11 w-fit content-center text-ink underline-offset-4 hover:underline">
           {t('footer.legalNotices')}
         </Link>
+        <LanguageChoice />
         <span className="text-xs text-muted">{t('footer.copyright', { year: YEAR, name: agency.displayName })}</span>
       </div>
     </footer>
