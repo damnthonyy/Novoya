@@ -8,6 +8,7 @@ import type { ReviewResponse } from '../api/generated/types.gen'
 import { Eyebrow } from '../components/atoms/Eyebrow'
 import { Logo } from '../components/atoms/Logo'
 import { ErrorNote } from '../components/molecules/ErrorNote'
+import { LanguageChoice } from '../components/organisms/LanguageChoice'
 import { SiteFooter } from '../components/organisms/SiteFooter'
 import { localizeCountry } from '../lib/countries'
 import { formatDay } from '../lib/format'
@@ -41,14 +42,21 @@ function DestinationsPage() {
 
   return (
     <>
-      <header className="flex h-18 items-center border-b border-line bg-paper px-5 md:h-22 md:px-[5vw]">
+      <header className="flex h-18 items-center justify-between border-b border-line bg-paper px-5 md:h-22 md:px-[5vw]">
         <Link to="/" aria-label={tCommon('homeLink')} className="flex min-h-11 items-center no-underline">
           <Logo />
         </Link>
+        <LanguageChoice />
       </header>
       {/* At least a screen tall before the reviews arrive: the footer and the scrollbar stay put. */}
       <main className="min-h-dvh bg-ivory">
-        <section className="px-5 pt-16 pb-10 md:px-[8vw] md:pt-25 md:pb-16">
+        <Link
+          to="/"
+          className="mx-5 mt-4 inline-flex min-h-11 items-center text-ink underline underline-offset-4 md:mx-[8vw] md:mt-6"
+        >
+          {t('back')}
+        </Link>
+        <section className="px-5 pt-10 pb-10 md:px-[8vw] md:pt-16 md:pb-16">
           <Eyebrow>{t('eyebrow')}</Eyebrow>
           <h1 className="m-0 text-[47px] leading-[0.98] md:text-[clamp(56px,5.6vw,82px)]">
             {t('title')}

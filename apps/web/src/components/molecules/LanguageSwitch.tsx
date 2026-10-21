@@ -17,10 +17,12 @@ type Props = {
   /** Shown when the choice could not be saved. */
   error?: string
   className?: string
+  /** White text, over a photo. */
+  light?: boolean
 }
 
 /** EN / FR, the current one pressed. Screen readers hear a "Language" group of two buttons. */
-export function LanguageSwitch({ value, onChange, busy = false, error, className }: Props) {
+export function LanguageSwitch({ value, onChange, busy = false, error, className, light = false }: Props) {
   const { t } = useTranslation()
   return (
     <div className={cn('flex flex-wrap items-center gap-x-3 gap-y-1', className)}>
@@ -35,7 +37,13 @@ export function LanguageSwitch({ value, onChange, busy = false, error, className
             onClick={() => onChange(locale)}
             className={cn(
               'min-h-11 min-w-11 px-2 text-xs font-semibold tracking-[0.15em] underline-offset-4 disabled:opacity-60',
-              value === locale ? 'text-ink underline' : 'text-muted hover:text-ink',
+              light
+                ? value === locale
+                  ? 'text-white underline'
+                  : 'text-white/75 hover:text-white'
+                : value === locale
+                  ? 'text-ink underline'
+                  : 'text-muted hover:text-ink',
             )}
           >
             {/* Voice control users say what they see: the name starts with it. */}
@@ -45,7 +53,7 @@ export function LanguageSwitch({ value, onChange, busy = false, error, className
         ))}
       </div>
       {error && (
-        <p role="alert" className="m-0 text-xs text-danger">
+        <p role="alert" className={cn('m-0 text-xs', light ? 'text-white' : 'text-danger')}>
           {error}
         </p>
       )}

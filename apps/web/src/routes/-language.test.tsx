@@ -57,7 +57,8 @@ function renderAt(url: string) {
   )
 }
 
-const languageSwitch = (name: 'Language' | 'Langue') => screen.findByRole('group', { name })
+// Public pages have a switch in the header and in the footer: the first one is enough here.
+const languageSwitch = async (name: 'Language' | 'Langue') => (await screen.findAllByRole('group', { name }))[0]
 
 describe('the language switch', () => {
   beforeEach(() => {
@@ -75,6 +76,26 @@ describe('the language switch', () => {
   afterEach(async () => {
     await waitFor(() => expect(router?.state.status).toBe('idle'))
     vi.restoreAllMocks()
+  })
+
+  it.each(['/', '/destinations'])('is in the header and the footer of %s', async (url) => {
+    renderAt(url)
+
+    const header = await screen.findByRole('banner')
+    expect(within(header).getByRole('group', { name: 'Language' })).toBeInTheDocument()
+    expect(within(screen.getByRole('contentinfo')).getByRole('group', { name: 'Language' })).toBeInTheDocument()
+  })
+
+  it('switching in the header also updates the footer', async () => {
+    renderAt('/destinations')
+
+    const header = await screen.findByRole('banner')
+    fireEvent.click(within(header).getByRole('button', { name: /Français/ }))
+
+    const footer = screen.getByRole('contentinfo')
+    await waitFor(() =>
+      expect(within(footer).getByRole('button', { name: /Français/ })).toHaveAttribute('aria-pressed', 'true'),
+    )
   })
 
   it('marks the current language', async () => {
@@ -129,7 +150,7 @@ describe('the language switch', () => {
     // The next page reads the saved user: it stays in French.
     fireEvent.click(screen.getAllByRole('link', { name: 'Composer' })[0])
     await waitFor(() => expect(router?.state.location.pathname).not.toBe('/trips'))
-    await waitFor(() => expect(screen.getByRole('group', { name: 'Langue' })).toBeInTheDocument())
+    await waitFor(() => expect(screen.getAllByRole('group', { name: 'Langue' }).length).toBeGreaterThan(0))
     expect(i18n.language).toBe('fr')
   })
 
