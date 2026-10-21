@@ -1,9 +1,10 @@
-import { useQuery } from '@tanstack/react-query'
-import { createFileRoute } from '@tanstack/react-router'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { createFileRoute, useNavigate } from '@tanstack/react-router'
+import { useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 
-import { ApiError } from '../../../../api/errors'
-import { getPlanOptions } from '../../../../api/generated/@tanstack/react-query.gen'
+import { ApiError, isUnauthenticated } from '../../../../api/errors'
+import { getMeQueryKey, getPlanOptions } from '../../../../api/generated/@tanstack/react-query.gen'
 import type { Plan } from '../../../../api/generated/types.gen'
 import { Button } from '../../../../components/atoms/Button'
 import { Eyebrow } from '../../../../components/atoms/Eyebrow'
@@ -34,14 +35,29 @@ function NotFound() {
 /** The plan built from the client's answers, as GET /plans/{id} gives it. */
 function PlanPage({ planId }: { planId: string }) {
   const { t } = useTranslation('plan')
+  const navigate = useNavigate()
+  const queryClient = useQueryClient()
   const plan = useQuery({ ...getPlanOptions({ path: { plan_id: planId } }), retry: false })
+  const signedOut = isUnauthenticated(plan.error)
 
-  // 404: not the caller's plan, or no such plan. 422: the id is not even a plan id.
-  const missing = plan.error instanceof ApiError && (plan.error.status === 404 || plan.error.status === 422)
+  // The session ended while on the page: sign in again and come back here. The cached /me
+  // goes first, or the sign-in page would see a session and send the client straight back.
+  // The way back is built from the id, not the current location: that one turns into /login
+  // while navigating, and would nest redirect after redirect.
+  useEffect(() => {
+    if (!signedOut) return
+    queryClient.removeQueries({ queryKey: getMeQueryKey() })
+    void navigate({ to: '/login', search: { redirect: `/plans/${encodeURIComponent(planId)}` }, replace: true })
+  }, [signedOut, queryClient, navigate, planId])
+
+  // 404: not the caller's plan, or no such plan. 403: not a client (an agent, an admin).
+  // 422: the id is not even a plan id. Trying again would never change these.
+  const missing = plan.error instanceof ApiError && [403, 404, 422].includes(plan.error.status)
 
   return (
     <AppShell>
-      {plan.isPending ? (
+      {/* Also while trying again after a failure: the click shows that something happens. */}
+      {plan.isPending || signedOut || (plan.isError && plan.isFetching) ? (
         <p className="px-5 pt-32 text-muted md:px-[8vw]">{t('live.loading')}</p>
       ) : missing ? (
         <NotFound />

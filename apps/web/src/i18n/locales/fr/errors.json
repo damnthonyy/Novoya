@@ -43,7 +43,9 @@
     "unknown": "Vos préférences n’ont pas pu être envoyées. Réessayez dans un instant.",
     "startInPast": "Le départ ne peut pas être dans le passé.",
     "tripTooLong": "Un voyage dure 366 jours au plus.",
-    "planFailed": "Nous n’avons pas pu composer votre plan. Vos réponses sont toujours là : réessayez dans un instant."
+    "planFailed": "Nous n’avons pas pu composer votre plan. Vos réponses sont toujours là : réessayez dans un instant.",
+    "connectionLost": "La connexion a été perdue pendant la composition de votre plan. Il est peut-être prêt malgré tout : patientez une minute, puis renvoyez.",
+    "inProgress": "Votre plan est encore en cours de composition. Patientez un instant, puis renvoyez."
   },
   "account": {
     "invalid_email": "Cette adresse e-mail ne semble pas valide.",

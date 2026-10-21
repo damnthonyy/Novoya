@@ -78,11 +78,8 @@ function PreferencesForm({ wishId, text, panel }: { wishId: string; text: string
 
   // The plan is built while the request runs (up to a minute): the waiting screen replaces the
   // form meanwhile. The answers stay in this component's state, so a failure brings the form
-  // back filled in. `replace`: going back must not reopen a panel already answered.
-  const answer = useMutation({
-    ...answerPanelMutation(),
-    onSuccess: (plan) => navigate({ to: '/plans/$planId', params: { planId: plan.id }, replace: true }),
-  })
+  // back filled in.
+  const answer = useMutation(answerPanelMutation())
 
   // On a phone the message is below a long form: bring it into view.
   useEffect(() => {
@@ -96,17 +93,23 @@ function PreferencesForm({ wishId, text, panel }: { wishId: string; text: string
     const found = constraintsErrors(constraints, localIsoDate())
     setErrors(found)
     if (Object.keys(found).length > 0 || answer.isPending) return
-    answer.mutate({
-      path: { wish_id: wishId },
-      body: {
-        selected_tags: selectedTags(selection),
-        budget_max: parseBudget(constraints.budget)!,
-        currency: 'EUR',
-        persons: constraints.persons,
-        start_date: constraints.startDate,
-        end_date: constraints.endDate,
+    answer.mutate(
+      {
+        path: { wish_id: wishId },
+        body: {
+          selected_tags: selectedTags(selection),
+          budget_max: parseBudget(constraints.budget)!,
+          currency: 'EUR',
+          persons: constraints.persons,
+          start_date: constraints.startDate,
+          end_date: constraints.endDate,
+        },
       },
-    })
+      // Here and not in useMutation: this one does not run once the client has left the page,
+      // so a plan ready later never pulls them away from where they went. `replace`: going
+      // back must not reopen a panel already answered.
+      { onSuccess: (plan) => navigate({ to: '/plans/$planId', params: { planId: plan.id }, replace: true }) },
+    )
   }
 
   const labels = new Map(panel.sections.flatMap((section) => section.tags.map((tag) => [`${section.id}:${tag.id}`, tag.label])))

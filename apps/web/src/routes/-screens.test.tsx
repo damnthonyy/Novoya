@@ -57,6 +57,8 @@ const PLAN: Plan = {
 }
 
 let me: MeResponse
+let signedIn: boolean
+let planAnswer: (path: string) => Response | Promise<Response>
 let users: UserResponse[]
 let requests: { method: string; path: string; search: string; body?: unknown }[]
 
@@ -66,10 +68,11 @@ function mockApi() {
     const url = new URL(request.url)
     const body = request.method === 'GET' ? undefined : await request.clone().json().catch(() => undefined)
     requests.push({ method: request.method, path: url.pathname, search: url.search, body })
-    if (url.pathname === '/me') return Response.json(me)
+    if (url.pathname === '/me') {
+      return signedIn ? Response.json(me) : Response.json({ code: 'unauthenticated', detail: 'no session' }, { status: 401 })
+    }
     if (url.pathname === '/admin/users') return Response.json(users)
-    if (url.pathname === `/plans/${PLAN_ID}`) return Response.json(PLAN)
-    if (url.pathname.startsWith('/plans/')) return Response.json({ code: 'plan_not_found', detail: 'no plan' }, { status: 404 })
+    if (url.pathname.startsWith('/plans/') && request.method === 'GET') return planAnswer(url.pathname)
     const role = url.pathname.match(/^\/admin\/users\/([^/]+)\/role$/)
     if (role && request.method === 'PATCH') {
       const next = (body as { role: UserResponse['role'] }).role
@@ -97,7 +100,14 @@ describe('back-office and plan screens', () => {
   beforeEach(() => {
     client.setConfig({ baseUrl: 'http://api.test' })
     me = ADMIN
+    signedIn = true
     users = [ADMIN, LEA]
+    planAnswer = (path) =>
+      path === `/plans/${PLAN_ID}`
+        ? Response.json(PLAN)
+        : path === '/plans/foo'
+          ? Response.json({ code: 'invalid_input', detail: 'plan_id: not a UUID' }, { status: 422 })
+          : Response.json({ code: 'plan_not_found', detail: 'no plan' }, { status: 404 })
     requests = []
     mockApi()
   })
@@ -221,6 +231,42 @@ describe('back-office and plan screens', () => {
     renderAt('/plans/00000000-0000-4000-8000-000000000099')
 
     expect(await screen.findByText("This preview doesn't exist.")).toBeInTheDocument()
+  })
+
+  it.each([
+    ['an id that is no plan id', '/plans/foo'],
+    ['a plan the caller may not read', `/plans/${PLAN_ID}`],
+  ])('says the plan does not exist for %s, with no retry', async (_, url) => {
+    if (url.endsWith(PLAN_ID)) planAnswer = () => Response.json({ code: 'forbidden', detail: 'clients only' }, { status: 403 })
+    renderAt(url)
+
+    expect(await screen.findByText("This preview doesn't exist.")).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Try again' })).not.toBeInTheDocument()
+  })
+
+  it('lets the client try again when the plan could not be loaded', async () => {
+    planAnswer = () => Response.json({ code: 'unknown', detail: 'boom' }, { status: 500 })
+    renderAt(`/plans/${PLAN_ID}`)
+
+    expect(await screen.findByText('Your plan could not be loaded.')).toBeInTheDocument()
+    let finish!: (response: Response) => void
+    planAnswer = () => new Promise((resolve) => (finish = resolve))
+    fireEvent.click(screen.getByRole('button', { name: 'Try again' }))
+
+    expect(await screen.findByText('Loading your plan…')).toBeInTheDocument()
+    finish(Response.json(PLAN))
+    expect(await screen.findByText(PLAN.summary)).toBeInTheDocument()
+  })
+
+  it('sends to the sign-in page when the session ended, to come back after', async () => {
+    planAnswer = () => {
+      signedIn = false
+      return Response.json({ code: 'unauthenticated', detail: 'no session' }, { status: 401 })
+    }
+    const { router } = renderAt(`/plans/${PLAN_ID}`)
+
+    await waitFor(() => expect(router.state.location.pathname).toBe('/login'))
+    expect(router.state.location.search).toEqual({ redirect: `/plans/${PLAN_ID}` })
   })
 
   it('does not lead from the plan to a priced quote', async () => {

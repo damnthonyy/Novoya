@@ -391,6 +391,48 @@ describe('the preferences panel', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent('Check the dates and the budget')
   })
 
+  it('says the plan may still be ready when the connection drops, keeping the answers', async () => {
+    answersAnswer = () => {
+      throw new TypeError('Failed to fetch')
+    }
+    renderAt(`/wish/${WISH_ID}/preferences`, withWish)
+    await screen.findByRole('heading', { name: /What matters/ })
+    fillConstraints()
+
+    fireEvent.click(screen.getByRole('button', { name: /Compose my preview/ }))
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('It may still be ready')
+    expect(screen.getByLabelText('Departure')).toHaveValue('2027-05-12')
+  })
+
+  it('asks to wait when the plan is still being composed by an earlier sending', async () => {
+    answersAnswer = () => Response.json({ code: 'answer_in_progress', detail: 'busy' }, { status: 409 })
+    renderAt(`/wish/${WISH_ID}/preferences`, withWish)
+    await screen.findByRole('heading', { name: /What matters/ })
+    fillConstraints()
+
+    fireEvent.click(screen.getByRole('button', { name: /Compose my preview/ }))
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('Your plan is still being composed')
+  })
+
+  it('leaves the client where they went when the plan is ready after they left', async () => {
+    let finish!: (response: Response) => void
+    answersAnswer = () => new Promise((resolve) => (finish = resolve))
+    const { router } = renderAt(`/wish/${WISH_ID}/preferences`, withWish)
+    await screen.findByRole('heading', { name: /What matters/ })
+    fillConstraints()
+    fireEvent.click(screen.getByRole('button', { name: /Compose my preview/ }))
+    await screen.findByRole('heading', { name: /Setting the evenings/ })
+
+    await router.navigate({ to: '/wish' })
+    finish(Response.json(PLAN, { status: 201 }))
+
+    await waitFor(() => expect(posts(`/wishes/${WISH_ID}/answers`)).toHaveLength(1))
+    await new Promise((resolve) => setTimeout(resolve, 50))
+    expect(router.state.location.pathname).toBe('/wish')
+  })
+
   it('sends back to the wish when the panel is no longer known (page reloaded)', async () => {
     renderAt(`/wish/${WISH_ID}/preferences`)
 
