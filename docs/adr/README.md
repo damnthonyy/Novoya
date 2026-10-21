@@ -18,3 +18,4 @@ below. An accepted ADR is never rewritten to change the decision: a new ADR repl
 | [0010](0010-email-password-sign-in.md) | Sign-in with email and password, next to Google | Accepted |
 | [0011](0011-same-origin-api-proxy.md) | The browser reaches the API under /api on the web app's origin | Accepted |
 | [0012](0012-i18n-i18next.md) | i18next for the web app's translations, one file per language and screen | Proposed |
+| [0013](0013-host-the-demo-on-render.md) | Host the demo on Render: static web app, Docker API, managed PostgreSQL | Proposed |

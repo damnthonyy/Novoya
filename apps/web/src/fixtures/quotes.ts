@@ -1,4 +1,5 @@
 // Demo data until the API exists (issue #54, see the quote and accept or reject it).
+import { daysFromToday } from './demoDates'
 
 // Line labels are written by the agent. Amounts are whole euros.
 export type QuoteLine = { label: string; amount: number }
@@ -25,9 +26,9 @@ const DEMO: Quote = {
   destination: 'Chania',
   agentName: 'Léa',
   validDays: 7,
-  issuedAt: '2026-10-20',
-  startDate: '2026-05-12',
-  endDate: '2026-05-19',
+  issuedAt: daysFromToday(-1),
+  startDate: daysFromToday(60),
+  endDate: daysFromToday(66),
   travellers: 2,
   days: 7,
   nights: 6,
