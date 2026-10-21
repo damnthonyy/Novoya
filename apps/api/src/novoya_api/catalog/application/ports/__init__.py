@@ -2,7 +2,7 @@ from collections.abc import Sequence
 from typing import Protocol
 from uuid import UUID
 
-from novoya_api.catalog.domain import Offer, Partner
+from novoya_api.catalog.domain import Extra, Offer, Partner, Review
 
 
 class PartnerRepository(Protocol):
@@ -42,3 +42,17 @@ class OfferRepository(Protocol):
     async def add(self, offer: Offer) -> None: ...
 
     async def save(self, offer: Offer) -> None: ...
+
+
+class ReviewRepository(Protocol):
+    async def list_at(self, country: str | None, city: str | None, limit: int) -> list[Review]:
+        """Newest first, at most `limit`. None for country or city means any."""
+        ...
+
+
+class ExtraRepository(Protocol):
+    async def list_active(self) -> list[Extra]: ...
+
+    async def list_active_by_ids(self, ids: Sequence[UUID]) -> list[Extra]:
+        """Active extras by id, in that order. Inactive and unknown ids are omitted."""
+        ...

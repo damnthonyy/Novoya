@@ -374,6 +374,42 @@ async def test_admin_can_create_list_and_deactivate_a_partner(app, client):
     assert patched.json()["active"] is False
 
 
+async def test_admin_can_create_a_partner_without_a_phone(app, client):
+    partners = FakePartners()
+    _as_agent(app, partners)
+
+    created = await client.post(
+        "/admin/partners",
+        json={
+            "name": "No Phone Lodge",
+            "kind": "hotel",
+            "country": "Greece",
+            "city": "Chania",
+            "contact_email": "hello@nophone.example",
+        },
+    )
+
+    assert created.status_code == 201
+    assert created.json()["contact_phone"] is None
+
+
+async def test_create_partner_without_a_phone_stores_none():
+    partners = FakePartners()
+
+    created = await CreatePartner(partners, FakeUow())(
+        CreatePartnerCommand(
+            name="No Phone Lodge",
+            kind=PartnerKind.HOTEL,
+            country="Greece",
+            city="Chania",
+            contact_email="hello@nophone.example",
+            contact_phone=None,
+        )
+    )
+
+    assert created.contact_phone is None
+
+
 async def test_admin_offer_create_needs_a_partner(app, client):
     _as_agent(app, FakePartners())
 

@@ -15,16 +15,16 @@ class Partner:
     country: str
     city: str
     contact_email: str
-    contact_phone: str
+    contact_phone: str | None  # DÉTOUR partners have none: the agent writes to the email
     active: bool
 
     def __post_init__(self) -> None:
+        if self.contact_phone is not None and not self.contact_phone.strip():
+            object.__setattr__(self, "contact_phone", None)
         if not self.name.strip():
             raise InvalidPartner("name is empty")
         if not self.contact_email.strip() or "@" not in self.contact_email:
             raise InvalidPartner("contact email is invalid")
-        if not self.contact_phone.strip():
-            raise InvalidPartner("contact phone is empty")
 
     def lists_offers(self) -> bool:
         return self.active

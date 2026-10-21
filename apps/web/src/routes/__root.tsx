@@ -15,6 +15,7 @@ import { Logo } from '../components/atoms/Logo'
 import { ErrorNote } from '../components/molecules/ErrorNote'
 import { resolveLocale } from '../domain/i18n/locale'
 import i18n from '../i18n'
+import { readStoredLocale } from '../i18n/storedLocale'
 
 export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()({
   component: RootLayout,
@@ -27,10 +28,11 @@ function RootLayout() {
     select: (state) => state.matches.find((match) => match.routeId === '/_authenticated')?.context.me,
   })
 
-  // The signed-in user's locale wins; signed out (e.g. on /login), the browser's language.
+  // The signed-in user's locale wins; signed out (e.g. on /login), the language chosen with
+  // the switch on this browser, else the browser's language.
   // The /_authenticated guard already switches before a signed-in page renders; this keeps
   // the language right when there is no user any more, for example after signing out.
-  const locale = resolveLocale(me?.locale, navigator.languages)
+  const locale = resolveLocale(me?.locale, navigator.languages, readStoredLocale())
   useEffect(() => {
     if (i18n.language !== locale) void i18n.changeLanguage(locale)
   }, [locale])

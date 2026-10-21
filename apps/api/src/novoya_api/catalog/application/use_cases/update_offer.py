@@ -3,10 +3,12 @@ from datetime import date
 from uuid import UUID
 
 from novoya_api.catalog.application.ports import OfferRepository
+from novoya_api.catalog.application.use_cases.create_offer import blank_to_none
 from novoya_api.catalog.domain import (
     Offer,
     OfferKind,
     OfferNotFound,
+    PriceUnit,
     normalize_place,
     normalize_tags,
 )
@@ -28,6 +30,13 @@ class UpdateOfferCommand:
     tags: tuple[str, ...] | None = None
     featured: bool | None = None
     active: bool | None = None
+    price_eur: int | None = None
+    price_unit: PriceUnit | None = None
+    opening_months: tuple[int, ...] | None = None
+    conditions: str | None = None
+    restrictions: str | None = None
+    cancellation: str | None = None
+    confirmation_delay_hours: int | None = None
 
 
 class UpdateOffer:
@@ -57,6 +66,31 @@ class UpdateOffer:
             tags=normalize_tags(cmd.tags) if cmd.tags is not None else offer.tags,
             featured=cmd.featured if cmd.featured is not None else offer.featured,
             active=cmd.active if cmd.active is not None else offer.active,
+            price_eur=cmd.price_eur if cmd.price_eur is not None else offer.price_eur,
+            price_unit=cmd.price_unit if cmd.price_unit is not None else offer.price_unit,
+            opening_months=(
+                tuple(sorted(set(cmd.opening_months)))
+                if cmd.opening_months is not None
+                else offer.opening_months
+            ),
+            conditions=blank_to_none(cmd.conditions)
+            if cmd.conditions is not None
+            else offer.conditions,
+            restrictions=(
+                blank_to_none(cmd.restrictions)
+                if cmd.restrictions is not None
+                else offer.restrictions
+            ),
+            cancellation=(
+                blank_to_none(cmd.cancellation)
+                if cmd.cancellation is not None
+                else offer.cancellation
+            ),
+            confirmation_delay_hours=(
+                cmd.confirmation_delay_hours
+                if cmd.confirmation_delay_hours is not None
+                else offer.confirmation_delay_hours
+            ),
         )
         await self._offers.save(updated)
         await self._uow.commit()

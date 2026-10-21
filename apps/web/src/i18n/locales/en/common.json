@@ -5,7 +5,12 @@
   "homeLink": "Novoya, home",
   "footer": {
     "tagline": "Tailor-made travel, with human intelligence.",
+    "destinations": "Destinations and reviews",
     "legal": "Privacy · Legal notice",
     "copyright": "© {{year}} Novoya"
+  },
+  "language": {
+    "label": "Language",
+    "failed": "The language could not be changed."
   }
 }

@@ -219,3 +219,20 @@ async def test_get_offers_keeps_order_and_inactive_rows():
         [hidden.id, skip, first.id]
     )
     assert [offer.title for offer in found] == ["Hidden", "First"]
+
+
+@pytest.mark.parametrize(
+    ("name", "country"),
+    [
+        ("Grèce", "Greece"),
+        ("greece", "Greece"),
+        ("  GRÈCE ", "Greece"),
+        ("Corée du Sud", "South Korea"),
+    ],
+)
+def test_canonical_country_reads_french_and_english_names(name, country):
+    assert public.canonical_country(name) == country
+
+
+def test_canonical_country_of_an_unknown_name_is_none():
+    assert public.canonical_country("Atlantide") is None

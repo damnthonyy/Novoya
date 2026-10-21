@@ -7,6 +7,7 @@ from novoya_api.catalog.domain import (
     Offer,
     OfferKind,
     PartnerNotFound,
+    PriceUnit,
     normalize_place,
     normalize_tags,
 )
@@ -28,6 +29,13 @@ class CreateOfferCommand:
     tags: tuple[str, ...]
     featured: bool = False
     active: bool = True
+    price_eur: int | None = None
+    price_unit: PriceUnit | None = None
+    opening_months: tuple[int, ...] = ()
+    conditions: str | None = None
+    restrictions: str | None = None
+    cancellation: str | None = None
+    confirmation_delay_hours: int | None = None
 
 
 class CreateOffer:
@@ -56,7 +64,21 @@ class CreateOffer:
             tags=normalize_tags(cmd.tags),
             featured=cmd.featured,
             active=cmd.active,
+            price_eur=cmd.price_eur,
+            price_unit=cmd.price_unit,
+            opening_months=tuple(sorted(set(cmd.opening_months))),
+            conditions=blank_to_none(cmd.conditions),
+            restrictions=blank_to_none(cmd.restrictions),
+            cancellation=blank_to_none(cmd.cancellation),
+            confirmation_delay_hours=cmd.confirmation_delay_hours,
         )
         await self._offers.add(offer)
         await self._uow.commit()
         return offer
+
+
+def blank_to_none(value: str | None) -> str | None:
+    """Stripped, and None when blank."""
+    if value is None:
+        return None
+    return value.strip() or None

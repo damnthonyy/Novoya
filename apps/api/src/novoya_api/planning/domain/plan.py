@@ -1,5 +1,5 @@
 from collections.abc import Sequence
-from dataclasses import dataclass, replace
+from dataclasses import dataclass, field, replace
 from datetime import datetime
 from decimal import Decimal
 from enum import StrEnum
@@ -39,6 +39,26 @@ class PlanItem:
     note: str | None
     negotiated_price: Decimal | None = None
     removed: bool = False
+
+
+@dataclass(frozen=True, slots=True)
+class PlanExtra:
+    """An extra the client chose when asking for the quote (a quiet room, a private guide).
+
+    pricing is the catalog's: included, supplement or on_quote. price_eur is the supplement
+    as it was then (counted once, the agent can adjust it) or the price the agent got for an
+    on_quote extra; None until then. An included extra has no price. label and unit are
+    copied too, so the agent knows what was asked even if the catalog changes; they are not
+    part of what makes two choices equal."""
+
+    extra_id: UUID
+    pricing: str
+    price_eur: Decimal | None
+    label: str = field(default="", compare=False)
+    unit: str = field(default="", compare=False)
+
+
+EXTRA_PRICINGS = ("included", "supplement", "on_quote")
 
 
 def keep_valid(drafts: Sequence[DraftItem], allowed: set[UUID], trip_days: int) -> list[DraftItem]:
@@ -97,6 +117,7 @@ class Plan:
     created_at: datetime
     updated_at: datetime
     assigned_agent_id: UUID | None = None
+    extras: tuple[PlanExtra, ...] = ()
 
     @classmethod
     def propose(
@@ -123,10 +144,17 @@ class Plan:
             uuid4(), wish_id, PlanStatus.PROPOSED, based_on_preferences, summary, items, now, now
         )
 
-    def request_quote(self, now: datetime) -> None:
-        """The client asks an agent to price this plan. Only from proposed."""
+    def request_quote(self, now: datetime, extras: Sequence[PlanExtra] = ()) -> None:
+        """The client asks an agent to price this plan, with the extras they chose. Only from
+        proposed: the extras are fixed from then on, only their prices change."""
         if self.status is not PlanStatus.PROPOSED:
             raise InvalidTransition("the plan is not proposed")
+        if len({extra.extra_id for extra in extras}) != len(extras):
+            raise InvalidPlan("an extra is chosen twice")
+        for extra in extras:
+            if extra.pricing not in EXTRA_PRICINGS:
+                raise InvalidPlan("unknown extra pricing")
+        self.extras = tuple(extras)
         self.status = PlanStatus.REQUESTED
         self.updated_at = now
 
@@ -178,15 +206,42 @@ class Plan:
         )
         self.updated_at = now
 
+    def set_extra_price(self, extra_id: UUID, by: UUID, price: Decimal, now: datetime) -> None:
+        """The assigned agent prices an on_quote extra or adjusts a supplement."""
+        self._must_be_assigned(by)
+        if price <= 0:
+            raise InvalidPlan("the price must be more than 0")
+        extra = self._extra(extra_id)
+        if extra.pricing == "included":
+            raise InvalidPlan("an included extra has no price")
+        self.extras = tuple(
+            replace(entry, price_eur=price) if entry.extra_id == extra_id else entry
+            for entry in self.extras
+        )
+        self.updated_at = now
+
     def priced_total(self) -> Decimal:
-        """The sum of kept items that already have a negotiated price."""
-        return sum(
-            (
-                item.negotiated_price
-                for item in self.items
-                if not item.removed and item.negotiated_price
-            ),
-            Decimal("0"),
+        """Kept items that already have a negotiated price, plus priced extras (each once).
+
+        An on_quote extra without a price is not counted as 0: ready_to_quote() is false."""
+        items = (
+            item.negotiated_price
+            for item in self.items
+            if not item.removed and item.negotiated_price
+        )
+        extras = (
+            extra.price_eur
+            for extra in self.extras
+            if extra.pricing != "included" and extra.price_eur is not None
+        )
+        return sum((*items, *extras), Decimal("0"))
+
+    def ready_to_quote(self) -> bool:
+        """Every kept item and every on_quote extra has a price."""
+        return all(
+            item.negotiated_price is not None for item in self.items if not item.removed
+        ) and all(
+            extra.price_eur is not None for extra in self.extras if extra.pricing == "on_quote"
         )
 
     def _must_be_assigned(self, agent_id: UUID) -> None:
@@ -194,6 +249,12 @@ class Plan:
             raise InvalidTransition("the plan is not being negotiated")
         if self.assigned_agent_id != agent_id:
             raise PermissionDenied("only the assigned agent can price this plan")
+
+    def _extra(self, extra_id: UUID) -> PlanExtra:
+        for extra in self.extras:
+            if extra.extra_id == extra_id:
+                return extra
+        raise PlanNotFound("no such extra on this plan")
 
     def _item(self, item_id: UUID) -> PlanItem:
         for item in self.items:

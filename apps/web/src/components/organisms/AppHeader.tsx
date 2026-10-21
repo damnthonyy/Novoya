@@ -10,6 +10,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '../ui/dropdown-menu'
+import { LanguageChoice } from './LanguageChoice'
 
 export type Role = 'client' | 'agent' | 'admin'
 
@@ -56,42 +57,45 @@ export function AppHeader({ userName, role = 'client', onSignOut, signingOut = f
                 </Link>
               )}
             </nav>
-            <DropdownMenu>
-              <DropdownMenuTrigger className="flex min-h-11 items-center gap-2.5 rounded-full text-sm">
-                <Avatar name={userName} />
-                <span className="hidden max-w-48 truncate lg:inline">{userName}</span>
-                <span aria-hidden="true">⌄</span>
-                <span className="sr-only lg:hidden">{t('accountMenu')}</span>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-52 rounded-none border-0 p-2.5 shadow-menu">
-                {/* Below lg the nav is hidden, so its links live here. */}
-                <div className="lg:hidden">
-                  <DropdownMenuItem asChild>
-                    <Link to="/wish">{t('compose')}</Link>
-                  </DropdownMenuItem>
-                  <DropdownMenuItem asChild>
-                    <Link to="/trips">{t('myTrips')}</Link>
-                  </DropdownMenuItem>
-                  {role !== 'client' && (
+            <div className="flex items-center gap-2 md:gap-4">
+              <LanguageChoice />
+              <DropdownMenu>
+                <DropdownMenuTrigger className="flex min-h-11 items-center gap-2.5 rounded-full text-sm">
+                  <Avatar name={userName} />
+                  <span className="hidden max-w-48 truncate lg:inline">{userName}</span>
+                  <span aria-hidden="true">⌄</span>
+                  <span className="sr-only lg:hidden">{t('accountMenu')}</span>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-52 rounded-none border-0 p-2.5 shadow-menu">
+                  {/* Below lg the nav is hidden, so its links live here. */}
+                  <div className="lg:hidden">
                     <DropdownMenuItem asChild>
-                      <Link to="/agent">{t('agencySpace')}</Link>
+                      <Link to="/wish">{t('compose')}</Link>
                     </DropdownMenuItem>
-                  )}
-                  {role === 'admin' && (
                     <DropdownMenuItem asChild>
-                      <Link to="/admin">{t('administration')}</Link>
+                      <Link to="/trips">{t('myTrips')}</Link>
                     </DropdownMenuItem>
-                  )}
-                  <DropdownMenuSeparator />
-                </div>
-                <DropdownMenuItem asChild>
-                  <Link to="/settings">{t('settings')}</Link>
-                </DropdownMenuItem>
-                <DropdownMenuItem disabled={signingOut} onSelect={onSignOut}>
-                  {signingOut ? t('signingOut') : t('signOut')}
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+                    {role !== 'client' && (
+                      <DropdownMenuItem asChild>
+                        <Link to="/agent">{t('agencySpace')}</Link>
+                      </DropdownMenuItem>
+                    )}
+                    {role === 'admin' && (
+                      <DropdownMenuItem asChild>
+                        <Link to="/admin">{t('administration')}</Link>
+                      </DropdownMenuItem>
+                    )}
+                    <DropdownMenuSeparator />
+                  </div>
+                  <DropdownMenuItem asChild>
+                    <Link to="/settings">{t('settings')}</Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem disabled={signingOut} onSelect={onSignOut}>
+                    {signingOut ? t('signingOut') : t('signOut')}
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
           </>
         )}
       </div>
