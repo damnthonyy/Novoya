@@ -3,7 +3,7 @@ from datetime import date
 from typing import Protocol
 from uuid import UUID
 
-from novoya_api.planning.application.dto import OfferSummary
+from novoya_api.planning.application.dto import OfferContact, OfferSummary
 
 
 class OfferCatalog(Protocol):
@@ -24,4 +24,8 @@ class OfferCatalog(Protocol):
 
     async def summaries_for(self, offer_ids: Sequence[UUID]) -> list[OfferSummary]:
         """Offers by id, even inactive: a saved plan still has to show their titles."""
+        ...
+
+    async def contacts_for(self, offer_ids: Sequence[UUID]) -> list[OfferContact]:
+        """Offers by id with the partner's name and contact, for the assigned agent."""
         ...

@@ -5,7 +5,7 @@ from uuid import UUID
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from novoya_api.catalog.public import get_offers, search_offers
-from novoya_api.planning.application.dto import OfferSummary
+from novoya_api.planning.application.dto import OfferContact, OfferSummary
 
 
 class PartnerOffers:
@@ -49,6 +49,21 @@ class PartnerOffers:
                 description=offer.description,
                 tags=tuple(offer.tags),
                 featured=offer.featured,
+            )
+            for offer in views
+        ]
+
+    async def contacts_for(self, offer_ids: Sequence[UUID]) -> list[OfferContact]:
+        views = await get_offers(offer_ids, session=self._session)
+        return [
+            OfferContact(
+                id=offer.id,
+                kind=str(offer.kind),
+                title=offer.title,
+                description=offer.description,
+                partner_name=offer.partner_name,
+                partner_contact_email=offer.partner_contact_email,
+                partner_contact_phone=offer.partner_contact_phone,
             )
             for offer in views
         ]

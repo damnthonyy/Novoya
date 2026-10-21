@@ -25,7 +25,7 @@ from novoya_api.wishes.domain.panel import Panel
 from novoya_api.wishes.domain.wish import Destination, Wish, WishStatus
 from novoya_api.wishes.infrastructure.db.models import WishModel
 from novoya_api.wishes.infrastructure.db.repository import SqlWishRepository
-from novoya_api.wishes.public import owner_id
+from novoya_api.wishes.public import owner_id, trips
 from tests.test_catalog_sql import database_url  # noqa: F401  (fixture)
 
 NOW = datetime(2026, 10, 19, 9, 0, tzinfo=UTC)
@@ -113,6 +113,50 @@ async def test_owner_id_returns_the_owner(engine, user_id):
 async def test_owner_id_returns_none_for_an_unknown_wish(engine):
     async with new_session(engine) as session:
         assert await owner_id(uuid4(), session=session) is None
+
+
+async def test_trips_returns_text_place_and_answers(engine, user_id):
+    wish = shown_wish(user_id)
+    wish.answer(ANSWERS, LATER)
+    await add_wish(engine, wish)
+
+    missing = uuid4()
+    async with new_session(engine) as session:
+        found = await trips([wish.id, missing], session=session)
+
+    assert found[wish.id].text == "A week in Lisbon"
+    assert found[wish.id].country == "Portugal"
+    assert found[wish.id].city == "Lisbon"
+    assert found[wish.id].budget_max == Decimal("1500.50")
+    assert found[wish.id].persons == 2
+    assert missing not in found
+
+
+async def test_trips_of_a_draft_has_text_and_no_place_or_answers(engine, user_id):
+    wish = Wish.create(user_id, "Somewhere warm", NOW)
+    await add_wish(engine, wish)
+
+    async with new_session(engine) as session:
+        found = await trips([wish.id], session=session)
+
+    trip = found[wish.id]
+    assert trip.text == "Somewhere warm"
+    assert trip.country is None
+    assert trip.city is None
+    assert trip.budget_max is None
+    assert trip.persons is None
+    assert trip.start_date is None
+
+
+async def test_list_by_ids_keeps_order_and_drops_missing(engine, user_id):
+    first, second = shown_wish(user_id), shown_wish(user_id)
+    await add_wish(engine, first)
+    await add_wish(engine, second)
+
+    async with new_session(engine) as session:
+        listed = await SqlWishRepository(session).list_by_ids([second.id, uuid4(), first.id])
+
+    assert [wish.id for wish in listed] == [second.id, first.id]
 
 
 async def test_save_stores_the_answers(engine, user_id):
