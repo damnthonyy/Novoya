@@ -60,10 +60,15 @@ const ACCOUNT_ERROR_CODES = [
 ] as const
 
 type AccountErrorCode = (typeof ACCOUNT_ERROR_CODES)[number]
-export type AccountErrorKey = `account.${AccountErrorCode | 'unknown'}`
+type AccountNameErrorCode =
+  | 'first_name_required'
+  | 'first_name_too_long'
+  | 'last_name_required'
+  | 'last_name_too_long'
+export type AccountErrorKey = `account.${AccountErrorCode | AccountNameErrorCode | 'unknown'}`
 
 /** The field an error belongs to. Without one, the form shows it above its button. */
-export type AccountErrorField = 'email' | 'password' | 'currentPassword'
+export type AccountErrorField = 'email' | 'password' | 'currentPassword' | 'firstName' | 'lastName'
 
 const FIELD_OF: Partial<Record<AccountErrorCode, AccountErrorField>> = {
   invalid_email: 'email',
@@ -81,4 +86,24 @@ export function accountError(code: string | undefined): { key: AccountErrorKey; 
   if (!known || !KNOWN_ACCOUNT.has(known)) return { key: 'account.unknown' }
   const accountCode = known as AccountErrorCode
   return { key: `account.${accountCode}`, field: FIELD_OF[accountCode] }
+}
+
+/** 422 invalid_input on first_name / last_name: one message per field, from the API detail. */
+export function invalidInputFieldErrors(
+  detail: string,
+): Partial<Record<AccountErrorField, AccountErrorKey>> {
+  const errors: Partial<Record<AccountErrorField, AccountErrorKey>> = {}
+  const first = nameIssue(detail, 'first_name')
+  if (first === 'too_long') errors.firstName = 'account.first_name_too_long'
+  else if (first) errors.firstName = 'account.first_name_required'
+  const last = nameIssue(detail, 'last_name')
+  if (last === 'too_long') errors.lastName = 'account.last_name_too_long'
+  else if (last) errors.lastName = 'account.last_name_required'
+  return errors
+}
+
+function nameIssue(detail: string, loc: string): 'required' | 'too_long' | undefined {
+  const part = detail.split('; ').find((item) => item.startsWith(`${loc}:`))
+  if (!part) return undefined
+  return part.includes('at most 100') ? 'too_long' : 'required'
 }

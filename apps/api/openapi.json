@@ -670,10 +670,32 @@
             "title": "Email Verified",
             "type": "boolean"
           },
+          "first_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "First Name"
+          },
           "id": {
             "format": "uuid",
             "title": "Id",
             "type": "string"
+          },
+          "last_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Name"
           },
           "locale": {
             "enum": [
@@ -727,6 +749,8 @@
           "id",
           "email",
           "name",
+          "first_name",
+          "last_name",
           "role",
           "locale",
           "status",
@@ -1332,6 +1356,18 @@
             "title": "Email",
             "type": "string"
           },
+          "first_name": {
+            "maxLength": 100,
+            "minLength": 1,
+            "title": "First Name",
+            "type": "string"
+          },
+          "last_name": {
+            "maxLength": 100,
+            "minLength": 1,
+            "title": "Last Name",
+            "type": "string"
+          },
           "locale": {
             "anyOf": [
               {
@@ -1347,18 +1383,6 @@
             ],
             "title": "Locale"
           },
-          "name": {
-            "anyOf": [
-              {
-                "maxLength": 200,
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Name"
-          },
           "password": {
             "format": "password",
             "title": "Password",
@@ -1368,7 +1392,9 @@
         },
         "required": [
           "email",
-          "password"
+          "password",
+          "first_name",
+          "last_name"
         ],
         "title": "RegisterRequest",
         "type": "object"
@@ -1802,10 +1828,32 @@
             "title": "Email Verified",
             "type": "boolean"
           },
+          "first_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "First Name"
+          },
           "id": {
             "format": "uuid",
             "title": "Id",
             "type": "string"
+          },
+          "last_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Name"
           },
           "locale": {
             "enum": [
@@ -1848,6 +1896,8 @@
           "id",
           "email",
           "name",
+          "first_name",
+          "last_name",
           "role",
           "locale",
           "status",

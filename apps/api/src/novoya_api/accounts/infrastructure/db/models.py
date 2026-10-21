@@ -32,6 +32,8 @@ class UserModel(Base):
     id: Mapped[UUID] = mapped_column(Uuid, primary_key=True)
     email: Mapped[str] = mapped_column(String(254), unique=True)  # always stored lowercased
     name: Mapped[str | None] = mapped_column(String(200))
+    first_name: Mapped[str | None] = mapped_column(String(100))
+    last_name: Mapped[str | None] = mapped_column(String(100))
     role: Mapped[str] = mapped_column(String(20), index=True, server_default="client")
     locale: Mapped[str] = mapped_column(String(2), server_default="en")
     status: Mapped[str] = mapped_column(String(20), server_default="active")

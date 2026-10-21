@@ -33,6 +33,8 @@ def id_token(key: RSAKey = KEY, kid: str = "key-1", alg: str = "RS256", **overri
         "email": "Alice@Example.com",
         "email_verified": True,
         "name": "Alice Martin",
+        "given_name": "Alice",
+        "family_name": "Martin",
         "locale": "fr",
         "nonce": "nonce-1",
         "iat": int(NOW.timestamp()),
@@ -124,6 +126,8 @@ async def test_valid_id_token_gives_the_identity(google, mock_google):
     assert identity.email_verified is True
     assert identity.email_authoritative is False  # example.com is not Google's
     assert identity.name == "Alice Martin"
+    assert identity.first_name == "Alice"
+    assert identity.last_name == "Martin"
     assert identity.locale == "fr"
 
 
@@ -156,11 +160,13 @@ async def test_unverified_email_is_passed_on_for_the_use_case_to_refuse(google, 
 
 
 async def test_missing_name_and_locale_are_none(google, mock_google):
-    answer_with(mock_google, id_token(name=None, locale=None))
+    answer_with(mock_google, id_token(name=None, given_name=None, family_name=None, locale=None))
 
     identity = await fetch(google)
 
     assert identity.name is None
+    assert identity.first_name is None
+    assert identity.last_name is None
     assert identity.locale is None
 
 

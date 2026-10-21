@@ -56,6 +56,10 @@
     "no_password_set": "This account has no password yet.",
     "account_disabled": "This account is disabled.",
     "too_many_attempts": "Too many attempts. Please wait a moment and try again.",
+    "first_name_required": "Enter your first name.",
+    "first_name_too_long": "A first name is 100 characters at most.",
+    "last_name_required": "Enter your last name.",
+    "last_name_too_long": "A last name is 100 characters at most.",
     "unknown": "Something went wrong. Please try again in a moment."
   }
 }

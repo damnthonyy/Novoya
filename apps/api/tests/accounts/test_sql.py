@@ -10,6 +10,7 @@ import os
 from collections.abc import AsyncIterator, Iterator
 from datetime import timedelta
 from pathlib import Path
+from uuid import uuid4
 
 import pytest
 from alembic.config import Config
@@ -122,6 +123,50 @@ async def session(database_url) -> AsyncIterator[AsyncSession]:
     async with async_sessionmaker(engine, expire_on_commit=False)() as session:
         yield session
     await engine.dispose()
+
+
+async def test_users_have_nullable_first_and_last_name_columns(session):
+    rows = (
+        await session.execute(
+            text(
+                """
+                SELECT column_name, character_maximum_length, is_nullable
+                FROM information_schema.columns
+                WHERE table_name = 'users'
+                  AND column_name IN ('first_name', 'last_name')
+                """
+            )
+        )
+    ).all()
+    cols = {row.column_name: row for row in rows}
+    assert cols["first_name"].character_maximum_length == 100
+    assert cols["first_name"].is_nullable == "YES"
+    assert cols["last_name"].character_maximum_length == 100
+    assert cols["last_name"].is_nullable == "YES"
+
+
+async def test_existing_accounts_load_with_empty_first_and_last_name(session):
+    await session.execute(
+        text(
+            """
+            INSERT INTO users (id, email, name, role, locale, status, created_at)
+            VALUES (:id, :email, :name, 'client', 'en', 'active', :now)
+            """
+        ),
+        {
+            "id": uuid4(),
+            "email": "old@example.com",
+            "name": "Old Name",
+            "now": NOW,
+        },
+    )
+    await session.commit()
+
+    user = await SqlUserRepository(session).get_by_email(Email("old@example.com"))
+    assert user is not None
+    assert user.name == "Old Name"
+    assert user.first_name is None
+    assert user.last_name is None
 
 
 async def test_users_are_stored_and_found_by_email(session):

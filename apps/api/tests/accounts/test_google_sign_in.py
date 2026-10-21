@@ -189,6 +189,8 @@ async def test_first_sign_in_creates_a_verified_client_and_links_google(google):
     assert result.redirect_to == "/"
     [user] = google.store.users.rows.values()
     assert user.email == Email("alice@example.com")
+    assert user.first_name == "Alice"
+    assert user.last_name == "Martin"
     assert user.name == "Alice Martin"
     assert user.role is Role.CLIENT
     assert user.is_email_verified
@@ -196,6 +198,17 @@ async def test_first_sign_in_creates_a_verified_client_and_links_google(google):
     identity = google.store.identities.rows[("google", "google-sub-1")]
     assert identity.user_id == user.id
     assert google.store.credentials.rows == {}
+
+
+async def test_first_sign_in_without_a_name_claim_uses_given_and_family(google):
+    google.provider.identity = google_identity(name=None)
+
+    await google.full()
+
+    [user] = google.store.users.rows.values()
+    assert user.first_name == "Alice"
+    assert user.last_name == "Martin"
+    assert user.name == "Alice Martin"
 
 
 async def test_first_sign_in_without_a_browser_language_uses_googles(google):
@@ -271,11 +284,16 @@ async def test_linking_keeps_the_name_chosen_at_sign_up(google):
 async def test_an_account_without_a_name_takes_googles(google):
     user = make_user("alice@example.com")
     user.name = None
+    user.first_name = None
+    user.last_name = None
     await google.store.users.add(user)
 
     await google.full()
 
-    assert (await google.store.users.get(user.id)).name == "Alice Martin"
+    stored = await google.store.users.get(user.id)
+    assert stored.first_name == "Alice"
+    assert stored.last_name == "Martin"
+    assert stored.name == "Alice Martin"
 
 
 async def test_unverified_account_is_taken_back_from_whoever_set_its_password(google):

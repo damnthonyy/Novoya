@@ -14,8 +14,10 @@ type Props = {
   autoComplete?: string
   placeholder?: string
   required?: boolean
+  maxLength?: number
   hint?: string
   error?: string
+  className?: string
 }
 
 /** A labelled form field (e-mail, password), with its error. A password can be shown. */
@@ -29,15 +31,17 @@ export function TextField({
   autoComplete,
   placeholder,
   required,
+  maxLength,
   hint,
   error,
+  className,
 }: Props) {
   const [shown, setShown] = useState(false)
   const { t } = useTranslation('auth')
   const isPassword = type === 'password'
 
   return (
-    <Field label={label} hint={hint} error={error}>
+    <Field label={label} hint={hint} error={error} className={className}>
       {({ id, describedBy, invalid }) => (
         <div className="relative">
           <Input
@@ -50,6 +54,7 @@ export function TextField({
             autoComplete={autoComplete}
             placeholder={placeholder}
             required={required}
+            maxLength={maxLength}
             aria-invalid={invalid || undefined}
             aria-describedby={describedBy}
             className={isPassword ? 'pr-24' : undefined}

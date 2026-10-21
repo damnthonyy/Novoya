@@ -116,7 +116,9 @@ class SignIn:
             raise UserNotFound("the linked account no longer exists")
         identity.touch(now)
         await self._identities.save(identity)
-        user.fill_in_name(external.name)
+        user.fill_in_from_provider(
+            first_name=external.first_name, last_name=external.last_name, name=external.name
+        )
         await self._users.save(user)
         return user
 
@@ -155,16 +157,24 @@ class SignIn:
                 await self._credentials.delete(user.id)
                 await self._sessions.revoke_all_for_user(user.id, now)
                 user.verify_email(now)
-            user.fill_in_name(external.name)
+            user.fill_in_from_provider(
+                first_name=external.first_name, last_name=external.last_name, name=external.name
+            )
             await self._users.save(user)
             await self._identities.add(OAuthIdentity.link(user.id, external, now))
             return user, False
 
         # 3. A new account: always a client. Only an admin changes the role afterwards.
         user = User.register(
-            external.email, None, Locale.from_hint(locale_hint or external.locale), now
+            external.email,
+            external.first_name,
+            external.last_name,
+            Locale.from_hint(locale_hint or external.locale),
+            now,
         )
-        user.fill_in_name(external.name)
+        user.fill_in_from_provider(
+            first_name=external.first_name, last_name=external.last_name, name=external.name
+        )
         user.verify_email(now)
         await self._users.add(user)
         await self._identities.add(OAuthIdentity.link(user.id, external, now))

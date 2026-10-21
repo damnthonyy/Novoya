@@ -1,6 +1,6 @@
-/** The name to show for the signed-in user. Google accounts may have none, so fall back to the email. */
-export function displayName(user: { name: string | null; email: string }): string {
-  return user.name?.trim() || user.email
+/** The first name to show for the signed-in user. Without one, fall back to the email. */
+export function displayName(user: { first_name: string | null; email: string }): string {
+  return user.first_name?.trim() || user.email
 }
 
 // oxlint-disable-next-line no-control-regex -- rejecting control characters is the point

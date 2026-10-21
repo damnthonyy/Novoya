@@ -13,6 +13,8 @@ const LEA: MeResponse = {
   id: '6f1c2b1e-0000-4000-8000-000000000001',
   email: 'lea@example.com',
   name: 'Léa Martin',
+  first_name: 'Léa',
+  last_name: 'Martin',
   role: 'client',
   locale: 'en',
   status: 'active',
@@ -77,7 +79,7 @@ function renderAt(url: string) {
 
 /** The account menu is a Radix dropdown: it opens on pointer down, not on click. */
 async function openAccountMenu() {
-  const trigger = await screen.findByRole('button', { name: /Léa Martin|lea@example\.com/ })
+  const trigger = await screen.findByRole('button', { name: /Léa|lea@example\.com/ })
   fireEvent.pointerDown(trigger, { button: 0, ctrlKey: false })
 }
 
@@ -224,11 +226,11 @@ describe('sign-in and sign-out', () => {
     signedIn = LEA
     renderAt('/wish')
 
-    expect(await screen.findByText('Léa Martin')).toBeInTheDocument()
+    expect(await screen.findByText('Léa')).toBeInTheDocument()
   })
 
-  it('shows the email when the user has no name', async () => {
-    signedIn = { ...LEA, name: null }
+  it('shows the email when the user has no first name', async () => {
+    signedIn = { ...LEA, first_name: null }
     renderAt('/wish')
 
     expect(await screen.findByText('lea@example.com')).toBeInTheDocument()
@@ -243,7 +245,7 @@ describe('sign-in and sign-out', () => {
     expect(await screen.findByRole('heading', { name: 'Sign in' })).toBeInTheDocument()
     expect(calls).toContain('POST /auth/logout')
     expect(router.state.location.pathname).toBe('/login')
-    expect(screen.queryByText('Léa Martin')).not.toBeInTheDocument()
+    expect(screen.queryByText('Léa')).not.toBeInTheDocument()
     expect(queryClient.getQueryData(getMeQueryKey())).toBeUndefined()
   })
 
@@ -258,7 +260,7 @@ describe('sign-in and sign-out', () => {
 
       expect(await screen.findByRole('alert')).toHaveTextContent('Sign out failed. Please try again.')
       expect(router.state.location.pathname).toBe('/wish')
-      expect(screen.getByText('Léa Martin')).toBeInTheDocument()
+      expect(screen.getByText('Léa')).toBeInTheDocument()
     },
   )
 
@@ -416,7 +418,7 @@ describe('sign-in and sign-out', () => {
     it('does not ask /me again while the user keeps acting', async () => {
       signedIn = LEA
       renderAt('/wish')
-      await screen.findByText('Léa Martin')
+      await screen.findByText('Léa')
 
       vi.advanceTimersByTime(2 * 60_000)
       fireEvent.pointerMove(window)
@@ -429,7 +431,7 @@ describe('sign-in and sign-out', () => {
     it('checks the session again and stays on the page while it is valid', async () => {
       signedIn = LEA
       const { router } = renderAt('/wish')
-      await screen.findByText('Léa Martin')
+      await screen.findByText('Léa')
 
       vi.advanceTimersByTime(3 * 60_000)
       fireEvent.pointerMove(window)
@@ -437,14 +439,14 @@ describe('sign-in and sign-out', () => {
 
       await waitFor(() => expect(meCalls()).toBe(2))
       expect(router.state.location.pathname).toBe('/wish')
-      expect(screen.getByText('Léa Martin')).toBeInTheDocument()
+      expect(screen.getByText('Léa')).toBeInTheDocument()
       expect(screen.getByRole('heading', { name: /What would you/ })).toBeInTheDocument()
     })
 
     it('checks the session again and goes to /login if it was revoked', async () => {
       signedIn = LEA
       const { router } = renderAt('/wish')
-      await screen.findByText('Léa Martin')
+      await screen.findByText('Léa')
 
       signedIn = null // signed out on another device
       vi.advanceTimersByTime(3 * 60_000)

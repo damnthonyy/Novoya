@@ -15,6 +15,7 @@ from novoya_api.accounts.domain.errors import (
 from novoya_api.accounts.domain.one_time_token import OneTimeToken, TokenPurpose
 from novoya_api.accounts.domain.policies import PasswordPolicy
 from novoya_api.accounts.domain.role import Role
+from novoya_api.accounts.domain.user import User
 from novoya_api.accounts.domain.value_objects import Email, PlainPassword, UserId
 from novoya_api.shared.domain.value_objects import Locale
 from tests.accounts.fakes import FrozenClock, make_user
@@ -59,6 +60,29 @@ def test_a_long_unique_password_is_accepted():
 
 def test_a_new_user_is_a_client():
     assert make_user().role is Role.CLIENT
+
+
+def test_register_keeps_trimmed_names_and_composes_the_display_name():
+    user = User.register(Email("alice@example.com"), " Alice ", " Martin ", Locale.EN, NOW)
+    assert user.first_name == "Alice"
+    assert user.last_name == "Martin"
+    assert user.name == "Alice Martin"
+
+
+def test_fill_in_from_provider_does_not_overwrite_a_name_chosen_at_sign_up():
+    user = make_user()
+    user.fill_in_from_provider(first_name="A.", last_name="M.", name="A. M.")
+    assert user.first_name == "Alice"
+    assert user.last_name == "Martin"
+    assert user.name == "Alice Martin"
+
+
+def test_fill_in_from_provider_fills_empty_names():
+    user = User.register(Email("alice@example.com"), None, None, Locale.EN, NOW)
+    user.fill_in_from_provider(first_name=" Alice ", last_name=" Martin ", name="Alice Martin")
+    assert user.first_name == "Alice"
+    assert user.last_name == "Martin"
+    assert user.name == "Alice Martin"
 
 
 def test_role_change_is_logged_with_the_admin():

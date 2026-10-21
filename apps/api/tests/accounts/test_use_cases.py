@@ -128,7 +128,9 @@ class Accounts:
         )
 
     async def signed_up(self, email: str = "alice@example.com", verified: bool = True):
-        user = await self.register(RegisterCommand(email, PASSWORD, "Alice", "fr-FR", "1.2.3.4"))
+        user = await self.register(
+            RegisterCommand(email, PASSWORD, "Alice", "Martin", "fr-FR", "1.2.3.4")
+        )
         if verified:
             await self.verify_email(self.mailer.last_token(email, "email_verification"))
         return user
@@ -144,11 +146,13 @@ def accounts() -> Accounts:
 
 async def test_register_creates_a_client_and_sends_the_verification_link(accounts):
     user = await accounts.register(
-        RegisterCommand("Alice@Example.com", PASSWORD, " Alice ", "fr-FR", None)
+        RegisterCommand("Alice@Example.com", PASSWORD, " Alice ", " Martin ", "fr-FR", None)
     )
     assert user.role is Role.CLIENT
     assert user.locale is Locale.FR
-    assert user.name == "Alice"
+    assert user.first_name == "Alice"
+    assert user.last_name == "Martin"
+    assert user.name == "Alice Martin"
     assert not user.is_email_verified
     assert accounts.store.uow.commits == 1
     assert [m.kind for m in accounts.mailer.sent] == ["email_verification"]
@@ -159,13 +163,17 @@ async def test_register_with_a_used_email_is_refused_without_email(accounts):
     await accounts.signed_up()
     sent_before = len(accounts.mailer.sent)
     with pytest.raises(EmailAlreadyUsed):
-        await accounts.register(RegisterCommand("ALICE@example.com", PASSWORD, None, None, None))
+        await accounts.register(
+            RegisterCommand("ALICE@example.com", PASSWORD, "Alice", "Martin", None, None)
+        )
     assert len(accounts.mailer.sent) == sent_before
 
 
 async def test_register_refuses_a_weak_password(accounts):
     with pytest.raises(WeakPassword):
-        await accounts.register(RegisterCommand("bob@example.com", "short", None, None, None))
+        await accounts.register(
+            RegisterCommand("bob@example.com", "short", "Bob", "Martin", None, None)
+        )
     assert accounts.store.users.rows == {}
 
 

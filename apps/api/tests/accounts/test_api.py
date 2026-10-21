@@ -35,6 +35,16 @@ from tests.accounts.fakes import (
 PASSWORD = "correct horse battery"
 
 
+def register_payload(email: str, password: str = PASSWORD, **fields: object) -> dict[str, object]:
+    return {
+        "email": email,
+        "password": password,
+        "first_name": "Alice",
+        "last_name": "Martin",
+        **fields,
+    }
+
+
 # Routes standing for the other modules, protected the way they will be.
 probe = APIRouter(prefix="/probe")
 
@@ -92,7 +102,7 @@ async def client(app) -> AsyncIterator[AsyncClient]:
 
 
 async def sign_up(client: AsyncClient, mailer: RecordingMailer, email: str) -> None:
-    response = await client.post("/auth/register", json={"email": email, "password": PASSWORD})
+    response = await client.post("/auth/register", json=register_payload(email))
     assert response.status_code == 201, response.text
     token = mailer.last_token(email, "email_verification")
     response = await client.post("/auth/email/verify", json={"token": token})
@@ -113,12 +123,15 @@ async def grant_role(store: InMemoryStore, email: str, role: Role) -> None:
 async def test_register_verify_sign_in_and_me(client, mailer):
     response = await client.post(
         "/auth/register",
-        json={"email": "Alice@Example.com", "password": PASSWORD, "name": "Alice"},
+        json=register_payload("Alice@Example.com", first_name="  Alice  ", last_name="  Martin  "),
         headers={"Accept-Language": "fr-FR,fr;q=0.9"},
     )
     assert response.status_code == 201
     body = response.json()
     assert body["email"] == "alice@example.com"
+    assert body["first_name"] == "Alice"
+    assert body["last_name"] == "Martin"
+    assert body["name"] == "Alice Martin"
     assert body["role"] == "client"
     assert body["locale"] == "fr"
     assert body["email_verified"] is False
@@ -137,6 +150,8 @@ async def test_register_verify_sign_in_and_me(client, mailer):
     assert response.status_code == 200
     me = response.json()
     assert me["role"] == "client"
+    assert me["first_name"] == "Alice"
+    assert me["last_name"] == "Martin"
     assert me["email_verified"] is True
     assert me["sign_in_methods"] == ["password"]
 
@@ -154,27 +169,25 @@ async def test_session_cookie_is_http_only(client, mailer):
 
 async def test_used_email_gets_a_clear_409(client, mailer):
     await sign_up(client, mailer, "alice@example.com")
-    response = await client.post(
-        "/auth/register", json={"email": "alice@example.com", "password": PASSWORD}
-    )
+    response = await client.post("/auth/register", json=register_payload("alice@example.com"))
     assert response.status_code == 409
     assert response.json()["code"] == "email_already_used"
 
 
 async def test_weak_password_and_bad_email_get_422(client):
     response = await client.post(
-        "/auth/register", json={"email": "alice@example.com", "password": "short"}
+        "/auth/register", json=register_payload("alice@example.com", password="short")
     )
     assert response.status_code == 422
     assert response.json()["code"] == "weak_password"
-    response = await client.post("/auth/register", json={"email": "nope", "password": PASSWORD})
+    response = await client.post("/auth/register", json=register_payload("nope"))
     assert response.json()["code"] == "invalid_email"
 
 
 async def test_a_too_long_password_gets_weak_password_and_is_not_echoed(client):
     password = "a very long passphrase " * 10  # 230 characters
     response = await client.post(
-        "/auth/register", json={"email": "alice@example.com", "password": password}
+        "/auth/register", json=register_payload("alice@example.com", password=password)
     )
     assert response.status_code == 422
     assert response.json()["code"] == "weak_password"
@@ -186,6 +199,33 @@ async def test_an_invalid_body_gets_invalid_input_without_the_values(client):
     assert response.status_code == 422
     assert response.json() == {"code": "invalid_input", "detail": "password: Field required"}
     assert "alice@example.com" not in response.text
+
+
+@pytest.mark.parametrize(
+    ("fields", "loc"),
+    [
+        ({"first_name": None}, "first_name"),
+        ({"last_name": None}, "last_name"),
+        ({"first_name": "   "}, "first_name"),
+        ({"last_name": "   "}, "last_name"),
+        ({"first_name": "A" * 101}, "first_name"),
+        ({"last_name": "M" * 101}, "last_name"),
+    ],
+)
+async def test_register_rejects_a_missing_blank_or_too_long_name(client, fields, loc):
+    body = register_payload("alice@example.com")
+    for key, value in fields.items():
+        if value is None:
+            del body[key]
+        else:
+            body[key] = value
+    response = await client.post("/auth/register", json=body)
+    assert response.status_code == 422
+    error = response.json()
+    assert error["code"] == "invalid_input"
+    assert loc in error["detail"]
+    assert "A" * 101 not in response.text
+    assert "M" * 101 not in response.text
 
 
 async def test_wrong_password_gets_401(client, mailer):
@@ -260,7 +300,7 @@ async def test_change_password(client, mailer):
 
 
 async def test_resend_verification_always_answers_202(client, mailer):
-    await client.post("/auth/register", json={"email": "alice@example.com", "password": PASSWORD})
+    await client.post("/auth/register", json=register_payload("alice@example.com"))
     for email in ("alice@example.com", "nobody@example.com"):
         response = await client.post("/auth/email/verify/resend", json={"email": email})
         assert response.status_code == 202
@@ -330,9 +370,7 @@ async def test_unverified_user_cannot_become_agent(app, store, mailer):
         await sign_up(admin, mailer, "admin@x.io")
         await grant_role(store, "admin@x.io", Role.ADMIN)
         await sign_in(admin, "admin@x.io")
-        response = await other.post(
-            "/auth/register", json={"email": "late@x.io", "password": PASSWORD}
-        )
+        response = await other.post("/auth/register", json=register_payload("late@x.io"))
         user_id = response.json()["id"]
         response = await admin.patch(f"/admin/users/{user_id}/role", json={"role": "agent"})
         assert response.status_code == 403

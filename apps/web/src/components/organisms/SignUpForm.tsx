@@ -7,28 +7,43 @@ import { Divider } from '../atoms/Divider'
 import { GoogleButton } from '../molecules/GoogleButton'
 import { TextField } from '../molecules/TextField'
 
+type Account = { email: string; password: string; first_name: string; last_name: string }
+
 type Props = {
   /** Where "Continue with Google" goes. */
   googleHref: string
-  onSubmit: (account: { email: string; password: string }) => void
+  onSubmit: (account: Account) => void
   pending?: boolean
   /** Why the last attempt failed: next to its field, or for the whole form. */
-  errors?: { email?: string; password?: string; form?: string }
+  errors?: {
+    firstName?: string
+    lastName?: string
+    email?: string
+    password?: string
+    form?: string
+  }
 }
 
-/** Google, or a new account with an e-mail and a password. */
+/** Google, or a new account with a name, an e-mail and a password. */
 export function SignUpForm({ googleHref, onSubmit, pending = false, errors = {} }: Props) {
   const { t } = useTranslation('auth')
   const form = useForm({
-    defaultValues: { email: '', password: '' },
+    defaultValues: { firstName: '', lastName: '', email: '', password: '' },
     onSubmit: ({ value }) => {
-      if (!pending) onSubmit({ email: value.email.trim(), password: value.password })
+      if (!pending) {
+        onSubmit({
+          first_name: value.firstName.trim(),
+          last_name: value.lastName.trim(),
+          email: value.email.trim(),
+          password: value.password,
+        })
+      }
     },
   })
 
   return (
     <>
-      <div className="my-5">
+      <div className="mt-3 mb-2">
         <GoogleButton href={googleHref} />
       </div>
       <Divider label={t('orWithEmail')} />
@@ -38,6 +53,42 @@ export function SignUpForm({ googleHref, onSubmit, pending = false, errors = {} 
           void form.handleSubmit()
         }}
       >
+        <div className="grid grid-cols-2 gap-x-3">
+          <form.Field name="firstName">
+            {(field) => (
+              <TextField
+                label={t('firstName')}
+                name={field.name}
+                autoComplete="given-name"
+                required
+                maxLength={100}
+                placeholder={t('firstNamePlaceholder')}
+                value={field.state.value}
+                onChange={field.handleChange}
+                onBlur={field.handleBlur}
+                error={errors.firstName}
+                className="my-2 [&_label]:mb-1"
+              />
+            )}
+          </form.Field>
+          <form.Field name="lastName">
+            {(field) => (
+              <TextField
+                label={t('lastName')}
+                name={field.name}
+                autoComplete="family-name"
+                required
+                maxLength={100}
+                placeholder={t('lastNamePlaceholder')}
+                value={field.state.value}
+                onChange={field.handleChange}
+                onBlur={field.handleBlur}
+                error={errors.lastName}
+                className="my-2 [&_label]:mb-1"
+              />
+            )}
+          </form.Field>
+        </div>
         <form.Field name="email">
           {(field) => (
             <TextField
@@ -51,6 +102,7 @@ export function SignUpForm({ googleHref, onSubmit, pending = false, errors = {} 
               onChange={field.handleChange}
               onBlur={field.handleBlur}
               error={errors.email}
+              className="my-2 [&_label]:mb-1"
             />
           )}
         </form.Field>
@@ -67,6 +119,7 @@ export function SignUpForm({ googleHref, onSubmit, pending = false, errors = {} 
               onChange={field.handleChange}
               onBlur={field.handleBlur}
               error={errors.password}
+              className="my-2 [&_label]:mb-1"
             />
           )}
         </form.Field>
@@ -75,11 +128,11 @@ export function SignUpForm({ googleHref, onSubmit, pending = false, errors = {} 
             {errors.form}
           </p>
         )}
-        <Button type="submit" size="lg" className="mt-2 w-full" disabled={pending}>
+        <Button type="submit" size="lg" className="mt-1 w-full" disabled={pending}>
           {pending ? t('signUp.submitting') : t('signUp.submit')} <span aria-hidden="true">↗</span>
         </Button>
       </form>
-      <p className="mt-6 text-center text-sm">
+      <p className="mt-3 pb-1 text-center text-sm">
         {t('signUp.haveAccount')}{' '}
         <Link to="/login" className="underline underline-offset-4">
           {t('signUp.signInLink')}

@@ -85,7 +85,7 @@ function WishPage() {
     ? tErrors(sendWishErrorKey(send.error instanceof ApiError ? send.error.code : undefined))
     : undefined
   const textError = checkError ? tErrors(checkError, { max: WISH_MAX_LENGTH }) : undefined
-  const firstName = me.name?.trim().split(/\s+/)[0]
+  const firstName = me.first_name?.trim()
 
   return (
     <AppShell tone="ivory">

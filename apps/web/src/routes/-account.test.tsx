@@ -12,6 +12,8 @@ const CAMILLE: MeResponse = {
   id: '6f1c2b1e-0000-4000-8000-000000000003',
   email: 'camille@exemple.fr',
   name: 'Camille Durand',
+  first_name: 'Camille',
+  last_name: 'Durand',
   role: 'client',
   locale: 'en',
   status: 'active',
@@ -23,7 +25,9 @@ const CAMILLE: MeResponse = {
 const NEW_USER: UserResponse = {
   id: '6f1c2b1e-0000-4000-8000-000000000004',
   email: 'camille@exemple.fr',
-  name: null,
+  name: 'Camille Durand',
+  first_name: 'Camille',
+  last_name: 'Durand',
   role: 'client',
   locale: 'en',
   status: 'active',
@@ -38,7 +42,8 @@ let calls: Call[]
 /** What the API answers, by path. A path missing here answers 204. */
 let answers: Record<string, () => Response>
 
-const error = (status: number, code: string) => () => Response.json({ code, detail: code }, { status })
+const error = (status: number, code: string, detail = code) => () =>
+  Response.json({ code, detail }, { status })
 
 function mockApi() {
   vi.spyOn(globalThis, 'fetch').mockImplementation(async (input) => {
@@ -98,10 +103,16 @@ describe('the sign-in page', () => {
 })
 
 describe('signing up', () => {
-  async function fillAndSend(email: string, password: string) {
-    await type('E-mail', email)
-    await type('Password', password)
-    fireEvent.click(screen.getByRole('button', { name: /^Create my account/ }))
+  async function fillAndSend(
+    email: string,
+    password: string,
+    labels = { first: 'First name', last: 'Last name', email: 'E-mail', password: 'Password' },
+  ) {
+    await type(labels.first, 'Camille')
+    await type(labels.last, 'Durand')
+    await type(labels.email, email)
+    await type(labels.password, password)
+    fireEvent.click(screen.getByRole('button', { name: /^(Create my account|Créer mon compte)/ }))
   }
 
   it('offers Google too', async () => {
@@ -121,10 +132,47 @@ describe('signing up', () => {
     expect(await screen.findByRole('heading', { name: 'Check your e-mail' })).toBeInTheDocument()
     expect(screen.getByRole('status')).toHaveTextContent('We sent a link to camille@exemple.fr.')
     expect(posts('/auth/register')[0]!.body).toEqual({
+      first_name: 'Camille',
+      last_name: 'Durand',
       email: 'camille@exemple.fr',
       password: 'a long enough password',
       locale: 'en',
     })
+  })
+
+  it('asks for a first name and a last name, required, with the right autocomplete', async () => {
+    renderAt('/signup')
+
+    const first = await screen.findByLabelText('First name')
+    const last = screen.getByLabelText('Last name')
+    expect(first).toBeRequired()
+    expect(last).toBeRequired()
+    expect(first).toHaveAttribute('autocomplete', 'given-name')
+    expect(last).toHaveAttribute('autocomplete', 'family-name')
+    expect(first).toHaveAttribute('placeholder', 'Your first name')
+    expect(last).toHaveAttribute('placeholder', 'Your last name')
+  })
+
+  it('shows the name fields in French', async () => {
+    browserLanguages(['fr-FR'])
+    renderAt('/signup')
+
+    const first = await screen.findByLabelText('Prénom')
+    const last = screen.getByLabelText('Nom de famille')
+    expect(first).toHaveAttribute('placeholder', 'Votre prénom')
+    expect(last).toHaveAttribute('placeholder', 'Votre nom')
+  })
+
+  it('shows a missing first name next to its field', async () => {
+    answers['/auth/register'] = error(422, 'invalid_input', 'first_name: Field required')
+    renderAt('/signup')
+
+    await fillAndSend('camille@exemple.fr', 'a long enough password')
+
+    const first = screen.getByLabelText('First name')
+    await waitFor(() => expect(first).toHaveAccessibleDescription('Enter your first name.'))
+    expect(first).toHaveAttribute('aria-invalid', 'true')
+    expect(screen.getByLabelText('Last name')).not.toHaveAttribute('aria-invalid')
   })
 
   it('says so next to the e-mail when it already has an account', async () => {
@@ -156,9 +204,12 @@ describe('signing up', () => {
     answers['/auth/register'] = error(422, 'invalid_email')
     renderAt('/signup')
 
-    await type('E-mail', 'camille@exemple') // the browser accepts it, the API does not
-    await type('Mot de passe', 'a long enough password')
-    fireEvent.click(screen.getByRole('button', { name: /^Créer mon compte/ }))
+    await fillAndSend('camille@exemple', 'a long enough password', {
+      first: 'Prénom',
+      last: 'Nom de famille',
+      email: 'E-mail',
+      password: 'Mot de passe',
+    })
 
     await waitFor(() =>
       expect(screen.getByLabelText('E-mail')).toHaveAccessibleDescription('Cette adresse e-mail ne semble pas valide.'),
@@ -171,9 +222,12 @@ describe('signing up', () => {
     answers['/auth/register'] = error(422, 'weak_password')
     renderAt('/signup')
 
-    await type('E-mail', 'camille@exemple.fr')
-    await type('Mot de passe', 'court')
-    fireEvent.click(screen.getByRole('button', { name: /^Créer mon compte/ }))
+    await fillAndSend('camille@exemple.fr', 'court', {
+      first: 'Prénom',
+      last: 'Nom de famille',
+      email: 'E-mail',
+      password: 'Mot de passe',
+    })
 
     await waitFor(() =>
       expect(screen.getByLabelText('Mot de passe')).toHaveAccessibleDescription(
@@ -301,7 +355,7 @@ describe('changing the password in the account settings', () => {
     renderAt('/wish')
 
     // The account menu is a Radix dropdown: it opens on pointer down, not on click.
-    fireEvent.pointerDown(await screen.findByRole('button', { name: /Camille Durand/ }), { button: 0, ctrlKey: false })
+    fireEvent.pointerDown(await screen.findByRole('button', { name: /Camille/ }), { button: 0, ctrlKey: false })
 
     expect(await screen.findByRole('menuitem', { name: 'Account settings' })).toHaveAttribute('href', '/settings')
   })
