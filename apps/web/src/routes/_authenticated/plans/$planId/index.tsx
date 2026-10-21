@@ -10,13 +10,13 @@ import { Button } from '../../../../components/atoms/Button'
 import { Eyebrow } from '../../../../components/atoms/Eyebrow'
 import { DemoBanner } from '../../../../components/molecules/DemoBanner'
 import { ErrorNote } from '../../../../components/molecules/ErrorNote'
+import { QuoteNote } from '../../../../components/molecules/QuoteNote'
 import { ConversationDock } from '../../../../components/organisms/ConversationDock'
 import { DayTimeline } from '../../../../components/organisms/DayTimeline'
 import { PlanDays } from '../../../../components/organisms/PlanDays'
 import { PlanHeader } from '../../../../components/organisms/PlanHeader'
 import { AppShell } from '../../../../components/templates/AppShell'
 import { DEMO_PLAN_ID, getPlan } from '../../../../fixtures/plans'
-import { QuoteNote } from '../../../../components/molecules/QuoteNote'
 
 export const Route = createFileRoute('/_authenticated/plans/$planId/')({
   component: PlanRoute,
