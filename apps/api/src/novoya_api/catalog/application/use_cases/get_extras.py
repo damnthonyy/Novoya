@@ -6,7 +6,7 @@ from novoya_api.catalog.application.ports import ExtraRepository
 
 
 class GetExtras:
-    """Active extras by id, in that order. Inactive and unknown ids are omitted."""
+    """Listed extras by id, in that order. Inactive, hidden and unknown ids are omitted."""
 
     def __init__(self, extras: ExtraRepository) -> None:
         self._extras = extras

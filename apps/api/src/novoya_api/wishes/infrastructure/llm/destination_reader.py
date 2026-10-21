@@ -93,7 +93,9 @@ class NameMatchingReader:
 
 def match_by_name(text: str, covered: Sequence[Destination]) -> Destination | None:
     """A covered city named in the text, else a covered country; whole words only. A country
-    can be named in English or in French ("Grèce" -> Greece)."""
+    can be named in English or in French ("Grèce" -> Greece). Names are matched without
+    context, so a first name that is also a country ("mon ami Maurice") counts: the LLM reads
+    context, this is only its safety net, and the client can correct the destination."""
     for destination in covered:
         if destination.city and _names(text, destination.city):
             return destination

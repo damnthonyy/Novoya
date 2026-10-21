@@ -14,6 +14,7 @@ from sqlalchemy import (
     SmallInteger,
     String,
     Text,
+    false,
     func,
 )
 from sqlalchemy import text as sql_text
@@ -22,6 +23,9 @@ from sqlalchemy.dialects.postgresql import UUID as PgUUID
 from sqlalchemy.orm import Mapped, mapped_column
 
 from novoya_api.shared.infrastructure.db.base import Base
+
+# partners.source of the rows the DÉTOUR import owns.
+DETOUR_SOURCE = "detour"
 
 
 class PartnerRow(Base):
@@ -35,7 +39,12 @@ class PartnerRow(Base):
     contact_email: Mapped[str] = mapped_column(String(255), nullable=False)
     contact_phone: Mapped[str | None] = mapped_column(String(32), nullable=True)
     active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
-    # "detour" for rows the DÉTOUR import owns; NULL for the seed and hand-added partners.
+    # The agent's switch in Novoya; the DÉTOUR import never writes it (ADR 0014).
+    hidden: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False, server_default=false()
+    )
+    # "detour" for rows the DÉTOUR import owns (their offers too); NULL for the seed and
+    # hand-added partners. An imported row only changes hidden (and featured) in Novoya.
     source: Mapped[str | None] = mapped_column(String(16), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
@@ -61,6 +70,10 @@ class OfferRow(Base):
     tags: Mapped[list[str]] = mapped_column(JSONB, nullable=False)
     featured: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    # The agent's switch in Novoya; the DÉTOUR import never writes it (ADR 0014).
+    hidden: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False, server_default=false()
+    )
     # Indicative only (ADR 0014): the agent still negotiates the price of each trip.
     price_eur: Mapped[int | None] = mapped_column(Integer, nullable=True)
     price_unit: Mapped[str | None] = mapped_column(String(16), nullable=True)
@@ -132,6 +145,10 @@ class ExtraRow(Base):
         JSONB, nullable=False, default=list, server_default=sql_text("'[]'::jsonb")
     )
     active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    # The agent's switch in Novoya; the DÉTOUR import never writes it (ADR 0014).
+    hidden: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False, server_default=false()
+    )
 
     __table_args__ = (
         CheckConstraint("pricing IN ('included', 'supplement', 'on_quote')", name="extras_pricing"),

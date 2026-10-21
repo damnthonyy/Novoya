@@ -104,7 +104,13 @@ def agent_plan_as_view(
         items=tuple(items),
         extras=tuple(
             AgentPlanExtraView(
-                extra.extra_id, extra.pricing, extra.price_eur, extra.label, extra.unit
+                extra.extra_id,
+                extra.pricing,
+                extra.price_eur,
+                extra.label,
+                extra.unit,
+                needs_quantity_check=extra.needs_quantity_check,
+                confirmed=extra.confirmed,
             )
             for extra in plan.extras
         ),

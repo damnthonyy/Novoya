@@ -403,3 +403,55 @@ async def test_the_agent_sees_what_each_extra_is(plan, client):
 
     extra = response.json()["extras"][0]
     assert (extra["label"], extra["unit"]) == ("Private guide", "per activity")
+
+
+async def test_a_per_person_supplement_waits_for_the_agent_to_confirm_it(plan, client):
+    plan.extras = (
+        PlanExtra(
+            extra_id=GUIDE_ID,
+            pricing="supplement",
+            price_eur=Decimal("25"),
+            label="Breakfast",
+            unit="par personne",
+        ),
+    )
+    await client.post(f"/agent/plans/{plan.id}/take")
+    for item in plan.items:
+        await client.patch(
+            f"/agent/plans/{plan.id}/items/{item.id}", json={"negotiated_price": "100.00"}
+        )
+
+    response = await client.get(f"/agent/plans/{plan.id}")
+
+    extra = response.json()["extras"][0]
+    assert (extra["needs_quantity_check"], extra["confirmed"]) == (True, False)
+    assert response.json()["ready_to_quote"] is False
+
+
+async def test_setting_the_same_price_confirms_a_per_person_supplement(plan, client):
+    plan.extras = (
+        PlanExtra(
+            extra_id=GUIDE_ID, pricing="supplement", price_eur=Decimal("25"), unit="par nuit"
+        ),
+    )
+    await client.post(f"/agent/plans/{plan.id}/take")
+    for item in plan.items:
+        await client.patch(
+            f"/agent/plans/{plan.id}/items/{item.id}", json={"negotiated_price": "100.00"}
+        )
+
+    response = await client.patch(
+        f"/agent/plans/{plan.id}/extras/{GUIDE_ID}", json={"price_eur": "25"}
+    )
+
+    assert response.status_code == 200
+    extra = response.json()["extras"][0]
+    assert (extra["needs_quantity_check"], extra["confirmed"]) == (True, True)
+    assert response.json()["ready_to_quote"] is True
+    assert response.json()["total"] == "225.00"
+
+
+def test_the_agent_extra_schema_has_the_quantity_check(app):
+    extra = app.openapi()["components"]["schemas"]["AgentPlanExtra"]
+
+    assert {"needs_quantity_check", "confirmed"} <= set(extra["required"])

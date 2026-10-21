@@ -3,8 +3,13 @@
 Partners, offers and extras are inserted or updated by their stable id. Reviews are replaced:
 a review that left avis_diffusables (consent withdrawn) is deleted here too. A partner, offer
 or extra that left the export is kept, since plans may point to it, but made inactive; it is
-active again if it comes back. The export owns `active` of imported rows: an agent hides one
-by deactivating it in DÉTOUR, or its partner in Novoya until the next import.
+active again if it comes back.
+
+DÉTOUR owns imported rows (ADR 0014): every column it exports, `active` included, is written
+again on each import, and the admin API refuses to change them (409 imported_row), so a fix
+is made in DÉTOUR. Novoya owns two columns the import never writes: `hidden` (the agent's
+switch on a partner, an offer or an extra, kept across imports) and `featured` (offers). A
+hidden row is left out everywhere an inactive one is.
 """
 
 from collections.abc import Sequence
@@ -89,7 +94,8 @@ async def _upsert(
     rows: Sequence[dict],
     keep: frozenset[str] | set[str] = frozenset(),
 ) -> None:
-    """Insert, or update every column but the id and `keep` (what agents decide in Novoya)."""
+    """Insert, or update every column given but the id and `keep`. `hidden` is never given:
+    agents decide it in Novoya, like `featured`, which an offer's insert sets to false."""
     for start in range(0, len(rows), BATCH):
         batch = rows[start : start + BATCH]
         stmt = insert(model).values(batch)

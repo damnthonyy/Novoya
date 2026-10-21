@@ -123,6 +123,7 @@ class SqlPlanRepository:
                     price_eur=extra.price_eur,
                     label=extra.label,
                     unit=extra.unit,
+                    confirmed=extra.confirmed,
                 )
                 for extra in extras
             ),
@@ -153,6 +154,7 @@ class SqlPlanRepository:
                     price_eur=extra.price_eur,
                     label=extra.label,
                     unit=extra.unit,
+                    confirmed=extra.confirmed,
                 )
                 for extra in plan.extras
             )
@@ -174,7 +176,7 @@ class SqlPlanRepository:
         written = await self._session.execute(
             update(PlanExtraModel)
             .where(PlanExtraModel.plan_id == plan.id, PlanExtraModel.extra_id == extra_id)
-            .values(price_eur=extra.price_eur)
+            .values(price_eur=extra.price_eur, confirmed=extra.confirmed)
             .execution_options(synchronize_session=False)
         )
         if written.rowcount != 1:

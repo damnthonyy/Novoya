@@ -12,11 +12,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from novoya_api.catalog.application.use_cases.create_offer import CreateOffer
 from novoya_api.catalog.application.use_cases.create_partner import CreatePartner
 from novoya_api.catalog.application.use_cases.get_offer_detail import GetOfferDetail
+from novoya_api.catalog.application.use_cases.list_all_extras import ListAllExtras
 from novoya_api.catalog.application.use_cases.list_destinations import ListDestinations
 from novoya_api.catalog.application.use_cases.list_extras import ListExtras
 from novoya_api.catalog.application.use_cases.list_offers import ListOffers
 from novoya_api.catalog.application.use_cases.list_partners import ListPartners
 from novoya_api.catalog.application.use_cases.list_reviews import ListReviews
+from novoya_api.catalog.application.use_cases.update_extra import UpdateExtra
 from novoya_api.catalog.application.use_cases.update_offer import UpdateOffer
 from novoya_api.catalog.application.use_cases.update_partner import UpdatePartner
 from novoya_api.catalog.infrastructure.db.repositories import (
@@ -60,7 +62,9 @@ def get_create_offer(session: Annotated[AsyncSession, Depends(get_session)]) -> 
 
 
 def get_update_offer(session: Annotated[AsyncSession, Depends(get_session)]) -> UpdateOffer:
-    return UpdateOffer(SqlOfferRepository(session), SqlAlchemyUnitOfWork(session))
+    return UpdateOffer(
+        SqlOfferRepository(session), SqlPartnerRepository(session), SqlAlchemyUnitOfWork(session)
+    )
 
 
 def get_get_offer_detail(
@@ -75,3 +79,11 @@ def get_list_reviews(session: Annotated[AsyncSession, Depends(get_session)]) -> 
 
 def get_list_extras(session: Annotated[AsyncSession, Depends(get_session)]) -> ListExtras:
     return ListExtras(SqlExtraRepository(session))
+
+
+def get_list_all_extras(session: Annotated[AsyncSession, Depends(get_session)]) -> ListAllExtras:
+    return ListAllExtras(SqlExtraRepository(session))
+
+
+def get_update_extra(session: Annotated[AsyncSession, Depends(get_session)]) -> UpdateExtra:
+    return UpdateExtra(SqlExtraRepository(session), SqlAlchemyUnitOfWork(session))

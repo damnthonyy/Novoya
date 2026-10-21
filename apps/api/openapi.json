@@ -1,8 +1,83 @@
 {
   "components": {
     "schemas": {
+      "AdminExtraResponse": {
+        "description": "An extra, for agents: inactive ones (gone from the D\u00c9TOUR export) and hidden ones too.\nhidden is the only field an agent changes; D\u00c9TOUR owns the rest.",
+        "properties": {
+          "active": {
+            "title": "Active",
+            "type": "boolean"
+          },
+          "category": {
+            "title": "Category",
+            "type": "string"
+          },
+          "constraints": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Constraints",
+            "type": "array"
+          },
+          "description": {
+            "title": "Description",
+            "type": "string"
+          },
+          "hidden": {
+            "title": "Hidden",
+            "type": "boolean"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "pricing": {
+            "enum": [
+              "included",
+              "supplement",
+              "on_quote"
+            ],
+            "title": "Pricing",
+            "type": "string"
+          },
+          "supplement_eur": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Supplement Eur"
+          },
+          "unit": {
+            "title": "Unit",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "category",
+          "label",
+          "description",
+          "pricing",
+          "supplement_eur",
+          "unit",
+          "constraints",
+          "active",
+          "hidden"
+        ],
+        "title": "AdminExtraResponse",
+        "type": "object"
+      },
       "AgentPlan": {
-        "description": "The plan as the assigned agent sees it. Prices, partners, running total and budget.\ntotal counts priced items and priced extras; ready_to_quote is false while a kept item or\nan on_quote extra has no price.",
+        "description": "The plan as the assigned agent sees it. Prices, partners, running total and budget.\ntotal counts priced items and priced extras; ready_to_quote is false while a kept item or\nan on_quote extra has no price, or a supplement that needs a quantity check is not\nconfirmed.",
         "properties": {
           "assigned_agent_id": {
             "anyOf": [
@@ -174,8 +249,12 @@
         "type": "object"
       },
       "AgentPlanExtra": {
-        "description": "An extra the client chose. price_eur: the supplement, or what the agent set; null for\nan included extra and for an on_quote extra not priced yet.",
+        "description": "An extra the client chose. price_eur: the supplement, or what the agent set; null for\nan included extra and for an on_quote extra not priced yet. needs_quantity_check: a\nsupplement per person, night or day; its amount is counted once, so the agent checks the\nquantity and confirms it by setting its price, even the same one (confirmed).",
         "properties": {
+          "confirmed": {
+            "title": "Confirmed",
+            "type": "boolean"
+          },
           "extra_id": {
             "format": "uuid",
             "title": "Extra Id",
@@ -184,6 +263,10 @@
           "label": {
             "title": "Label",
             "type": "string"
+          },
+          "needs_quantity_check": {
+            "title": "Needs Quantity Check",
+            "type": "boolean"
           },
           "price_eur": {
             "anyOf": [
@@ -215,7 +298,9 @@
           "pricing",
           "price_eur",
           "label",
-          "unit"
+          "unit",
+          "needs_quantity_check",
+          "confirmed"
         ],
         "title": "AgentPlanExtra",
         "type": "object"
@@ -1149,6 +1234,7 @@
         "type": "string"
       },
       "OfferResponse": {
+        "description": "An offer, for agents. hidden: the agent's switch in Novoya, kept by the import.",
         "properties": {
           "active": {
             "title": "Active",
@@ -1211,6 +1297,10 @@
           },
           "featured": {
             "title": "Featured",
+            "type": "boolean"
+          },
+          "hidden": {
+            "title": "Hidden",
             "type": "boolean"
           },
           "id": {
@@ -1320,7 +1410,8 @@
           "conditions",
           "restrictions",
           "cancellation",
-          "confirmation_delay_hours"
+          "confirmation_delay_hours",
+          "hidden"
         ],
         "title": "OfferResponse",
         "type": "object"
@@ -1389,6 +1480,7 @@
         "type": "object"
       },
       "PartnerResponse": {
+        "description": "A partner. imported: it comes from D\u00c9TOUR, which owns everything but hidden (its offers\ntoo, but for featured and hidden): a PATCH of anything else is a 409 imported_row.",
         "properties": {
           "active": {
             "title": "Active",
@@ -1417,10 +1509,18 @@
             "title": "Country",
             "type": "string"
           },
+          "hidden": {
+            "title": "Hidden",
+            "type": "boolean"
+          },
           "id": {
             "format": "uuid",
             "title": "Id",
             "type": "string"
+          },
+          "imported": {
+            "title": "Imported",
+            "type": "boolean"
           },
           "kind": {
             "enum": [
@@ -1446,7 +1546,9 @@
           "city",
           "contact_email",
           "contact_phone",
-          "active"
+          "active",
+          "hidden",
+          "imported"
         ],
         "title": "PartnerResponse",
         "type": "object"
@@ -2102,6 +2204,21 @@
         "title": "TokenRequest",
         "type": "object"
       },
+      "UpdateExtraRequest": {
+        "additionalProperties": false,
+        "description": "true hides the extra from clients, false shows it again. The import never changes it.",
+        "properties": {
+          "hidden": {
+            "title": "Hidden",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "hidden"
+        ],
+        "title": "UpdateExtraRequest",
+        "type": "object"
+      },
       "UpdateMeRequest": {
         "properties": {
           "locale": {
@@ -2121,6 +2238,7 @@
       },
       "UpdateOfferRequest": {
         "additionalProperties": false,
+        "description": "Absent fields are unchanged, and so is null, except for price_eur and price_unit\n(cleared together) and opening_months (cleared to none). An offer of an imported partner\nonly accepts featured and hidden: any other change is a 409 imported_row.",
         "properties": {
           "active": {
             "anyOf": [
@@ -2239,6 +2357,17 @@
               }
             ],
             "title": "Featured"
+          },
+          "hidden": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Hidden"
           },
           "kind": {
             "anyOf": [
@@ -2372,6 +2501,7 @@
       },
       "UpdatePartnerRequest": {
         "additionalProperties": false,
+        "description": "Absent or null fields are unchanged. hidden hides the partner and its offers in Novoya;\nthe D\u00c9TOUR import never changes it. An imported partner only accepts hidden.",
         "properties": {
           "active": {
             "anyOf": [
@@ -2436,6 +2566,17 @@
               }
             ],
             "title": "Country"
+          },
+          "hidden": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Hidden"
           },
           "kind": {
             "anyOf": [
@@ -2669,6 +2810,176 @@
   },
   "openapi": "3.1.0",
   "paths": {
+    "/admin/extras": {
+      "get": {
+        "description": "All extras, inactive and hidden ones too. Agents only.",
+        "operationId": "listAllExtras",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/AdminExtraResponse"
+                  },
+                  "title": "Response Listallextras",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "summary": "List All Extras",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/admin/extras/{extra_id}": {
+      "patch": {
+        "description": "Hide an extra from clients, or show it again. Extras come from D\u00c9TOUR, which owns the\nrest: the import never changes hidden. Agents only.",
+        "operationId": "updateExtra",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "extra_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Extra Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateExtraRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminExtraResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "summary": "Update Extra",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
     "/admin/offers": {
       "get": {
         "description": "All offers, including inactive ones. Agents only.",
@@ -2718,6 +3029,16 @@
             },
             "description": "Not Found"
           },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
           "422": {
             "content": {
               "application/json": {
@@ -2735,7 +3056,7 @@
         ]
       },
       "post": {
-        "description": "Add an offer for an existing partner. Agents only.",
+        "description": "Add an offer for an existing partner made in Novoya. A partner imported from D\u00c9TOUR gets\nits offers from D\u00c9TOUR: 409 imported_row. Agents only.",
         "operationId": "createOffer",
         "requestBody": {
           "content": {
@@ -2788,6 +3109,16 @@
             },
             "description": "Not Found"
           },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
           "422": {
             "content": {
               "application/json": {
@@ -2807,7 +3138,7 @@
     },
     "/admin/offers/{offer_id}": {
       "patch": {
-        "description": "Change an offer. Agents only.",
+        "description": "Change an offer. null clears the price with its unit, or the opening months. An offer of\na partner imported from D\u00c9TOUR only changes featured and hidden: anything else is 409\nimported_row. Agents only.",
         "operationId": "updateOffer",
         "parameters": [
           {
@@ -2871,6 +3202,16 @@
               }
             },
             "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
           },
           "422": {
             "content": {
@@ -2937,6 +3278,16 @@
               }
             },
             "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
           },
           "422": {
             "content": {
@@ -3008,6 +3359,16 @@
             },
             "description": "Not Found"
           },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
           "422": {
             "content": {
               "application/json": {
@@ -3027,7 +3388,7 @@
     },
     "/admin/partners/{partner_id}": {
       "patch": {
-        "description": "Change a partner. Deactivating it hides its offers from search. Agents only.",
+        "description": "Change a partner. Deactivating or hiding it hides its offers from search. A partner\nimported from D\u00c9TOUR only changes hidden: anything else is 409 imported_row. Agents only.",
         "operationId": "updatePartner",
         "parameters": [
           {
@@ -3091,6 +3452,16 @@
               }
             },
             "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
           },
           "422": {
             "content": {
@@ -4968,7 +5339,7 @@
     },
     "/extras": {
       "get": {
-        "description": "Options a client can add when asking for a quote. Active ones only.",
+        "description": "Options a client can add when asking for a quote. Active ones that no agent hid.",
         "operationId": "listExtras",
         "responses": {
           "200": {

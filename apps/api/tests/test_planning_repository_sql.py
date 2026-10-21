@@ -670,6 +670,28 @@ async def test_save_extra_writes_the_price_the_agent_set(engine, wish_id, offer_
     assert read.extras == (
         PlanExtra(extra_id=guide, pricing="on_quote", price_eur=Decimal("45.00")),
     )
+    assert read.extras[0].confirmed is True
+
+
+async def test_a_chosen_extra_is_not_confirmed_until_the_agent_prices_it(
+    engine, wish_id, offer_ids
+):
+    hotel, _boat = offer_ids
+    bag, _guide = await _add_extras(engine)
+    plan = Plan.propose(wish_id, True, "Sun and sea", [DraftItem(hotel, 1, 7, None)], 8, NOW)
+    await add_plan(engine, plan)
+    async with new_session(engine) as session:
+        repo = SqlPlanRepository(session)
+        loaded = await repo.get(plan.id)
+        loaded.request_quote(
+            NOW, [PlanExtra(extra_id=bag, pricing="supplement", price_eur=Decimal("25.00"))]
+        )
+        await repo.save(loaded)
+        await session.commit()
+
+    read = await read_plan(engine, plan.id)
+    assert read is not None
+    assert read.extras[0].confirmed is False
 
 
 async def test_the_extra_label_and_unit_are_stored_with_the_plan(engine, wish_id, offer_ids):

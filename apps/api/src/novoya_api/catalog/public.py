@@ -1,13 +1,15 @@
 """What other modules may use from catalog. Nothing else in catalog may be imported.
 
-- covered_destinations() -> destinations with at least one listed offer
+- covered_destinations() -> destinations with at least one listed offer (listed: an active,
+  not hidden offer of an active, not hidden partner)
 - tags_at(country, city) -> tags of listed offers there (city None = the whole country)
 - search_offers(country, city, tags, persons, start, end) -> listed offers that fit, as
   OfferView. OfferView carries partner name and contact; other modules decide who may see them.
 - get_offers(ids) -> OfferView for those ids, including inactive (a saved plan still
   needs titles). Callers drop partner fields when the client must not see them.
-- get_extras(ids) -> ExtraView for the active extras among those ids, in that order
-  (label, pricing included/supplement/on_quote, supplement_eur). Others are omitted.
+- get_extras(ids) -> ExtraView for the listed extras (active, not hidden) among those ids,
+  in that order (label, pricing included/supplement/on_quote, supplement_eur). Others are
+  omitted.
 - canonical_country(name) -> the English name Novoya stores for a country written in French
   or English ("Grèce", "greece" -> "Greece"), or None. No database.
 - OfferKind: hotel, guide, transport, activity, agency (for OpenAPI on the plan).
@@ -33,11 +35,11 @@ from novoya_api.catalog.application.use_cases.list_destinations import ListDesti
 from novoya_api.catalog.application.use_cases.list_tags_at import ListTagsAt
 from novoya_api.catalog.application.use_cases.search_offers import SearchOffers
 from novoya_api.catalog.domain.kinds import OfferKind as OfferKind
+from novoya_api.catalog.infrastructure import countries
 from novoya_api.catalog.infrastructure.db.repositories import (
     SqlExtraRepository,
     SqlOfferRepository,
 )
-from novoya_api.catalog.infrastructure.detour import countries
 from novoya_api.shared.infrastructure.db.session import get_sessionmaker
 
 
@@ -86,7 +88,7 @@ async def get_offers(
 async def get_extras(
     ids: Sequence[UUID], *, session: AsyncSession | None = None
 ) -> list[ExtraView]:
-    """Active extras by id, in that order. Inactive and unknown ids are omitted."""
+    """Listed extras by id, in that order. Inactive, hidden and unknown ids are omitted."""
     async with _reading(session) as reading:
         return await GetExtras(SqlExtraRepository(reading))(ids)
 

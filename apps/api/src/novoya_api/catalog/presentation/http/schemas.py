@@ -4,6 +4,7 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, StringConstraints
 
+from novoya_api.catalog.application.use_cases.update_offer import CLEARABLE
 from novoya_api.catalog.domain import Extra, Offer, Partner, Review
 
 KindName = Literal["hotel", "guide", "transport", "activity", "agency"]
@@ -25,6 +26,9 @@ EmailText = Annotated[
 
 
 class PartnerResponse(BaseModel):
+    """A partner. imported: it comes from DÉTOUR, which owns everything but hidden (its offers
+    too, but for featured and hidden): a PATCH of anything else is a 409 imported_row."""
+
     model_config = ConfigDict(frozen=True)
 
     id: UUID
@@ -35,6 +39,8 @@ class PartnerResponse(BaseModel):
     contact_email: str
     contact_phone: str | None
     active: bool
+    hidden: bool
+    imported: bool
 
     @classmethod
     def of(cls, partner: Partner) -> "PartnerResponse":
@@ -47,6 +53,8 @@ class PartnerResponse(BaseModel):
             contact_email=partner.contact_email,
             contact_phone=partner.contact_phone,
             active=partner.active,
+            hidden=partner.hidden,
+            imported=partner.imported,
         )
 
 
@@ -61,6 +69,9 @@ class CreatePartnerRequest(BaseModel):
 
 
 class UpdatePartnerRequest(BaseModel):
+    """Absent or null fields are unchanged. hidden hides the partner and its offers in Novoya;
+    the DÉTOUR import never changes it. An imported partner only accepts hidden."""
+
     model_config = ConfigDict(extra="forbid")
 
     name: ShortText | None = None
@@ -70,9 +81,12 @@ class UpdatePartnerRequest(BaseModel):
     contact_email: EmailText | None = None
     contact_phone: Phone | None = None
     active: bool | None = None
+    hidden: bool | None = None
 
 
 class OfferResponse(BaseModel):
+    """An offer, for agents. hidden: the agent's switch in Novoya, kept by the import."""
+
     model_config = ConfigDict(frozen=True)
 
     id: UUID
@@ -96,6 +110,7 @@ class OfferResponse(BaseModel):
     restrictions: str | None
     cancellation: str | None
     confirmation_delay_hours: int | None
+    hidden: bool
 
     @classmethod
     def of(cls, offer: Offer) -> "OfferResponse":
@@ -121,6 +136,7 @@ class OfferResponse(BaseModel):
             restrictions=offer.restrictions,
             cancellation=offer.cancellation,
             confirmation_delay_hours=offer.confirmation_delay_hours,
+            hidden=offer.hidden,
         )
 
 
@@ -148,6 +164,10 @@ class CreateOfferRequest(BaseModel):
 
 
 class UpdateOfferRequest(BaseModel):
+    """Absent fields are unchanged, and so is null, except for price_eur and price_unit
+    (cleared together) and opening_months (cleared to none). An offer of an imported partner
+    only accepts featured and hidden: any other change is a 409 imported_row."""
+
     model_config = ConfigDict(extra="forbid")
 
     kind: KindName | None = None
@@ -169,6 +189,15 @@ class UpdateOfferRequest(BaseModel):
     restrictions: str | None = None
     cancellation: str | None = None
     confirmation_delay_hours: Delay | None = None
+    hidden: bool | None = None
+
+    def cleared(self) -> frozenset[str]:
+        """The fields sent as an explicit null that null clears."""
+        return frozenset(
+            name
+            for name in CLEARABLE
+            if name in self.model_fields_set and getattr(self, name) is None
+        )
 
 
 class DestinationResponse(BaseModel):
@@ -273,3 +302,23 @@ class ExtraResponse(BaseModel):
             unit=extra.unit,
             constraints=list(extra.constraints),
         )
+
+
+class AdminExtraResponse(ExtraResponse):
+    """An extra, for agents: inactive ones (gone from the DÉTOUR export) and hidden ones too.
+    hidden is the only field an agent changes; DÉTOUR owns the rest."""
+
+    active: bool
+    hidden: bool
+
+    @classmethod
+    def of(cls, extra: Extra) -> "AdminExtraResponse":
+        return cls(**ExtraResponse.of(extra).model_dump(), active=extra.active, hidden=extra.hidden)
+
+
+class UpdateExtraRequest(BaseModel):
+    """true hides the extra from clients, false shows it again. The import never changes it."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    hidden: bool

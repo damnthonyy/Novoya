@@ -116,6 +116,23 @@ def test_inactive_offer_is_not_listed():
     assert offer.fits(persons=2, start=date(2026, 5, 1), end=date(2026, 5, 8)) is True
 
 
+def test_a_hidden_offer_is_not_listed():
+    partner = _partner()
+    offer = _offer(partner_id=partner.id, hidden=True)
+    assert offer.is_listed_with(partner) is False
+
+
+def test_a_hidden_partner_hides_its_offers():
+    partner = _partner(hidden=True)
+    offer = _offer(partner_id=partner.id)
+    assert offer.is_listed_with(partner) is False
+
+
+def test_offers_and_partners_are_shown_and_hand_made_by_default():
+    partner = _partner()
+    assert (partner.hidden, partner.imported, _offer().hidden) == (False, False, False)
+
+
 def test_is_listed_with_rejects_another_partner():
     partner = _partner()
     other = _partner()

@@ -4,6 +4,7 @@ from uuid import UUID, uuid4
 
 from novoya_api.catalog.application.ports import OfferRepository, PartnerRepository
 from novoya_api.catalog.domain import (
+    ImportedRow,
     Offer,
     OfferKind,
     PartnerNotFound,
@@ -39,6 +40,9 @@ class CreateOfferCommand:
 
 
 class CreateOffer:
+    """Add an offer to a hand-made partner. An imported partner's offers come from DÉTOUR:
+    one added here would be deactivated by the next import, so it is refused."""
+
     def __init__(
         self, offers: OfferRepository, partners: PartnerRepository, uow: UnitOfWork
     ) -> None:
@@ -47,8 +51,14 @@ class CreateOffer:
         self._uow = uow
 
     async def __call__(self, cmd: CreateOfferCommand) -> Offer:
-        if await self._partners.get(cmd.partner_id) is None:
+        partner = await self._partners.get(cmd.partner_id)
+        if partner is None:
             raise PartnerNotFound("no such partner")
+        if partner.imported:
+            raise ImportedRow(
+                "this partner comes from DÉTOUR: add its offers in DÉTOUR, they arrive with the "
+                "next import."
+            )
         offer = Offer(
             id=uuid4(),
             partner_id=cmd.partner_id,

@@ -10,11 +10,13 @@ from novoya_api.catalog.application.use_cases.create_partner import (
     CreatePartnerCommand,
 )
 from novoya_api.catalog.application.use_cases.get_offer_detail import GetOfferDetail
+from novoya_api.catalog.application.use_cases.list_all_extras import ListAllExtras
 from novoya_api.catalog.application.use_cases.list_destinations import ListDestinations
 from novoya_api.catalog.application.use_cases.list_extras import ListExtras
 from novoya_api.catalog.application.use_cases.list_offers import ListOffers
 from novoya_api.catalog.application.use_cases.list_partners import ListPartners
 from novoya_api.catalog.application.use_cases.list_reviews import ListReviews
+from novoya_api.catalog.application.use_cases.update_extra import UpdateExtra, UpdateExtraCommand
 from novoya_api.catalog.application.use_cases.update_offer import UpdateOffer, UpdateOfferCommand
 from novoya_api.catalog.application.use_cases.update_partner import (
     UpdatePartner,
@@ -25,15 +27,18 @@ from novoya_api.catalog.presentation.http.dependencies import (
     get_create_offer,
     get_create_partner,
     get_get_offer_detail,
+    get_list_all_extras,
     get_list_destinations,
     get_list_extras,
     get_list_offers,
     get_list_partners,
     get_list_reviews,
+    get_update_extra,
     get_update_offer,
     get_update_partner,
 )
 from novoya_api.catalog.presentation.http.schemas import (
+    AdminExtraResponse,
     CreateOfferRequest,
     CreatePartnerRequest,
     DestinationResponse,
@@ -43,12 +48,13 @@ from novoya_api.catalog.presentation.http.schemas import (
     PartnerResponse,
     PlaceName,
     ReviewResponse,
+    UpdateExtraRequest,
     UpdateOfferRequest,
     UpdatePartnerRequest,
 )
 from novoya_api.shared.presentation.http.errors import ErrorResponse
 
-ERRORS = {status_code: {"model": ErrorResponse} for status_code in (401, 403, 404, 422)}
+ERRORS = {status_code: {"model": ErrorResponse} for status_code in (401, 403, 404, 409, 422)}
 
 destinations_router = APIRouter(tags=["catalog"])
 signed_in_router = APIRouter(
@@ -64,6 +70,13 @@ partners_router = APIRouter(
 )
 offers_router = APIRouter(
     prefix="/admin/offers",
+    tags=["admin"],
+    responses=ERRORS,
+    dependencies=[Depends(require_agent)],
+)
+
+extras_router = APIRouter(
+    prefix="/admin/extras",
     tags=["admin"],
     responses=ERRORS,
     dependencies=[Depends(require_agent)],
@@ -103,7 +116,7 @@ async def get_offer(
 async def list_extras(
     use_case: Annotated[ListExtras, Depends(get_list_extras)],
 ) -> list[ExtraResponse]:
-    """Options a client can add when asking for a quote. Active ones only."""
+    """Options a client can add when asking for a quote. Active ones that no agent hid."""
     return [ExtraResponse.of(extra) for extra in await use_case()]
 
 
@@ -141,7 +154,8 @@ async def update_partner(
     body: UpdatePartnerRequest,
     use_case: Annotated[UpdatePartner, Depends(get_update_partner)],
 ) -> PartnerResponse:
-    """Change a partner. Deactivating it hides its offers from search. Agents only."""
+    """Change a partner. Deactivating or hiding it hides its offers from search. A partner
+    imported from DÉTOUR only changes hidden: anything else is 409 imported_row. Agents only."""
     partner = await use_case(
         UpdatePartnerCommand(
             partner_id=partner_id,
@@ -152,6 +166,7 @@ async def update_partner(
             contact_email=body.contact_email,
             contact_phone=body.contact_phone,
             active=body.active,
+            hidden=body.hidden,
         )
     )
     return PartnerResponse.of(partner)
@@ -170,7 +185,8 @@ async def create_offer(
     body: CreateOfferRequest,
     use_case: Annotated[CreateOffer, Depends(get_create_offer)],
 ) -> OfferResponse:
-    """Add an offer for an existing partner. Agents only."""
+    """Add an offer for an existing partner made in Novoya. A partner imported from DÉTOUR gets
+    its offers from DÉTOUR: 409 imported_row. Agents only."""
     offer = await use_case(
         CreateOfferCommand(
             partner_id=body.partner_id,
@@ -204,7 +220,9 @@ async def update_offer(
     body: UpdateOfferRequest,
     use_case: Annotated[UpdateOffer, Depends(get_update_offer)],
 ) -> OfferResponse:
-    """Change an offer. Agents only."""
+    """Change an offer. null clears the price with its unit, or the opening months. An offer of
+    a partner imported from DÉTOUR only changes featured and hidden: anything else is 409
+    imported_row. Agents only."""
     offer = await use_case(
         UpdateOfferCommand(
             offer_id=offer_id,
@@ -229,9 +247,30 @@ async def update_offer(
             restrictions=body.restrictions,
             cancellation=body.cancellation,
             confirmation_delay_hours=body.confirmation_delay_hours,
+            hidden=body.hidden,
+            cleared=body.cleared(),
         )
     )
     return OfferResponse.of(offer)
+
+
+@extras_router.get("", operation_id="listAllExtras")
+async def list_all_extras(
+    use_case: Annotated[ListAllExtras, Depends(get_list_all_extras)],
+) -> list[AdminExtraResponse]:
+    """All extras, inactive and hidden ones too. Agents only."""
+    return [AdminExtraResponse.of(extra) for extra in await use_case()]
+
+
+@extras_router.patch("/{extra_id}", operation_id="updateExtra")
+async def update_extra(
+    extra_id: UUID,
+    body: UpdateExtraRequest,
+    use_case: Annotated[UpdateExtra, Depends(get_update_extra)],
+) -> AdminExtraResponse:
+    """Hide an extra from clients, or show it again. Extras come from DÉTOUR, which owns the
+    rest: the import never changes hidden. Agents only."""
+    return AdminExtraResponse.of(await use_case(UpdateExtraCommand(extra_id, hidden=body.hidden)))
 
 
 router = APIRouter()
@@ -239,3 +278,4 @@ router.include_router(destinations_router)
 router.include_router(signed_in_router)
 router.include_router(partners_router)
 router.include_router(offers_router)
+router.include_router(extras_router)

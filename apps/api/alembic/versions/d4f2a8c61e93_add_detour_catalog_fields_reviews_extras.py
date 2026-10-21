@@ -1,5 +1,7 @@
 """add indicative offer prices, reviews and extras for the DÉTOUR import
 
+Also the agents' hidden switch on partners, offers and extras, which the import never writes.
+
 Revision ID: d4f2a8c61e93
 Revises: b7e4a91c2d08
 Create Date: 2026-10-21
@@ -22,6 +24,12 @@ depends_on: str | Sequence[str] | None = None
 def upgrade() -> None:
     op.alter_column("partners", "contact_phone", existing_type=sa.String(length=32), nullable=True)
     op.add_column("partners", sa.Column("source", sa.String(length=16), nullable=True))
+    op.add_column(
+        "partners", sa.Column("hidden", sa.Boolean(), server_default=sa.false(), nullable=False)
+    )
+    op.add_column(
+        "offers", sa.Column("hidden", sa.Boolean(), server_default=sa.false(), nullable=False)
+    )
 
     op.add_column("offers", sa.Column("price_eur", sa.Integer(), nullable=True))
     op.add_column("offers", sa.Column("price_unit", sa.String(length=16), nullable=True))
@@ -88,6 +96,7 @@ def upgrade() -> None:
             nullable=False,
         ),
         sa.Column("active", sa.Boolean(), nullable=False),
+        sa.Column("hidden", sa.Boolean(), server_default=sa.false(), nullable=False),
         sa.CheckConstraint(
             "pricing IN ('included', 'supplement', 'on_quote')", name="extras_pricing"
         ),
@@ -114,7 +123,9 @@ def downgrade() -> None:
     op.drop_column("offers", "opening_months")
     op.drop_column("offers", "price_unit")
     op.drop_column("offers", "price_eur")
+    op.drop_column("offers", "hidden")
 
+    op.drop_column("partners", "hidden")
     op.drop_column("partners", "source")
     # Imported partners have no phone; the old schema and Partner need a non-empty one.
     op.execute("UPDATE partners SET contact_phone = '-' WHERE contact_phone IS NULL")

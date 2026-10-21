@@ -25,7 +25,7 @@ class OfferRepository(Protocol):
     async def list_listed_destinations(self) -> list[tuple[str, str]]:
         """Distinct country, city of listed offers, sorted.
 
-        Listed means an active offer of an active partner.
+        Listed means an active, not hidden offer of an active, not hidden partner.
         """
         ...
 
@@ -51,8 +51,18 @@ class ReviewRepository(Protocol):
 
 
 class ExtraRepository(Protocol):
-    async def list_active(self) -> list[Extra]: ...
+    async def list_all(self) -> list[Extra]:
+        """Every extra, inactive and hidden ones too, for agents."""
+        ...
+
+    async def list_active(self) -> list[Extra]:
+        """Listed extras: active and not hidden."""
+        ...
 
     async def list_active_by_ids(self, ids: Sequence[UUID]) -> list[Extra]:
-        """Active extras by id, in that order. Inactive and unknown ids are omitted."""
+        """Listed extras by id, in that order. Inactive, hidden and unknown ids are omitted."""
         ...
+
+    async def get(self, extra_id: UUID) -> Extra | None: ...
+
+    async def save(self, extra: Extra) -> None: ...

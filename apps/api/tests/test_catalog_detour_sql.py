@@ -18,16 +18,27 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 from sqlalchemy.pool import NullPool
 
 from alembic import command
+from novoya_api.catalog.application.use_cases.get_offer_detail import GetOfferDetail
+from novoya_api.catalog.application.use_cases.update_extra import UpdateExtra, UpdateExtraCommand
+from novoya_api.catalog.application.use_cases.update_offer import UpdateOffer, UpdateOfferCommand
+from novoya_api.catalog.application.use_cases.update_partner import (
+    UpdatePartner,
+    UpdatePartnerCommand,
+)
+from novoya_api.catalog.domain import ImportedRow, OfferNotFound
 from novoya_api.catalog.infrastructure.db.models import ExtraRow, OfferRow, PartnerRow, ReviewRow
 from novoya_api.catalog.infrastructure.db.repositories import (
     SqlExtraRepository,
+    SqlOfferRepository,
+    SqlPartnerRepository,
     SqlReviewRepository,
 )
 from novoya_api.catalog.infrastructure.detour.mapping import DetourImportError, detour_id
 from novoya_api.catalog.infrastructure.detour.run import import_detour
 from novoya_api.catalog.infrastructure.seed.run import seed_catalog
-from novoya_api.catalog.public import covered_destinations, search_offers
+from novoya_api.catalog.public import covered_destinations, get_extras, search_offers, tags_at
 from novoya_api.shared.infrastructure.db.session import close_db
+from novoya_api.shared.infrastructure.db.unit_of_work import SqlAlchemyUnitOfWork
 from tests.detour_fixture import CHANIA, CHANIA_STAY, CHANIA_TRANSFER, DetourFile, sample_detour
 from tests.test_catalog_sql import (
     API_DIR,
@@ -269,6 +280,104 @@ async def test_a_hand_added_partner_is_never_deactivated_by_the_import(session, 
     await import_detour(source)
 
     assert (await session.get(PartnerRow, hand_added.id, populate_existing=True)).active is True
+
+
+MARCH_TRIP = (date(2027, 3, 1), date(2027, 3, 5))
+
+
+async def _hide_offer(session: AsyncSession, detour_offer: str) -> None:
+    await UpdateOffer(
+        SqlOfferRepository(session), SqlPartnerRepository(session), SqlAlchemyUnitOfWork(session)
+    )(UpdateOfferCommand(offer_id=detour_id("offres", detour_offer), hidden=True))
+
+
+async def test_a_hidden_offer_is_left_out_of_search_coverage_tags_and_its_page(session, source):
+    await import_detour(source)
+    transfer = detour_id("offres", CHANIA_TRANSFER)
+
+    await _hide_offer(session, CHANIA_TRANSFER)
+
+    listed = await search_offers("Greece", "Chania", [], 2, *MARCH_TRIP)
+    assert transfer not in {offer.id for offer in listed}
+    with pytest.raises(OfferNotFound):
+        await GetOfferDetail(SqlOfferRepository(session))(transfer)
+    await _hide_offer(session, CHANIA_STAY)
+    assert ("Greece", "Chania") not in await covered_destinations()
+    assert await tags_at("Greece", "Chania") == []
+
+
+async def test_a_hidden_partner_hides_its_offers(session, source):
+    await import_detour(source)
+
+    await UpdatePartner(SqlPartnerRepository(session), SqlAlchemyUnitOfWork(session))(
+        UpdatePartnerCommand(partner_id=detour_id("partenaires", "P002"), hidden=True)
+    )
+
+    listed = await search_offers("Greece", "Chania", [], 2, *MARCH_TRIP)
+    assert detour_id("offres", CHANIA_TRANSFER) not in {offer.id for offer in listed}
+
+
+async def test_a_hidden_extra_is_not_offered(session, source):
+    await import_detour(source)
+    bag = detour_id("preferences", "O001")
+
+    await UpdateExtra(SqlExtraRepository(session), SqlAlchemyUnitOfWork(session))(
+        UpdateExtraCommand(extra_id=bag, hidden=True)
+    )
+
+    assert bag not in {extra.id for extra in await SqlExtraRepository(session).list_active()}
+    assert await get_extras([bag]) == []
+    assert bag in {extra.id for extra in await SqlExtraRepository(session).list_all()}
+
+
+async def test_a_new_import_keeps_what_novoya_decided(session, source):
+    await import_detour(source)
+    stay = detour_id("offres", CHANIA_STAY)
+    await UpdateOffer(
+        SqlOfferRepository(session), SqlPartnerRepository(session), SqlAlchemyUnitOfWork(session)
+    )(UpdateOfferCommand(offer_id=stay, featured=True, hidden=True))
+    await UpdatePartner(SqlPartnerRepository(session), SqlAlchemyUnitOfWork(session))(
+        UpdatePartnerCommand(partner_id=detour_id("partenaires", "P002"), hidden=True)
+    )
+    await UpdateExtra(SqlExtraRepository(session), SqlAlchemyUnitOfWork(session))(
+        UpdateExtraCommand(extra_id=detour_id("preferences", "O001"), hidden=True)
+    )
+
+    await import_detour(source)
+
+    offer = await session.get(OfferRow, stay, populate_existing=True)
+    partner = await session.get(
+        PartnerRow, detour_id("partenaires", "P002"), populate_existing=True
+    )
+    extra = await session.get(ExtraRow, detour_id("preferences", "O001"), populate_existing=True)
+    assert (offer.featured, offer.hidden, offer.active) == (True, True, True)
+    assert (partner.hidden, partner.active) == (True, True)
+    assert (extra.hidden, extra.active) == (True, True)
+
+
+async def test_editing_an_imported_offer_is_refused_and_writes_nothing(session, source):
+    await import_detour(source)
+    stay = detour_id("offres", CHANIA_STAY)
+
+    with pytest.raises(ImportedRow):
+        await UpdateOffer(
+            SqlOfferRepository(session),
+            SqlPartnerRepository(session),
+            SqlAlchemyUnitOfWork(session),
+        )(UpdateOfferCommand(offer_id=stay, title="Renamed"))
+
+    await session.rollback()
+    offer = await session.get(OfferRow, stay, populate_existing=True)
+    assert offer.title == "Chania - nuit en chambre double"
+
+
+async def test_imported_partners_are_read_as_imported(session, source):
+    await import_detour(source)
+
+    partner = await SqlPartnerRepository(session).get(detour_id("partenaires", "P001"))
+
+    assert partner is not None
+    assert (partner.imported, partner.hidden) == (True, False)
 
 
 def test_downgrade_gives_imported_partners_a_placeholder_phone(database_url):  # noqa: F811

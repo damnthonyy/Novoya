@@ -16,7 +16,13 @@ from novoya_api.catalog.domain import (
     PriceUnit,
     Review,
 )
-from novoya_api.catalog.infrastructure.db.models import ExtraRow, OfferRow, PartnerRow, ReviewRow
+from novoya_api.catalog.infrastructure.db.models import (
+    DETOUR_SOURCE,
+    ExtraRow,
+    OfferRow,
+    PartnerRow,
+    ReviewRow,
+)
 
 
 def partner_to_entity(row: PartnerRow) -> Partner:
@@ -29,6 +35,8 @@ def partner_to_entity(row: PartnerRow) -> Partner:
         contact_email=row.contact_email,
         contact_phone=row.contact_phone,
         active=row.active,
+        hidden=row.hidden,
+        imported=row.source == DETOUR_SOURCE,
     )
 
 
@@ -55,6 +63,7 @@ def offer_to_entity(row: OfferRow) -> Offer:
         restrictions=row.restrictions,
         cancellation=row.cancellation,
         confirmation_delay_hours=row.confirmation_delay_hours,
+        hidden=row.hidden,
     )
 
 
@@ -81,6 +90,7 @@ def extra_to_entity(row: ExtraRow) -> Extra:
         unit=row.unit,
         constraints=tuple(row.constraints),
         active=row.active,
+        hidden=row.hidden,
     )
 
 
@@ -92,6 +102,7 @@ def _apply_partner(row: PartnerRow, partner: Partner) -> None:
     row.contact_email = partner.contact_email
     row.contact_phone = partner.contact_phone
     row.active = partner.active
+    row.hidden = partner.hidden
 
 
 def _apply_offer(row: OfferRow, offer: Offer) -> None:
@@ -115,6 +126,7 @@ def _apply_offer(row: OfferRow, offer: Offer) -> None:
     row.restrictions = offer.restrictions
     row.cancellation = offer.cancellation
     row.confirmation_delay_hours = offer.confirmation_delay_hours
+    row.hidden = offer.hidden
 
 
 class SqlPartnerRepository:
@@ -158,7 +170,12 @@ class SqlOfferRepository:
         stmt = (
             select(OfferRow.country, OfferRow.city)
             .join(PartnerRow, OfferRow.partner_id == PartnerRow.id)
-            .where(OfferRow.active.is_(True), PartnerRow.active.is_(True))
+            .where(
+                OfferRow.active.is_(True),
+                OfferRow.hidden.is_(False),
+                PartnerRow.active.is_(True),
+                PartnerRow.hidden.is_(False),
+            )
             .distinct()
             .order_by(OfferRow.country, OfferRow.city)
         )
@@ -221,10 +238,14 @@ class SqlExtraRepository:
     def __init__(self, session: AsyncSession) -> None:
         self._session = session
 
+    async def list_all(self) -> list[Extra]:
+        stmt = select(ExtraRow).order_by(ExtraRow.category, ExtraRow.label, ExtraRow.id)
+        return [extra_to_entity(row) for row in (await self._session.scalars(stmt)).all()]
+
     async def list_active(self) -> list[Extra]:
         stmt = (
             select(ExtraRow)
-            .where(ExtraRow.active.is_(True))
+            .where(ExtraRow.active.is_(True), ExtraRow.hidden.is_(False))
             .order_by(ExtraRow.category, ExtraRow.label, ExtraRow.id)
         )
         return [extra_to_entity(row) for row in (await self._session.scalars(stmt)).all()]
@@ -232,6 +253,18 @@ class SqlExtraRepository:
     async def list_active_by_ids(self, ids: Sequence[UUID]) -> list[Extra]:
         if not ids:
             return []
-        stmt = select(ExtraRow).where(ExtraRow.id.in_(ids), ExtraRow.active.is_(True))
+        stmt = select(ExtraRow).where(
+            ExtraRow.id.in_(ids), ExtraRow.active.is_(True), ExtraRow.hidden.is_(False)
+        )
         found = {row.id: extra_to_entity(row) for row in (await self._session.scalars(stmt)).all()}
         return [found[extra_id] for extra_id in ids if extra_id in found]
+
+    async def get(self, extra_id: UUID) -> Extra | None:
+        row = await self._session.get(ExtraRow, extra_id)
+        return extra_to_entity(row) if row is not None else None
+
+    async def save(self, extra: Extra) -> None:
+        """Only hidden changes in Novoya: the DÉTOUR import owns the rest of an extra."""
+        row = await self._session.get(ExtraRow, extra.id)
+        assert row is not None
+        row.hidden = extra.hidden

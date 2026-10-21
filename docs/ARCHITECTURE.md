@@ -163,7 +163,7 @@ The backend validates this JSON. If validation fails, it retries once, then fall
 
 ## 4. Partners, coverage and the no-preference case
 
-Novoya works with a limited list of partners. The `partners` and `offers` tables are the catalog, and the travel tools are the AI's only way to read it. The catalog comes from the client's DÉTOUR export, imported with `python -m novoya_api.catalog.infrastructure.detour --source detour.sqlite` ([ADR 0014](adr/0014-indicative-prices-and-detour-import.md)): partners, offers, publishable reviews and extras. Countries are stored in English; a wish may name them in English or French.
+Novoya works with a limited list of partners. The `partners` and `offers` tables are the catalog, and the travel tools are the AI's only way to read it. The catalog comes from the client's DÉTOUR export, imported with `python -m novoya_api.catalog.infrastructure.detour --source detour.sqlite` ([ADR 0014](adr/0014-indicative-prices-and-detour-import.md)): partners, offers, publishable reviews and extras. DÉTOUR owns what it exports: an agent changes it there, and in Novoya only hides a row or features an offer. Countries are stored in English; a wish may name them in English or French.
 
 | Case | What happens |
 |---|---|
@@ -225,14 +225,14 @@ The PDF exists in English and French, in the client's language (`users.locale`).
 | `one_time_tokens` | id, user_id, purpose (`email_verification`, `password_reset`), token_hash, expires_at, used_at, created_at |
 | `oauth_states` | state_hash, provider, code_verifier, nonce, redirect_to, expires_at |
 | `role_changes` | id, user_id, old_role, new_role, source (`admin_api`, `cmd_grant_role`), changed_by, changed_at |
-| `partners` | id, name, kind (hotel, guide, transport, activity, agency), country, city, contact_email, contact_phone (optional), active, source (`detour` when imported), created_at |
-| `offers` | id, partner_id, kind, title, description, country, city, min_persons, max_persons, available_from, available_to, tags, featured, active, price_eur and price_unit (indicative, per person per night, trip or activity), opening_months, conditions, restrictions, cancellation, confirmation_delay_hours |
+| `partners` | id, name, kind (hotel, guide, transport, activity, agency), country, city, contact_email, contact_phone (optional), active, hidden (the agent's switch, kept by the import), source (`detour` when imported), created_at |
+| `offers` | id, partner_id, kind, title, description, country, city, min_persons, max_persons, available_from, available_to, tags, featured, active, hidden, price_eur and price_unit (indicative, per person per night, trip or activity), opening_months, conditions, restrictions, cancellation, confirmation_delay_hours |
 | `reviews` | id, country, city, rating (1 to 5), reviewed_on, text, author ("First name I." or "Voyageur anonyme"), imported_at. Only published, consented reviews |
-| `extras` | id, category, label, description, pricing (`included`, `supplement`, `on_quote`), supplement_eur, unit, constraints, active |
+| `extras` | id, category, label, description, pricing (`included`, `supplement`, `on_quote`), supplement_eur, unit, constraints, active, hidden |
 | `wishes` | id, user_id, text, destination_country, destination_city, status (`draft`, `not_covered`, `panel_shown`, `answered`, `planned`), panel_json (the panel we showed), selected_tags (what the client clicked, for example `[{"section": "style", "tag": "beach"}]`), budget_max, currency, persons, start_date, end_date, created_at, updated_at |
 | `plans` | id, wish_id, status (`proposed`, `requested`, `negotiating`, `quoted`, `accepted`, `rejected`), based_on_preferences, summary, assigned_agent_id, created_at, updated_at |
 | `plan_items` | id, plan_id, offer_id, day, quantity, note, negotiated_price (empty until the agent fills it), removed |
-| `plan_extras` | plan_id, extra_id, pricing, price_eur (the supplement when requested, or the agent's price for `on_quote`), label and unit (copied when requested) |
+| `plan_extras` | plan_id, extra_id, pricing, price_eur (the supplement when requested, or the agent's price for `on_quote`), label and unit (copied when requested), confirmed (the agent set its price; a supplement per person, night or day needs it before the quote) |
 | `quotes` | id, number, plan_id, agent_id, total_price, currency (`EUR`), locale, valid_until, pdf_path, sent_at, decided_at, client_comment |
 
 `wishes` holds the whole request: the text, the panel we showed, the tags the client clicked, the budget, the number of travellers and the dates. `panel_json` and `selected_tags` are JSONB columns.
@@ -281,9 +281,10 @@ Agent (roles `agent` and `admin`):
 | GET | `/agent/plans?status=requested` | The quote queue |
 | POST | `/agent/plans/{id}/take` | Assign the plan to me, status `negotiating` |
 | PATCH | `/agent/plans/{id}/items/{item_id}` | Set the negotiated price, or remove the item |
-| PATCH | `/agent/plans/{id}/extras/{extra_id}` | Price an `on_quote` extra, or adjust a supplement |
+| PATCH | `/agent/plans/{id}/extras/{extra_id}` | Price an `on_quote` extra, or adjust or confirm a supplement |
 | POST | `/agent/plans/{id}/quote` | Compute the total, render the PDF, status `quoted` |
-| GET, POST, PATCH | `/admin/partners`, `/admin/offers` | Manage partners and their offers |
+| GET, POST, PATCH | `/admin/partners`, `/admin/offers` | Manage partners and their offers. Imported rows only change `hidden` (and `featured` for offers): 409 `imported_row` |
+| GET, PATCH | `/admin/extras` | List extras, hide or show one |
 
 Admin (role `admin` only; an admin can also use every agent route):
 

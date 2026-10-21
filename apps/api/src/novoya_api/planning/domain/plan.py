@@ -1,3 +1,4 @@
+import unicodedata
 from collections.abc import Sequence
 from dataclasses import dataclass, field, replace
 from datetime import datetime
@@ -49,16 +50,53 @@ class PlanExtra:
     as it was then (counted once, the agent can adjust it) or the price the agent got for an
     on_quote extra; None until then. An included extra has no price. label and unit are
     copied too, so the agent knows what was asked even if the catalog changes; they are not
-    part of what makes two choices equal."""
+    part of what makes two choices equal.
+
+    A supplement per person, night or day is still counted once: the agent checks how many
+    the trip needs and confirms the price (confirmed), even if it stays the same."""
 
     extra_id: UUID
     pricing: str
     price_eur: Decimal | None
     label: str = field(default="", compare=False)
     unit: str = field(default="", compare=False)
+    confirmed: bool = field(default=False, compare=False)
+
+    @property
+    def needs_quantity_check(self) -> bool:
+        """A supplement whose unit depends on the travellers or the nights (par personne,
+        par nuit, par jour...): its amount is for one, so the agent decides the total."""
+        return self.pricing == "supplement" and _unit_key(self.unit) in PER_QUANTITY_UNITS
 
 
 EXTRA_PRICINGS = ("included", "supplement", "on_quote")
+
+
+def _unit_key(unit: str) -> str:
+    """Case, accents and spaces ignored: "Par  Demi-Journée" -> "par demi-journee"."""
+    plain = "".join(
+        char for char in unicodedata.normalize("NFKD", unit) if not unicodedata.combining(char)
+    )
+    return " ".join(plain.split()).casefold()
+
+
+# The units of DÉTOUR's preferences that multiply with the group or the trip's length, and
+# their English forms. A fixed list: a unit nobody listed is counted once, as before.
+PER_QUANTITY_UNITS = frozenset(
+    {
+        "par personne",
+        "par personne et nuit",
+        "par nuit",
+        "par jour",
+        "par demi-journee",
+        "per person",
+        "per person per night",
+        "per person/night",
+        "per night",
+        "per day",
+        "per half-day",
+    }
+)
 
 
 def keep_valid(drafts: Sequence[DraftItem], allowed: set[UUID], trip_days: int) -> list[DraftItem]:
@@ -207,7 +245,8 @@ class Plan:
         self.updated_at = now
 
     def set_extra_price(self, extra_id: UUID, by: UUID, price: Decimal, now: datetime) -> None:
-        """The assigned agent prices an on_quote extra or adjusts a supplement."""
+        """The assigned agent prices an on_quote extra or adjusts a supplement. Setting a
+        price, even the same one, confirms the extra."""
         self._must_be_assigned(by)
         if price <= 0:
             raise InvalidPlan("the price must be more than 0")
@@ -215,7 +254,7 @@ class Plan:
         if extra.pricing == "included":
             raise InvalidPlan("an included extra has no price")
         self.extras = tuple(
-            replace(entry, price_eur=price) if entry.extra_id == extra_id else entry
+            replace(entry, price_eur=price, confirmed=True) if entry.extra_id == extra_id else entry
             for entry in self.extras
         )
         self.updated_at = now
@@ -237,11 +276,14 @@ class Plan:
         return sum((*items, *extras), Decimal("0"))
 
     def ready_to_quote(self) -> bool:
-        """Every kept item and every on_quote extra has a price."""
-        return all(
-            item.negotiated_price is not None for item in self.items if not item.removed
-        ) and all(
-            extra.price_eur is not None for extra in self.extras if extra.pricing == "on_quote"
+        """Every kept item and every on_quote extra has a price, and the agent confirmed every
+        supplement that needs a quantity check."""
+        return (
+            all(item.negotiated_price is not None for item in self.items if not item.removed)
+            and all(
+                extra.price_eur is not None for extra in self.extras if extra.pricing == "on_quote"
+            )
+            and all(extra.confirmed for extra in self.extras if extra.needs_quantity_check)
         )
 
     def _must_be_assigned(self, agent_id: UUID) -> None:

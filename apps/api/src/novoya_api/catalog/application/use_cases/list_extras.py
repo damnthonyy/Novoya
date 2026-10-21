@@ -3,7 +3,7 @@ from novoya_api.catalog.domain import Extra
 
 
 class ListExtras:
-    """The extras a client can add to a plan: active ones only."""
+    """The extras a client can add to a plan: active ones that no agent hid."""
 
     def __init__(self, extras: ExtraRepository) -> None:
         self._extras = extras

@@ -138,11 +138,6 @@ def _lookup() -> dict[str, str]:
 _ENGLISH = _lookup()
 
 
-def english_country(name: str) -> str | None:
-    """The English name of a country written in French or in English, or None."""
-    return _ENGLISH.get(country_key(name))
-
-
 def canonical_country(name: str) -> str | None:
-    """The English name of a country written in French or in English, or None."""
-    return english_country(name)
+    """The English name of a country written in French or in English, any case, or None."""
+    return _ENGLISH.get(country_key(name))

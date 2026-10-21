@@ -144,13 +144,17 @@ class AgentPlanItemView:
 @dataclass(frozen=True)
 class AgentPlanExtraView:
     """An extra the client chose. price_eur: the supplement, or what the agent set; None for
-    an included extra and for an on_quote extra not priced yet."""
+    an included extra and for an on_quote extra not priced yet. needs_quantity_check: a
+    supplement per person, night or day, counted once until the agent confirms its price
+    (confirmed)."""
 
     extra_id: UUID
     pricing: str
     price_eur: Decimal | None
     label: str
     unit: str
+    needs_quantity_check: bool
+    confirmed: bool
 
 
 @dataclass(frozen=True)
@@ -158,7 +162,8 @@ class AgentPlanView:
     """The plan as the assigned agent sees it: prices, partners, total and the client's budget.
 
     total counts priced items and priced extras; ready_to_quote is false while a kept item or
-    an on_quote extra has no price."""
+    an on_quote extra has no price, or a supplement that needs a quantity check is not
+    confirmed."""
 
     id: UUID
     wish_id: UUID

@@ -19,7 +19,10 @@ class ExtraPricing(StrEnum):
 
 @dataclass(frozen=True)
 class Extra:
-    """An option a client can add to a plan (a quiet room, an extra bag, a private guide)."""
+    """An option a client can add to a plan (a quiet room, an extra bag, a private guide).
+
+    Every extra comes from DÉTOUR, which owns it; hidden is the agent's switch in Novoya,
+    which the import never changes. A hidden extra is not offered, like an inactive one."""
 
     id: UUID
     category: str
@@ -30,6 +33,7 @@ class Extra:
     unit: str
     constraints: tuple[str, ...]
     active: bool
+    hidden: bool = False
 
     def __post_init__(self) -> None:
         if not self.label.strip():

@@ -404,6 +404,72 @@ def test_pricing_an_extra_that_is_not_on_the_plan_is_not_found():
         plan.set_extra_price(BAG, agent, Decimal("45.00"), NOW)
 
 
+@pytest.mark.parametrize(
+    "unit",
+    [
+        "par personne",
+        "par nuit",
+        "par personne et nuit",
+        "Par Jour",
+        "par demi-journée",
+        "  PAR   DEMI-JOURNEE ",
+        "per person",
+        "per night",
+    ],
+)
+def test_a_supplement_per_person_or_per_night_needs_a_quantity_check(unit):
+    extra = PlanExtra(extra_id=BAG, pricing="supplement", price_eur=Decimal("25"), unit=unit)
+
+    assert extra.needs_quantity_check is True
+
+
+@pytest.mark.parametrize("unit", ["par séjour", "par bagage", "par groupe", "", "par personnel"])
+def test_a_supplement_with_another_unit_needs_no_quantity_check(unit):
+    extra = PlanExtra(extra_id=BAG, pricing="supplement", price_eur=Decimal("25"), unit=unit)
+
+    assert extra.needs_quantity_check is False
+
+
+@pytest.mark.parametrize("pricing", ["included", "on_quote"])
+def test_only_a_supplement_needs_a_quantity_check(pricing):
+    extra = PlanExtra(extra_id=BAG, pricing=pricing, price_eur=None, unit="par personne")
+
+    assert extra.needs_quantity_check is False
+
+
+PER_PERSON = PlanExtra(
+    extra_id=BAG, pricing="supplement", price_eur=Decimal("25"), unit="par personne"
+)
+
+
+def test_an_unconfirmed_per_person_supplement_blocks_the_quote():
+    plan, agent = negotiating_plan_with([PER_PERSON])
+    price_every_item(plan, agent)
+
+    assert plan.extras[0].confirmed is False
+    assert plan.ready_to_quote() is False
+
+
+def test_setting_the_same_price_confirms_a_per_person_supplement():
+    plan, agent = negotiating_plan_with([PER_PERSON])
+    price_every_item(plan, agent)
+
+    plan.set_extra_price(BAG, agent, Decimal("25"), NOW)
+
+    assert plan.extras[0].confirmed is True
+    assert plan.ready_to_quote() is True
+    assert plan.priced_total() == Decimal("55.00")
+
+
+def test_a_supplement_per_stay_does_not_block_the_quote():
+    plan, agent = negotiating_plan_with(
+        [PlanExtra(extra_id=BAG, pricing="supplement", price_eur=Decimal("25"), unit="par séjour")]
+    )
+    price_every_item(plan, agent)
+
+    assert plan.ready_to_quote() is True
+
+
 # keep_valid
 
 

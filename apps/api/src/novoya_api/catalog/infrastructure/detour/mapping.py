@@ -23,7 +23,8 @@ from novoya_api.catalog.domain import (
     Review,
     normalize_tags,
 )
-from novoya_api.catalog.infrastructure.detour.countries import english_country
+from novoya_api.catalog.infrastructure.countries import canonical_country
+from novoya_api.catalog.infrastructure.db.models import DETOUR_SOURCE
 from novoya_api.shared.domain.errors import InvalidInput
 
 Row = Mapping[str, Any]
@@ -43,7 +44,7 @@ PRICINGS = {
     "supplement": ExtraPricing.SUPPLEMENT,
     "sur_devis": ExtraPricing.ON_QUOTE,
 }
-SOURCE = "detour"  # partners.source of imported partners
+SOURCE = DETOUR_SOURCE  # partners.source of imported partners
 
 
 class DetourImportError(Exception):
@@ -80,7 +81,7 @@ def slugify(text: str) -> str:
 
 
 def place(row: Row) -> Place:
-    country = english_country(row["pays"] or "")
+    country = canonical_country(row["pays"] or "")
     if country is None:
         raise DetourImportError(f"destinations {row['id']}: country is not in the country map")
     city = " ".join((row["nom"] or "").split())

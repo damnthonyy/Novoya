@@ -13,6 +13,7 @@ from sqlalchemy import (
     Numeric,
     String,
     Text,
+    false,
 )
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -84,3 +85,5 @@ class PlanExtraModel(Base):
     # Copied from the extra when the quote is requested, so the agent sees what was asked.
     label: Mapped[str] = mapped_column(String(255))
     unit: Mapped[str] = mapped_column(String(64))
+    # True once the assigned agent set its price (a supplement per person or night needs it).
+    confirmed: Mapped[bool] = mapped_column(Boolean, default=False, server_default=false())

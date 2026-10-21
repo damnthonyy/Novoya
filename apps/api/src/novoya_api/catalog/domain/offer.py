@@ -27,7 +27,11 @@ class PriceUnit(StrEnum):
 @dataclass(frozen=True)
 class Offer:
     """A partner product. Its price, when the partner gave one, is indicative only (ADR 0014):
-    the agent still negotiates the price of each trip, and the quote has that one."""
+    the agent still negotiates the price of each trip, and the quote has that one.
+
+    active comes from the partner (the DÉTOUR export for imported offers); hidden is the
+    agent's switch in Novoya, which the import never changes. A hidden offer is unused, like
+    an inactive one."""
 
     id: UUID
     partner_id: UUID
@@ -50,6 +54,7 @@ class Offer:
     restrictions: str | None = None
     cancellation: str | None = None
     confirmation_delay_hours: int | None = None
+    hidden: bool = False
 
     def __post_init__(self) -> None:
         if self.min_persons < 1 or self.max_persons < self.min_persons:
@@ -69,10 +74,10 @@ class Offer:
             raise InvalidOffer("the confirmation delay cannot be negative")
 
     def is_listed_with(self, partner: Partner) -> bool:
-        """Inactive partners hide their offers; inactive offers are unused."""
+        """Inactive or hidden partners hide their offers; inactive or hidden offers are unused."""
         if partner.id != self.partner_id:
             raise InvalidOffer("offer does not belong to this partner")
-        return partner.lists_offers() and self.active
+        return partner.lists_offers() and self.active and not self.hidden
 
     def fits(self, persons: int, start: date, end: date) -> bool:
         """True when the group size and trip dates sit inside the offer's limits, and every

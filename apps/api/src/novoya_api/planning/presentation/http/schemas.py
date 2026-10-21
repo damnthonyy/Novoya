@@ -89,19 +89,24 @@ class AgentPlanItem(BaseModel):
 
 class AgentPlanExtra(BaseModel):
     """An extra the client chose. price_eur: the supplement, or what the agent set; null for
-    an included extra and for an on_quote extra not priced yet."""
+    an included extra and for an on_quote extra not priced yet. needs_quantity_check: a
+    supplement per person, night or day; its amount is counted once, so the agent checks the
+    quantity and confirms it by setting its price, even the same one (confirmed)."""
 
     extra_id: UUID
     pricing: Literal["included", "supplement", "on_quote"]
     price_eur: Decimal | None
     label: str
     unit: str
+    needs_quantity_check: bool
+    confirmed: bool
 
 
 class AgentPlan(BaseModel):
     """The plan as the assigned agent sees it. Prices, partners, running total and budget.
     total counts priced items and priced extras; ready_to_quote is false while a kept item or
-    an on_quote extra has no price."""
+    an on_quote extra has no price, or a supplement that needs a quantity check is not
+    confirmed."""
 
     id: UUID
     wish_id: UUID

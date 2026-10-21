@@ -8,8 +8,8 @@ import pytest
 
 from novoya_api.catalog.application.use_cases.search_offers import SearchOffers
 from novoya_api.catalog.domain import ExtraPricing, OfferKind, PartnerKind, normalize_tags
+from novoya_api.catalog.infrastructure.countries import COUNTRIES, canonical_country
 from novoya_api.catalog.infrastructure.detour.__main__ import main
-from novoya_api.catalog.infrastructure.detour.countries import COUNTRIES, english_country
 from novoya_api.catalog.infrastructure.detour.mapping import (
     DetourCatalog,
     DetourImportError,
@@ -142,7 +142,7 @@ def test_partner_is_active_only_when_its_status_is_actif(catalog):
     [("Grèce", "Greece"), ("Corée du Sud", "South Korea"), ("Côte d’Ivoire", "Ivory Coast")],
 )
 def test_detour_country_names_are_translated_to_english(french, english):
-    assert english_country(french) == english
+    assert canonical_country(french) == english
 
 
 @pytest.mark.parametrize(
@@ -158,18 +158,18 @@ def test_detour_country_names_are_translated_to_english(french, english):
     ],
 )
 def test_a_new_country_in_french_or_english_gets_its_english_name(name, english):
-    assert english_country(name) == english
+    assert canonical_country(name) == english
 
 
 def test_the_detour_map_wins_over_the_standard_names():
     # The standard English name is "Côte d’Ivoire"; rows already imported say "Ivory Coast".
-    assert english_country("Côte d’Ivoire") == "Ivory Coast"
-    assert english_country("Ivory Coast") == "Ivory Coast"
+    assert canonical_country("Côte d’Ivoire") == "Ivory Coast"
+    assert canonical_country("Ivory Coast") == "Ivory Coast"
 
 
 @pytest.mark.parametrize("name", ["Atlantide", "Europe", "Monde", "", "ZZ"])
 def test_an_unknown_country_has_no_english_name(name):
-    assert english_country(name) is None
+    assert canonical_country(name) is None
 
 
 def test_the_country_map_covers_the_86_detour_countries():
