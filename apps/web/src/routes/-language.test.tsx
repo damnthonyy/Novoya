@@ -28,6 +28,7 @@ type Call = { method: string; path: string; body: unknown }
 let signedIn: MeResponse | null
 let calls: Call[]
 let patchAnswer: (body: { locale: 'en' | 'fr' }) => Response
+let router: ReturnType<typeof createAppRouter> | undefined
 
 function mockApi() {
   vi.spyOn(globalThis, 'fetch').mockImplementation(async (input) => {
@@ -48,13 +49,12 @@ function mockApi() {
 
 function renderAt(url: string) {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
-  const router = createAppRouter(queryClient, createMemoryHistory({ initialEntries: [url] }))
+  router = createAppRouter(queryClient, createMemoryHistory({ initialEntries: [url] }))
   render(
     <QueryClientProvider client={queryClient}>
       <RouterProvider router={router} />
     </QueryClientProvider>,
   )
-  return { router }
 }
 
 const languageSwitch = (name: 'Language' | 'Langue') => screen.findByRole('group', { name })
@@ -71,7 +71,11 @@ describe('the language switch', () => {
     vi.spyOn(navigator, 'languages', 'get').mockReturnValue(['en-US'])
     mockApi()
   })
-  afterEach(() => vi.restoreAllMocks())
+  // Let navigations and router.invalidate() finish before jsdom is torn down.
+  afterEach(async () => {
+    await waitFor(() => expect(router?.state.status).toBe('idle'))
+    vi.restoreAllMocks()
+  })
 
   it('marks the current language', async () => {
     renderAt('/destinations')
@@ -124,6 +128,7 @@ describe('the language switch', () => {
 
     // The next page reads the saved user: it stays in French.
     fireEvent.click(screen.getAllByRole('link', { name: 'Composer' })[0])
+    await waitFor(() => expect(router?.state.location.pathname).not.toBe('/trips'))
     await waitFor(() => expect(screen.getByRole('group', { name: 'Langue' })).toBeInTheDocument())
     expect(i18n.language).toBe('fr')
   })
