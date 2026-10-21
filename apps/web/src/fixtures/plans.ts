@@ -1,5 +1,5 @@
 // The demo plan of the demo trips (/trips). Real plans are read from GET /plans/{id}. A plan never has a price (#31).
-import { daysFromToday } from './demoDates'
+import { daysFromToday, timeDaysAgo } from './demoDates'
 import { PHOTOS } from './photos'
 
 /** When in the day: the page translates it. */
@@ -44,7 +44,7 @@ const moments: Moment[] = [
 const DEMO: Plan = {
   id: 'chania',
   version: 2,
-  updatedAt: '2026-10-19T10:42:00Z',
+  updatedAt: timeDaysAgo(2, 10, 42),
   place: 'Chania',
   tagline: 'au rythme de la mer.',
   startDate: daysFromToday(60),

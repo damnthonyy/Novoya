@@ -1,5 +1,5 @@
 // Demo data until the API exists (issue #76 for plans, #50 for quote requests).
-import { daysFromToday, monthFromToday, monthOf } from './demoDates'
+import { daysFromToday, monthFromToday, monthOf, timeDaysAgo } from './demoDates'
 import { PHOTOS } from './photos'
 
 export type Message = { from: 'you' | 'novoya'; text: string }
@@ -37,10 +37,10 @@ const chaniaMessages: Message[] = [
 ]
 
 const THREADS: Thread[] = [
-  { id: 'chania', photo: PHOTOS.crete, status: 'offer_sent', highlight: true, country: 'Grèce', dates: { start: daysFromToday(60), end: daysFromToday(66) }, title: 'Chania, au rythme de la mer', version: 2, messageCount: 12, updatedAt: '2026-10-19T10:42:00Z', planId: 'chania', messages: chaniaMessages },
-  { id: 'marrakech', photo: PHOTOS.marrakech, status: 'preview_proposed', country: 'Maroc', dates: null, title: 'Marrakech, derrière les portes', version: 1, messageCount: 8, updatedAt: '2026-10-18T18:16:00Z', messages: [{ from: 'you', text: 'Quelques jours au soleil, entre culture et calme.' }, { from: 'novoya', text: 'Voici un premier aperçu dans un riad de la médina.' }] },
-  { id: 'biarritz', photo: PHOTOS.biarritz, status: 'in_discussion', country: 'France', dates: { month: monthOf(daysFromToday(97)) }, title: 'Biarritz, plein ouest', version: null, messageCount: 5, updatedAt: '2026-10-19T09:30:00Z', messages: [{ from: 'you', text: 'Une parenthèse sportive face à l’océan.' }] },
-  { id: 'milos', photo: PHOTOS.hero, status: 'accepted', country: 'Grèce', dates: { month: monthFromToday(1) }, title: 'Milos, lumière des Cyclades', version: 3, messageCount: 21, updatedAt: '2026-09-02T14:12:00Z', messages: [{ from: 'novoya', text: 'Votre voyage est confirmé. Bon départ !' }] },
+  { id: 'chania', photo: PHOTOS.crete, status: 'offer_sent', highlight: true, country: 'Grèce', dates: { start: daysFromToday(60), end: daysFromToday(66) }, title: 'Chania, au rythme de la mer', version: 2, messageCount: 12, updatedAt: timeDaysAgo(2, 10, 42), planId: 'chania', messages: chaniaMessages },
+  { id: 'marrakech', photo: PHOTOS.marrakech, status: 'preview_proposed', country: 'Maroc', dates: null, title: 'Marrakech, derrière les portes', version: 1, messageCount: 8, updatedAt: timeDaysAgo(3, 18, 16), messages: [{ from: 'you', text: 'Quelques jours au soleil, entre culture et calme.' }, { from: 'novoya', text: 'Voici un premier aperçu dans un riad de la médina.' }] },
+  { id: 'biarritz', photo: PHOTOS.biarritz, status: 'in_discussion', country: 'France', dates: { month: monthOf(daysFromToday(97)) }, title: 'Biarritz, plein ouest', version: null, messageCount: 5, updatedAt: timeDaysAgo(2, 9, 30), messages: [{ from: 'you', text: 'Une parenthèse sportive face à l’océan.' }] },
+  { id: 'milos', photo: PHOTOS.hero, status: 'accepted', country: 'Grèce', dates: { month: monthFromToday(1) }, title: 'Milos, lumière des Cyclades', version: 3, messageCount: 21, updatedAt: timeDaysAgo(49, 14, 12), messages: [{ from: 'novoya', text: 'Votre voyage est confirmé. Bon départ !' }] },
   { id: 'essaouira', photo: PHOTOS.marrakech, status: 'refused', country: 'Maroc', dates: { month: '2026-03-01' }, title: 'Essaouira, au gré du vent', version: 2, messageCount: 14, updatedAt: '2026-03-08T11:05:00Z', messages: [{ from: 'you', text: 'Finalement, je préfère d’autres dates.' }] },
 ]
 
