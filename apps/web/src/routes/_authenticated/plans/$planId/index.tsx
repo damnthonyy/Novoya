@@ -16,6 +16,7 @@ import { PlanDays } from '../../../../components/organisms/PlanDays'
 import { PlanHeader } from '../../../../components/organisms/PlanHeader'
 import { AppShell } from '../../../../components/templates/AppShell'
 import { DEMO_PLAN_ID, getPlan } from '../../../../fixtures/plans'
+import { QuoteNote } from '../../../../components/molecules/QuoteNote'
 
 export const Route = createFileRoute('/_authenticated/plans/$planId/')({
   component: PlanRoute,
@@ -85,6 +86,7 @@ function LivePlan({ plan }: { plan: Plan }) {
         {!plan.based_on_preferences && <p className="mt-4 max-w-[660px] text-sm text-muted">{t('live.noPreferences')}</p>}
       </section>
       <PlanDays items={plan.items} />
+      <QuoteNote />
       <QuoteCall />
     </main>
   )
@@ -98,6 +100,7 @@ function DemoPlanPage() {
       <main className="lg:pb-24">
         <PlanHeader {...plan} />
         <DayTimeline planId={plan.id} days={plan.days} />
+        <QuoteNote />
         <QuoteCall />
         <ConversationDock version={plan.version} />
       </main>

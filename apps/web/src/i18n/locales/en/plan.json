@@ -25,6 +25,7 @@
     "evening": "Evening"
   },
   "placeHeading": "{{place}},",
+  "priceNote": "The price will come in a quote from a travel agent.",
   "live": {
     "eyebrow": "Your plan",
     "titleStart": "Your trip,",
