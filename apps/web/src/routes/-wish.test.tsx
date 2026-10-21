@@ -488,6 +488,8 @@ describe('the landing page', () => {
 
     expect(await screen.findByText('The DÉTOUR promise')).toBeInTheDocument()
     expect(screen.queryByText(/Novoya/)).not.toBeInTheDocument()
+    // The seal is the agency's own symbol, not a typed letter.
+    expect(document.querySelector('img[src="/icon-192.png"]')).not.toBeNull()
   })
 
   it('opens the legal notices with confirmed facts only', async () => {

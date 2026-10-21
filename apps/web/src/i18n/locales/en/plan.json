@@ -25,7 +25,7 @@
     "evening": "Evening"
   },
   "placeHeading": "{{place}},",
-  "priceNote": "The price will come in a quote from a Novoya advisor.",
+  "priceNote": "The price will come in a quote from a {{agency}} advisor.",
   "live": {
     "eyebrow": "Your plan",
     "titleStart": "Your trip,",
