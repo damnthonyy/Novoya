@@ -11,6 +11,7 @@ import { Seal } from '../../../components/atoms/Seal'
 import { CoverageSuggestions } from '../../../components/organisms/CoverageSuggestions'
 import { WishComposer } from '../../../components/organisms/WishComposer'
 import { AppShell } from '../../../components/templates/AppShell'
+import { givenName } from '../../../domain/auth/session'
 import { destinationLabel, destinationPhoto, destinationPlace } from '../../../domain/wish/destination'
 import { sendWishErrorKey, WISH_MAX_LENGTH, wishTextError, type WishTextErrorKey } from '../../../domain/wish/wish'
 
@@ -85,7 +86,7 @@ function WishPage() {
     ? tErrors(sendWishErrorKey(send.error instanceof ApiError ? send.error.code : undefined))
     : undefined
   const textError = checkError ? tErrors(checkError, { max: WISH_MAX_LENGTH }) : undefined
-  const firstName = me.first_name?.trim()
+  const firstName = givenName(me)
 
   return (
     <AppShell tone="ivory">

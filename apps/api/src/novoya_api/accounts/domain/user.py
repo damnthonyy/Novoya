@@ -1,3 +1,4 @@
+import unicodedata
 from dataclasses import dataclass
 from datetime import datetime
 from enum import StrEnum
@@ -12,6 +13,10 @@ from novoya_api.accounts.domain.role_change import RoleChange
 from novoya_api.accounts.domain.value_objects import Email, UserId
 from novoya_api.shared.domain.value_objects import Locale
 
+_HIDDEN = frozenset({"Cc", "Cf"})
+_NAME_MAX = 200
+_PART_MAX = 100
+
 
 class UserStatus(StrEnum):
     ACTIVE = "active"
@@ -21,13 +26,23 @@ class UserStatus(StrEnum):
 def _clip(value: str | None, max_len: int) -> str | None:
     if value is None:
         return None
-    cleaned = value.strip()[:max_len]
+    visible = "".join(ch for ch in value.strip() if unicodedata.category(ch) not in _HIDDEN)
+    cleaned = visible.strip()[:max_len]
     return cleaned or None
 
 
 def _display_name(first_name: str | None, last_name: str | None) -> str | None:
     parts = [part for part in (first_name, last_name) if part]
-    return " ".join(parts) or None
+    joined = " ".join(parts)
+    return joined[:_NAME_MAX] or None
+
+
+def _names_from_display(name: str | None) -> tuple[str | None, str | None]:
+    cleaned = _clip(name, _NAME_MAX)
+    if not cleaned:
+        return None, None
+    given, _, family = cleaned.partition(" ")
+    return _clip(given, _PART_MAX), _clip(family, _PART_MAX)
 
 
 @dataclass(slots=True)
@@ -55,8 +70,8 @@ class User:
         now: datetime,
     ) -> "User":
         """A new account is always a client. Only an admin can change the role afterwards."""
-        given = _clip(first_name, 100)
-        family = _clip(last_name, 100)
+        given = _clip(first_name, _PART_MAX)
+        family = _clip(last_name, _PART_MAX)
         return cls(
             UserId.new(),
             email,
@@ -80,8 +95,8 @@ class User:
 
     def fill_in_name(self, name: str | None) -> None:
         """Take the provider's name only when we have none: a name chosen at sign-up wins."""
-        if self.name is None and name and name.strip():
-            self.name = name.strip()[:200]
+        if self.name is None:
+            self.name = _clip(name, _NAME_MAX)
 
     def fill_in_from_provider(
         self,
@@ -90,14 +105,21 @@ class User:
         last_name: str | None,
         name: str | None,
     ) -> None:
-        """Take the provider's names only when we have none: a name chosen at sign-up wins."""
+        """Take the provider's names only when we have none. An existing display name
+        keeps first and last in sync with it, so Google cannot rename an old account."""
+        if self.name is not None and self.first_name is None and self.last_name is None:
+            self.first_name, self.last_name = _names_from_display(self.name)
+            return
+
         if self.first_name is None:
-            self.first_name = _clip(first_name, 100)
+            self.first_name = _clip(first_name, _PART_MAX)
         if self.last_name is None:
-            self.last_name = _clip(last_name, 100)
+            self.last_name = _clip(last_name, _PART_MAX)
         if self.name is None:
             self.name = _display_name(self.first_name, self.last_name)
         self.fill_in_name(name)
+        if self.name is not None and self.first_name is None and self.last_name is None:
+            self.first_name, self.last_name = _names_from_display(self.name)
 
     def verify_email(self, now: datetime) -> None:
         if self.email_verified_at is None:

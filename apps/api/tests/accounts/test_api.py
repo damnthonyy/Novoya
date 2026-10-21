@@ -210,6 +210,9 @@ async def test_an_invalid_body_gets_invalid_input_without_the_values(client):
         ({"last_name": "   "}, "last_name"),
         ({"first_name": "A" * 101}, "first_name"),
         ({"last_name": "M" * 101}, "last_name"),
+        ({"first_name": "\u200b"}, "first_name"),
+        ({"first_name": "Alice\u202e"}, "first_name"),
+        ({"last_name": "123"}, "last_name"),
     ],
 )
 async def test_register_rejects_a_missing_blank_or_too_long_name(client, fields, loc):

@@ -187,6 +187,12 @@ describe('sending a wish', () => {
     expect(await screen.findByText('Hello Camille')).toBeInTheDocument()
   })
 
+  it('greets with the first word of name when first_name is missing', async () => {
+    signedIn = { ...CAMILLE, first_name: null }
+    renderAt('/wish')
+    expect(await screen.findByText('Hello Camille')).toBeInTheDocument()
+  })
+
   it("speaks French to a client whose locale is French", async () => {
     signedIn = { ...CAMILLE, locale: 'fr' }
     renderAt('/wish')

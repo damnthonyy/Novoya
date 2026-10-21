@@ -23,6 +23,23 @@ def upgrade() -> None:
     """Upgrade schema."""
     op.add_column("users", sa.Column("first_name", sa.String(length=100), nullable=True))
     op.add_column("users", sa.Column("last_name", sa.String(length=100), nullable=True))
+    op.execute(
+        """
+        UPDATE users
+        SET
+          first_name = left(split_part(btrim(name), ' ', 1), 100),
+          last_name = CASE
+            WHEN position(' ' in btrim(name)) = 0 THEN NULL
+            ELSE nullif(
+              left(btrim(substr(btrim(name), position(' ' in btrim(name)) + 1)), 100),
+              ''
+            )
+          END
+        WHERE name IS NOT NULL
+          AND btrim(name) <> ''
+          AND first_name IS NULL
+        """
+    )
 
 
 def downgrade() -> None:

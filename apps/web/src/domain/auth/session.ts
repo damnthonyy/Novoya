@@ -1,6 +1,23 @@
-/** The first name to show for the signed-in user. Without one, fall back to the email. */
-export function displayName(user: { first_name: string | null; email: string }): string {
-  return user.first_name?.trim() || user.email
+function firstWord(value: string | null | undefined): string | undefined {
+  const word = value?.trim().split(/\s+/)[0]
+  return word || undefined
+}
+
+/** First name, or the first word of the stored name. Old accounts may have only `name`. */
+export function givenName(user: {
+  first_name: string | null
+  name?: string | null
+}): string | undefined {
+  return firstWord(user.first_name) ?? firstWord(user.name)
+}
+
+/** The name to show in the header. Without a given name, fall back to the email. */
+export function displayName(user: {
+  first_name: string | null
+  name?: string | null
+  email: string
+}): string {
+  return givenName(user) || user.email
 }
 
 // oxlint-disable-next-line no-control-regex -- rejecting control characters is the point

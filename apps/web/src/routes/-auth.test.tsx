@@ -229,8 +229,15 @@ describe('sign-in and sign-out', () => {
     expect(await screen.findByText('Léa')).toBeInTheDocument()
   })
 
-  it('shows the email when the user has no first name', async () => {
+  it('shows the first word of name when first_name is missing', async () => {
     signedIn = { ...LEA, first_name: null }
+    renderAt('/wish')
+
+    expect(await screen.findByText('Léa')).toBeInTheDocument()
+  })
+
+  it('shows the email when the user has no name', async () => {
+    signedIn = { ...LEA, first_name: null, name: null }
     renderAt('/wish')
 
     expect(await screen.findByText('lea@example.com')).toBeInTheDocument()

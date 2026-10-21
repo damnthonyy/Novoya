@@ -281,6 +281,43 @@ async def test_linking_keeps_the_name_chosen_at_sign_up(google):
     assert (await google.store.users.get(user.id)).name == "Ali"
 
 
+async def test_linking_an_old_account_derives_names_from_the_stored_name(google):
+    user = make_user("alice@example.com")
+    user.name = "Ali B."
+    user.first_name = None
+    user.last_name = None
+    await google.store.users.add(user)
+
+    await google.full()
+
+    stored = await google.store.users.get(user.id)
+    assert stored.name == "Ali B."
+    assert stored.first_name == "Ali"
+    assert stored.last_name == "B."
+
+
+async def test_first_sign_in_with_only_given_name(google):
+    google.provider.identity = google_identity(last_name=None, name=None)
+
+    await google.full()
+
+    [user] = google.store.users.rows.values()
+    assert user.first_name == "Alice"
+    assert user.last_name is None
+    assert user.name == "Alice"
+
+
+async def test_first_sign_in_with_only_family_name(google):
+    google.provider.identity = google_identity(first_name=None, name=None)
+
+    await google.full()
+
+    [user] = google.store.users.rows.values()
+    assert user.first_name is None
+    assert user.last_name == "Martin"
+    assert user.name == "Martin"
+
+
 async def test_an_account_without_a_name_takes_googles(google):
     user = make_user("alice@example.com")
     user.name = None

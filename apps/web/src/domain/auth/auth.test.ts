@@ -9,9 +9,19 @@ describe('displayName', () => {
     expect(displayName({ first_name: 'Léa', email: 'lea@example.com' })).toBe('Léa')
   })
 
-  it('falls back to the email when there is no first name', () => {
-    expect(displayName({ first_name: null, email: 'lea@example.com' })).toBe('lea@example.com')
-    expect(displayName({ first_name: '  ', email: 'lea@example.com' })).toBe('lea@example.com')
+  it('uses the first word of name when first_name is missing', () => {
+    expect(
+      displayName({ first_name: null, name: 'Léa Martin', email: 'lea@example.com' }),
+    ).toBe('Léa')
+  })
+
+  it('falls back to the email when there is no name', () => {
+    expect(displayName({ first_name: null, name: null, email: 'lea@example.com' })).toBe(
+      'lea@example.com',
+    )
+    expect(displayName({ first_name: '  ', name: '  ', email: 'lea@example.com' })).toBe(
+      'lea@example.com',
+    )
   })
 })
 

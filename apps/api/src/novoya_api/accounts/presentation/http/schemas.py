@@ -1,15 +1,30 @@
+import unicodedata
 from datetime import datetime
 from typing import Annotated, Literal
 from uuid import UUID
 
-from pydantic import BaseModel, Field, SecretStr, StringConstraints
+from pydantic import AfterValidator, BaseModel, Field, SecretStr, StringConstraints
 
 from novoya_api.accounts.application.dto import AccountView
 from novoya_api.accounts.domain.role import Role
 from novoya_api.accounts.domain.user import User
 
 RoleName = Literal["client", "agent", "admin"]
-PersonName = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=100)]
+
+
+def _visible_person_name(value: str) -> str:
+    if any(unicodedata.category(ch) in {"Cc", "Cf"} for ch in value):
+        raise ValueError("must not contain control or format characters")
+    if not any(unicodedata.category(ch).startswith("L") for ch in value):
+        raise ValueError("must contain at least one letter")
+    return value
+
+
+PersonName = Annotated[
+    str,
+    StringConstraints(strip_whitespace=True, min_length=1, max_length=100),
+    AfterValidator(_visible_person_name),
+]
 
 
 class RegisterRequest(BaseModel):

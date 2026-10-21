@@ -36,6 +36,7 @@ from novoya_api.accounts.domain.errors import (
 from novoya_api.accounts.domain.oauth_identity import OAuthIdentity
 from novoya_api.accounts.domain.one_time_token import OneTimeToken, TokenPurpose
 from novoya_api.accounts.domain.role import Role
+from novoya_api.accounts.domain.user import User
 from novoya_api.accounts.domain.value_objects import Email, PasswordHash
 from novoya_api.accounts.infrastructure.db.repositories import (
     SqlOAuthIdentityRepository,
@@ -50,6 +51,7 @@ from novoya_api.accounts.infrastructure.security import SecureTokenGenerator
 from novoya_api.accounts.presentation import cli
 from novoya_api.accounts.presentation.http.dependencies import build_store
 from novoya_api.config import get_settings
+from novoya_api.shared.domain.value_objects import Locale
 from novoya_api.shared.infrastructure.db.session import get_engine, get_sessionmaker
 from tests.accounts.fakes import FrozenClock, google_identity, make_user
 
@@ -167,6 +169,79 @@ async def test_existing_accounts_load_with_empty_first_and_last_name(session):
     assert user.name == "Old Name"
     assert user.first_name is None
     assert user.last_name is None
+
+
+async def test_register_with_max_length_names_fits_in_the_name_column(session):
+    first, last = "A" * 100, "B" * 100
+    user = User.register(Email("long@example.com"), first, last, Locale.EN, NOW)
+    await SqlUserRepository(session).add(user)
+    await session.commit()
+
+    stored = await SqlUserRepository(session).get(user.id)
+    assert stored is not None
+    assert stored.first_name == first
+    assert stored.last_name == last
+    assert stored.name == (first + " " + last)[:200]
+    assert len(stored.name) == 200
+
+
+async def test_admin_search_matches_first_and_last_name(session):
+    users = SqlUserRepository(session)
+    await users.add(make_user("a@x.io"))
+    await session.commit()
+
+    assert [u.email.value for u in await users.search("ALICE", None, 10, 0)] == ["a@x.io"]
+    assert [u.email.value for u in await users.search("martin", None, 10, 0)] == ["a@x.io"]
+
+
+def test_first_and_last_name_migration_backfills_and_downgrades(database_url):
+    config = Config(str(API_DIR / "alembic.ini"))
+    config.set_main_option("script_location", str(API_DIR / "alembic"))
+    user_id = uuid4()
+
+    async def run(sql: str, params: dict | None = None):
+        engine = create_async_engine(database_url, poolclass=NullPool)
+        try:
+            async with engine.begin() as connection:
+                result = await connection.execute(text(sql), params or {})
+                if result.returns_rows:
+                    return result.mappings().all()
+                return []
+        finally:
+            await engine.dispose()
+
+    asyncio.run(run(f"TRUNCATE {TABLES} CASCADE"))
+    command.downgrade(config, "58aa3536140b")
+    asyncio.run(
+        run(
+            """
+            INSERT INTO users (id, email, name, role, locale, status, created_at)
+            VALUES (:id, 'old@example.com', 'Ali B.', 'client', 'en', 'active', :now)
+            """,
+            {"id": user_id, "now": NOW},
+        )
+    )
+    command.upgrade(config, "head")
+    [row] = asyncio.run(
+        run("SELECT name, first_name, last_name FROM users WHERE email = 'old@example.com'")
+    )
+    assert (row["name"], row["first_name"], row["last_name"]) == ("Ali B.", "Ali", "B.")
+
+    command.downgrade(config, "58aa3536140b")
+    columns = asyncio.run(
+        run(
+            """
+            SELECT column_name FROM information_schema.columns
+            WHERE table_name = 'users' AND column_name IN ('first_name', 'last_name')
+            """
+        )
+    )
+    assert columns == []
+    [kept] = asyncio.run(run("SELECT name FROM users WHERE email = 'old@example.com'"))
+    assert kept["name"] == "Ali B."
+
+    command.upgrade(config, "head")
+    asyncio.run(run(f"TRUNCATE {TABLES} CASCADE"))
 
 
 async def test_users_are_stored_and_found_by_email(session):
