@@ -1,6 +1,7 @@
 import i18n from 'i18next'
 import { initReactI18next } from 'react-i18next'
 
+import { agencyView } from '../domain/agency/agency'
 import { resolveLocale } from '../domain/i18n/locale'
 
 // One file per language and screen: locales/<language>/<screen>.json (see docs/I18N.md).
@@ -30,7 +31,11 @@ void i18n.use(initReactI18next).init({
   lng: resolveLocale(undefined, navigator.languages),
   fallbackLng: 'en',
   supportedLngs: ['en', 'fr'],
-  interpolation: { escapeValue: false }, // React escapes already
+  interpolation: {
+    escapeValue: false, // React escapes already
+    // {{agency}} in any text is the client agency's name, from brand/agency.json.
+    defaultVariables: { agency: agencyView('en').tradeName },
+  },
   initAsync: false, // the resources are bundled: ready before the first render
   react: { useSuspense: false },
 })

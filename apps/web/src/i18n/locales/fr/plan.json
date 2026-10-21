@@ -10,7 +10,7 @@
   "cta": {
     "eyebrow": "La conversation continue",
     "title": "Cet aperçu vous ressemble ?",
-    "text": "Continuez à l’affiner avec le concierge, ou transmettez-le à un conseiller Novoya lorsqu’il vous convient.",
+    "text": "Continuez à l’affiner avec le concierge, ou transmettez-le à un conseiller {{agency}} lorsqu’il vous convient.",
     "button": "Demander un devis à un conseiller",
     "unavailable": "La demande de devis arrive bientôt."
   },

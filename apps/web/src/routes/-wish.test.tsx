@@ -482,6 +482,14 @@ describe('the landing page', () => {
     expect(document.querySelector('img[src="/images/logo-1600.webp"]')).not.toBeNull()
   })
 
+  it('names the client agency in the copy, not Novoya', async () => {
+    signedIn = null
+    renderAt('/')
+
+    expect(await screen.findByText('The DÉTOUR promise')).toBeInTheDocument()
+    expect(screen.queryByText(/Novoya/)).not.toBeInTheDocument()
+  })
+
   it('opens the legal notices with confirmed facts only', async () => {
     signedIn = null
     renderAt('/legal')
