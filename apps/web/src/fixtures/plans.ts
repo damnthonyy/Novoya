@@ -48,7 +48,7 @@ const DEMO: Plan = {
   place: 'Chania',
   tagline: 'au rythme de la mer.',
   startDate: daysFromToday(60),
-  endDate: daysFromToday(67),
+  endDate: daysFromToday(66),
   travellers: 2,
   tags: ['calme', 'mer', 'cuisine locale'],
   photo: PHOTOS.crete,

@@ -28,7 +28,7 @@ const DEMO: Quote = {
   validDays: 7,
   issuedAt: daysFromToday(-1),
   startDate: daysFromToday(60),
-  endDate: daysFromToday(67),
+  endDate: daysFromToday(66),
   travellers: 2,
   days: 7,
   nights: 6,
