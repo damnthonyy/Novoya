@@ -1,7 +1,19 @@
+from enum import StrEnum
 from typing import Protocol
 from uuid import UUID
 
 from novoya_api.planning.domain.plan import Plan, PlanStatus
+
+QUEUE_PAGE = 50
+QUEUE_CAP = 100
+
+
+class ItemWrite(StrEnum):
+    """What one PATCH writes on a plan item. Each value touches different columns."""
+
+    PRICE = "price"
+    REMOVE = "remove"
+    RESTORE = "restore"
 
 
 class PlanRepository(Protocol):
@@ -9,7 +21,9 @@ class PlanRepository(Protocol):
 
     async def get(self, plan_id: UUID) -> Plan | None: ...
 
-    async def list_by_status(self, status: PlanStatus) -> list[Plan]: ...
+    async def list_by_status(
+        self, status: PlanStatus, *, limit: int = QUEUE_PAGE, offset: int = 0
+    ) -> list[Plan]: ...
 
     async def save(self, plan: Plan) -> None:
         """Writes the plan row (status, assignee, timestamps). Not the items.
@@ -17,10 +31,12 @@ class PlanRepository(Protocol):
         Raises InvalidTransition if another request changed the status since get()."""
         ...
 
-    async def save_item(self, plan: Plan, item_id: UUID) -> None:
-        """Writes one item's price or removed flag, and the plan's updated_at.
+    async def save_item(self, plan: Plan, item_id: UUID, write: ItemWrite) -> None:
+        """Writes only the columns for `write`, and the plan's updated_at.
 
-        Other items stay as they are in the database. Raises InvalidTransition if the
-        status changed since get(). Raises InvalidPlan if a removal would drop the last
-        kept item (checked in the database, so two tabs cannot empty the plan)."""
+        Price: negotiated_price, and only while the row is not removed (409 otherwise).
+        Remove: removed=true and negotiated_price=NULL, after a last-item check.
+        Restore: removed=false, leaving any price already in the database.
+
+        Raises InvalidTransition if the status changed since get()."""
         ...

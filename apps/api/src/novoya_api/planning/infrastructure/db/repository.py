@@ -1,10 +1,10 @@
-from collections import defaultdict
 from collections.abc import Iterable
 from uuid import UUID
 
 from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from novoya_api.planning.application.ports.plan_repository import QUEUE_PAGE, ItemWrite
 from novoya_api.planning.domain.errors import InvalidPlan, PlanNotFound
 from novoya_api.planning.domain.plan import Plan, PlanItem, PlanStatus
 from novoya_api.planning.infrastructure.db.models import PlanItemModel, PlanModel
@@ -16,9 +16,9 @@ class SqlPlanRepository:
 
     save() writes the plan row only, and only if its status is still the one this request
     read: a late request-quote must not overwrite an agent's take. Item prices go through
-    save_item(), so two tabs pricing different lines cannot wipe each other. A removal
-    locks the plan row and counts kept items in the database, so two tabs cannot drop
-    the last item.
+    save_item() writes only the columns of that patch, so a stale tab cannot undo a
+    removal or roll a newer price back. A removal locks the plan row and counts kept
+    items in the database, so two tabs cannot drop the last item.
     """
 
     def __init__(self, session: AsyncSession) -> None:
@@ -56,36 +56,30 @@ class SqlPlanRepository:
         self._read_status[plan.id] = plan.status.value
 
     async def get(self, plan_id: UUID) -> Plan | None:
-        row = await self._session.get(PlanModel, plan_id)
+        row = await self._session.get(PlanModel, plan_id, populate_existing=True)
         if row is None:
             return None
         items = await self._session.scalars(
             select(PlanItemModel)
             .where(PlanItemModel.plan_id == plan_id)
             .order_by(PlanItemModel.day, PlanItemModel.id)
+            .execution_options(populate_existing=True)
         )
         return self._to_plan(row, items)
 
-    async def list_by_status(self, status: PlanStatus) -> list[Plan]:
+    async def list_by_status(
+        self, status: PlanStatus, *, limit: int = QUEUE_PAGE, offset: int = 0
+    ) -> list[Plan]:
         rows = (
             await self._session.scalars(
                 select(PlanModel)
                 .where(PlanModel.status == status.value)
                 .order_by(PlanModel.updated_at, PlanModel.id)
+                .limit(limit)
+                .offset(offset)
             )
         ).all()
-        if not rows:
-            return []
-        ids = [row.id for row in rows]
-        item_rows = await self._session.scalars(
-            select(PlanItemModel)
-            .where(PlanItemModel.plan_id.in_(ids))
-            .order_by(PlanItemModel.day, PlanItemModel.id)
-        )
-        by_plan: dict[UUID, list[PlanItemModel]] = defaultdict(list)
-        for item in item_rows:
-            by_plan[item.plan_id].append(item)
-        return [self._to_plan(row, by_plan[row.id]) for row in rows]
+        return [self._to_plan(row, ()) for row in rows]
 
     def _to_plan(self, row: PlanModel, items: Iterable[PlanItemModel]) -> Plan:
         self._read_status[row.id] = row.status
@@ -130,12 +124,12 @@ class SqlPlanRepository:
             raise InvalidTransition("the plan changed meanwhile, reload it")
         self._read_status[plan.id] = plan.status.value
 
-    async def save_item(self, plan: Plan, item_id: UUID) -> None:
+    async def save_item(self, plan: Plan, item_id: UUID, write: ItemWrite) -> None:
         read_status = self._read_status[plan.id]  # KeyError: save_item() without get() or add()
         item = next((entry for entry in plan.items if entry.id == item_id), None)
         if item is None:
             raise PlanNotFound("no such item")
-        if item.removed:
+        if write is ItemWrite.REMOVE:
             # Lock this plan so two removals run one after the other; then count in the database.
             await self._session.execute(
                 select(PlanModel.id).where(PlanModel.id == plan.id).with_for_update()
@@ -160,10 +154,21 @@ class SqlPlanRepository:
         if result.rowcount != 1:
             raise InvalidTransition("the plan changed meanwhile, reload it")
         written = await self._session.execute(
-            update(PlanItemModel)
-            .where(PlanItemModel.id == item.id, PlanItemModel.plan_id == plan.id)
-            .values(negotiated_price=item.negotiated_price, removed=item.removed)
-            .execution_options(synchronize_session=False)
+            self._item_update(plan.id, item, write).execution_options(synchronize_session=False)
         )
         if written.rowcount != 1:
+            if write is ItemWrite.PRICE:
+                raise InvalidTransition("the plan changed meanwhile, reload it")
             raise PlanNotFound("no such item")
+
+    def _item_update(self, plan_id: UUID, item: PlanItem, write: ItemWrite):
+        row = (PlanItemModel.id == item.id, PlanItemModel.plan_id == plan_id)
+        if write is ItemWrite.PRICE:
+            return (
+                update(PlanItemModel)
+                .where(*row, PlanItemModel.removed.is_(False))
+                .values(negotiated_price=item.negotiated_price)
+            )
+        if write is ItemWrite.REMOVE:
+            return update(PlanItemModel).where(*row).values(removed=True, negotiated_price=None)
+        return update(PlanItemModel).where(*row).values(removed=False)

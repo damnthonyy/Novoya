@@ -132,6 +132,22 @@ async def test_trips_returns_text_place_and_answers(engine, user_id):
     assert missing not in found
 
 
+async def test_trips_of_a_draft_has_text_and_no_place_or_answers(engine, user_id):
+    wish = Wish.create(user_id, "Somewhere warm", NOW)
+    await add_wish(engine, wish)
+
+    async with new_session(engine) as session:
+        found = await trips([wish.id], session=session)
+
+    trip = found[wish.id]
+    assert trip.text == "Somewhere warm"
+    assert trip.country is None
+    assert trip.city is None
+    assert trip.budget_max is None
+    assert trip.persons is None
+    assert trip.start_date is None
+
+
 async def test_list_by_ids_keeps_order_and_drops_missing(engine, user_id):
     first, second = shown_wish(user_id), shown_wish(user_id)
     await add_wish(engine, first)

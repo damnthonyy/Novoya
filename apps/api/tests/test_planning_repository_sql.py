@@ -21,6 +21,9 @@ from sqlalchemy.pool import NullPool
 
 from novoya_api.accounts.infrastructure.db.models import UserModel
 from novoya_api.catalog.infrastructure.db.models import OfferRow, PartnerRow
+from novoya_api.planning.application.ports.plan_repository import ItemWrite
+from novoya_api.planning.application.use_cases.set_item_price import SetItemCommand, SetItemPrice
+from novoya_api.planning.application.use_cases.take_plan import TakePlan
 from novoya_api.planning.domain.errors import InvalidPlan
 from novoya_api.planning.domain.plan import DraftItem, Plan, PlanItem, PlanStatus
 from novoya_api.planning.infrastructure.db.repository import SqlPlanRepository
@@ -213,7 +216,7 @@ async def test_save_item_writes_one_item_and_leaves_the_others(engine, wish_id, 
             loaded.items[1],
         )
         loaded.updated_at = later
-        await repo.save_item(loaded, loaded.items[0].id)
+        await repo.save_item(loaded, loaded.items[0].id, ItemWrite.PRICE)
         await session.commit()
 
     read = await read_plan(engine, plan.id)
@@ -256,10 +259,10 @@ async def test_two_stale_item_saves_keep_each_price(engine, wish_id, offer_ids):
             tab_two = await second_repo.get(plan.id)
             await second.commit()
             tab_two.set_item_price(tab_two.items[1].id, agent_id, Decimal("90.00"), later)
-            await second_repo.save_item(tab_two, tab_two.items[1].id)
+            await second_repo.save_item(tab_two, tab_two.items[1].id, ItemWrite.PRICE)
             await second.commit()
         tab_one.set_item_price(tab_one.items[0].id, agent_id, Decimal("700.00"), later)
-        await first_repo.save_item(tab_one, tab_one.items[0].id)
+        await first_repo.save_item(tab_one, tab_one.items[0].id, ItemWrite.PRICE)
         await first.commit()
 
     read = await read_plan(engine, plan.id)
@@ -301,11 +304,11 @@ async def test_two_stale_removals_keep_one_item(engine, wish_id, offer_ids):
             tab_two = await second_repo.get(plan.id)
             await second.commit()
             tab_two.remove_item(tab_two.items[1].id, agent_id, later)
-            await second_repo.save_item(tab_two, tab_two.items[1].id)
+            await second_repo.save_item(tab_two, tab_two.items[1].id, ItemWrite.REMOVE)
             await second.commit()
         tab_one.remove_item(tab_one.items[0].id, agent_id, later)
         with pytest.raises(InvalidPlan):
-            await first_repo.save_item(tab_one, tab_one.items[0].id)
+            await first_repo.save_item(tab_one, tab_one.items[0].id, ItemWrite.REMOVE)
 
     read = await read_plan(engine, plan.id)
     assert read is not None
@@ -372,6 +375,32 @@ async def test_list_by_status_returns_requested_plans_oldest_first(engine, wish_
 
     assert [plan.id for plan in listed] == [first.id, second.id]
     assert all(plan.status is PlanStatus.REQUESTED for plan in listed)
+    assert all(plan.items == () for plan in listed)
+
+
+async def test_list_by_status_pages(engine, wish_id, offer_ids):
+    hotel, _boat = offer_ids
+    plans = []
+    for hour in (8, 9, 10):
+        plan = Plan.propose(
+            wish_id,
+            True,
+            f"Trip {hour}",
+            [DraftItem(hotel, 1, 7, None)],
+            8,
+            datetime(2026, 10, 19, hour, 0, tzinfo=UTC),
+        )
+        plan.request_quote(plan.created_at)
+        await add_plan(engine, plan)
+        plans.append(plan)
+
+    async with new_session(engine) as session:
+        repo = SqlPlanRepository(session)
+        first_page = await repo.list_by_status(PlanStatus.REQUESTED, limit=2, offset=0)
+        second_page = await repo.list_by_status(PlanStatus.REQUESTED, limit=2, offset=2)
+
+    assert [plan.id for plan in first_page] == [plans[0].id, plans[1].id]
+    assert [plan.id for plan in second_page] == [plans[2].id]
 
 
 async def test_a_second_take_does_not_steal_the_plan(engine, wish_id, offer_ids):
@@ -408,3 +437,149 @@ async def test_a_second_take_does_not_steal_the_plan(engine, wish_id, offer_ids)
     assert read is not None
     assert read.status is PlanStatus.NEGOTIATING
     assert read.assigned_agent_id == second_agent
+
+
+class _Contacts:
+    async def contacts_for(self, offer_ids):
+        return []
+
+
+class _NoTrips:
+    async def for_wish_ids(self, wish_ids):
+        return {}
+
+
+class _SessionUow:
+    def __init__(self, session: AsyncSession) -> None:
+        self._session = session
+
+    async def commit(self) -> None:
+        await self._session.commit()
+
+    async def rollback(self) -> None:
+        await self._session.rollback()
+
+
+class _Clock:
+    def now(self) -> datetime:
+        return datetime(2026, 10, 19, 10, 0, tzinfo=UTC)
+
+
+async def _add_agent(engine: AsyncEngine, agent_id: UUID) -> None:
+    async with new_session(engine) as session:
+        session.add(UserModel(id=agent_id, email=f"{agent_id}@example.com", created_at=NOW))
+        await session.commit()
+
+
+async def _requested_two_item_plan(engine, wish_id, offer_ids) -> Plan:
+    hotel, boat = offer_ids
+    plan = Plan.propose(
+        wish_id,
+        True,
+        "Sun and sea",
+        [DraftItem(hotel, 1, 7, None), DraftItem(boat, 3, 2, None)],
+        8,
+        NOW,
+    )
+    plan.request_quote(NOW)
+    await add_plan(engine, plan)
+    return plan
+
+
+async def test_take_plan_in_one_session_returns_negotiating(engine, wish_id, offer_ids):
+    agent_id = uuid4()
+    plan = await _requested_two_item_plan(engine, wish_id, offer_ids)
+    await _add_agent(engine, agent_id)
+
+    async with new_session(engine) as session:
+        view = await TakePlan(
+            SqlPlanRepository(session), _Contacts(), _NoTrips(), _SessionUow(session), _Clock()
+        )(plan.id, agent_id)
+
+    assert view.status == "negotiating"
+    assert view.assigned_agent_id == agent_id
+
+
+async def test_set_item_price_in_one_session_returns_the_saved_price(engine, wish_id, offer_ids):
+    agent_id = uuid4()
+    later = datetime(2026, 10, 19, 10, 0, tzinfo=UTC)
+    plan = await _requested_two_item_plan(engine, wish_id, offer_ids)
+    await _add_agent(engine, agent_id)
+    async with new_session(engine) as session:
+        repo = SqlPlanRepository(session)
+        loaded = await repo.get(plan.id)
+        loaded.take(agent_id, later)
+        await repo.save(loaded)
+        await session.commit()
+
+    async with new_session(engine) as session:
+        repo = SqlPlanRepository(session)
+        loaded = await repo.get(plan.id)
+        view = await SetItemPrice(repo, _Contacts(), _NoTrips(), _SessionUow(session), _Clock())(
+            SetItemCommand(plan.id, loaded.items[0].id, agent_id, Decimal("120.00"), None)
+        )
+
+    assert view.items[0].negotiated_price == Decimal("120.00")
+    assert view.total == Decimal("120.00")
+
+
+async def test_a_stale_price_does_not_restore_a_removed_item(engine, wish_id, offer_ids):
+    agent_id = uuid4()
+    later = datetime(2026, 10, 19, 10, 0, tzinfo=UTC)
+    plan = await _requested_two_item_plan(engine, wish_id, offer_ids)
+    await _add_agent(engine, agent_id)
+    async with new_session(engine) as session:
+        repo = SqlPlanRepository(session)
+        taken = await repo.get(plan.id)
+        taken.take(agent_id, later)
+        await repo.save(taken)
+        await session.commit()
+
+    async with new_session(engine) as first:
+        first_repo = SqlPlanRepository(first)
+        tab_one = await first_repo.get(plan.id)
+        async with new_session(engine) as second:
+            second_repo = SqlPlanRepository(second)
+            tab_two = await second_repo.get(plan.id)
+            await second.commit()
+            tab_two.remove_item(tab_two.items[0].id, agent_id, later)
+            await second_repo.save_item(tab_two, tab_two.items[0].id, ItemWrite.REMOVE)
+            await second.commit()
+        tab_one.set_item_price(tab_one.items[0].id, agent_id, Decimal("300.00"), later)
+        with pytest.raises(InvalidTransition):
+            await first_repo.save_item(tab_one, tab_one.items[0].id, ItemWrite.PRICE)
+
+    read = await read_plan(engine, plan.id)
+    assert read is not None
+    assert read.items[0].removed is True
+    assert read.items[0].negotiated_price is None
+
+
+async def test_a_stale_restore_does_not_roll_back_a_price(engine, wish_id, offer_ids):
+    agent_id = uuid4()
+    later = datetime(2026, 10, 19, 10, 0, tzinfo=UTC)
+    plan = await _requested_two_item_plan(engine, wish_id, offer_ids)
+    await _add_agent(engine, agent_id)
+    async with new_session(engine) as session:
+        repo = SqlPlanRepository(session)
+        taken = await repo.get(plan.id)
+        taken.take(agent_id, later)
+        await repo.save(taken)
+        await session.commit()
+
+    async with new_session(engine) as first:
+        first_repo = SqlPlanRepository(first)
+        tab_one = await first_repo.get(plan.id)
+        async with new_session(engine) as second:
+            second_repo = SqlPlanRepository(second)
+            tab_two = await second_repo.get(plan.id)
+            await second.commit()
+            tab_two.set_item_price(tab_two.items[0].id, agent_id, Decimal("150.00"), later)
+            await second_repo.save_item(tab_two, tab_two.items[0].id, ItemWrite.PRICE)
+            await second.commit()
+        await first_repo.save_item(tab_one, tab_one.items[0].id, ItemWrite.RESTORE)
+
+    read = await read_plan(engine, plan.id)
+    assert read is not None
+    assert read.items[0].removed is False
+    assert read.items[0].negotiated_price == Decimal("150.00")

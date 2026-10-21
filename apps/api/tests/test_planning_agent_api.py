@@ -3,7 +3,7 @@
 from collections.abc import AsyncIterator
 from datetime import UTC, date, datetime
 from decimal import Decimal
-from uuid import UUID
+from uuid import UUID, uuid4
 
 import pytest
 from httpx import ASGITransport, AsyncClient
@@ -61,13 +61,16 @@ class FakePlans:
     async def get(self, plan_id: UUID) -> Plan | None:
         return self.plan if self.plan.id == plan_id else None
 
-    async def list_by_status(self, status: PlanStatus) -> list[Plan]:
-        return [self.plan] if self.plan.status is status else []
+    async def list_by_status(
+        self, status: PlanStatus, *, limit: int = 50, offset: int = 0
+    ) -> list[Plan]:
+        found = [self.plan] if self.plan.status is status else []
+        return found[offset : offset + limit]
 
     async def save(self, plan: Plan) -> None:
         self.plan = plan
 
-    async def save_item(self, plan: Plan, item_id: UUID) -> None:
+    async def save_item(self, plan: Plan, item_id: UUID, write) -> None:
         self.plan = plan
 
 
@@ -236,6 +239,63 @@ async def test_another_agent_cannot_price_the_plan(app, plan, client):
 
     assert response.status_code == 403
     assert response.json()["code"] == "forbidden"
+
+
+async def test_another_agent_cannot_read_the_plan(app, plan, client):
+    await client.post(f"/agent/plans/{plan.id}/take")
+    app.dependency_overrides[current_user] = lambda: signed_in_as(Role.AGENT, OTHER_AGENT)
+
+    response = await client.get(f"/agent/plans/{plan.id}")
+
+    assert response.status_code == 403
+    assert response.json()["code"] == "forbidden"
+
+
+async def test_an_untaken_plan_is_forbidden_to_read(plan, client):
+    response = await client.get(f"/agent/plans/{plan.id}")
+    assert response.status_code == 403
+    assert response.json()["code"] == "forbidden"
+
+
+async def test_a_missing_plan_is_not_found(client):
+    response = await client.get(f"/agent/plans/{uuid4()}")
+    assert response.status_code == 404
+    assert response.json()["code"] == "not_found"
+
+
+async def test_patch_of_an_unknown_item_is_not_found(plan, client):
+    await client.post(f"/agent/plans/{plan.id}/take")
+    response = await client.patch(
+        f"/agent/plans/{plan.id}/items/{uuid4()}", json={"negotiated_price": "10.00"}
+    )
+    assert response.status_code == 404
+    assert response.json()["code"] == "not_found"
+
+
+async def test_patch_when_not_negotiating_is_conflict(plan, client):
+    response = await client.patch(
+        f"/agent/plans/{plan.id}/items/{plan.items[0].id}", json={"negotiated_price": "10.00"}
+    )
+    assert response.status_code == 409
+    assert response.json()["code"] == "invalid_transition"
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        {},
+        {"negotiated_price": "10.00", "removed": True},
+        {"negotiated_price": "0"},
+        {"negotiated_price": "-1"},
+        {"negotiated_price": "1.001"},
+        {"negotiated_price": "123456789.12"},
+    ],
+    ids=["empty", "both", "zero", "negative", "three decimals", "too many digits"],
+)
+async def test_patch_body_is_rejected(plan, client, body):
+    await client.post(f"/agent/plans/{plan.id}/take")
+    response = await client.patch(f"/agent/plans/{plan.id}/items/{plan.items[0].id}", json=body)
+    assert response.status_code == 422
 
 
 def test_agent_routes_are_documented(app):

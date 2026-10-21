@@ -61,15 +61,17 @@ class FakePlans:
             return None
         return self.plan
 
-    async def list_by_status(self, status: PlanStatus) -> list[Plan]:
+    async def list_by_status(
+        self, status: PlanStatus, *, limit: int = 50, offset: int = 0
+    ) -> list[Plan]:
         if self.plan is None or self.plan.status is not status:
             return []
-        return [self.plan]
+        return [self.plan][offset : offset + limit]
 
     async def save(self, plan: Plan) -> None:
         self.plan = plan
 
-    async def save_item(self, plan: Plan, item_id: UUID) -> None:
+    async def save_item(self, plan: Plan, item_id: UUID, write) -> None:
         self.plan = plan
 
 
@@ -211,6 +213,29 @@ async def test_a_total_above_budget_is_flagged():
 
     assert view.over_budget is True
     assert view.total == Decimal("2000.00")
+
+
+async def test_over_budget_is_false_when_the_wish_has_no_budget():
+    plan = stored_plan()
+    plan.take(AGENT_ID, NOW)
+    brief = TripBrief(
+        WISH_ID,
+        "A week in Chania",
+        "Greece",
+        "Chania",
+        None,
+        None,
+        2,
+        date(2026, 5, 10),
+        date(2026, 5, 17),
+    )
+    uow = FakeUow()
+    view = await SetItemPrice(
+        FakePlans(plan), FakeCatalog(), FakeTrips({WISH_ID: brief}), uow, FixedClock()
+    )(SetItemCommand(plan.id, plan.items[0].id, AGENT_ID, Decimal("2000.00"), None))
+
+    assert view.budget_max is None
+    assert view.over_budget is False
 
 
 async def test_the_assigned_agent_removes_an_item():

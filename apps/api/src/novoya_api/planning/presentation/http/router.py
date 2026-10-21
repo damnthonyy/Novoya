@@ -1,8 +1,9 @@
 from typing import Annotated, Literal
 from uuid import UUID
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 
+from novoya_api.planning.application.ports.plan_repository import QUEUE_CAP, QUEUE_PAGE
 from novoya_api.planning.application.use_cases.get_agent_plan import GetAgentPlan
 from novoya_api.planning.application.use_cases.get_plan import GetPlan
 from novoya_api.planning.application.use_cases.list_quote_queue import ListQuoteQueue
@@ -71,10 +72,15 @@ async def list_quote_queue(
     use_case: Annotated[ListQuoteQueue, Depends(get_list_quote_queue)],
     _: Annotated[UUID, Depends(get_current_agent_id)],
     status: Literal["requested"] = "requested",
+    limit: Annotated[int, Query(ge=1, le=QUEUE_CAP)] = QUEUE_PAGE,
+    offset: Annotated[int, Query(ge=0)] = 0,
 ) -> list[QueueEntry]:
     """Plans waiting for a quote, oldest first. Wish text, destination, dates, travellers, budget.
     Never a price and never a partner name: take the plan to see those."""
-    return [QueueEntry.of(entry) for entry in await use_case(PlanStatus(status))]
+    return [
+        QueueEntry.of(entry)
+        for entry in await use_case(PlanStatus(status), limit=limit, offset=offset)
+    ]
 
 
 @agent_router.get("/{plan_id}", operation_id="getAgentPlan")

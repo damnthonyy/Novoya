@@ -8,6 +8,8 @@ from novoya_api.planning.application.dto import (
     QueueEntryView,
     TripBrief,
 )
+from novoya_api.planning.application.ports.offer_catalog import OfferCatalog
+from novoya_api.planning.application.ports.trip_briefs import TripBriefs
 from novoya_api.planning.domain.plan import Plan
 
 logger = logging.getLogger(__name__)
@@ -30,6 +32,14 @@ def queue_entry_as_view(plan: Plan, trip: TripBrief | None) -> QueueEntryView:
         budget_max=trip.budget_max if trip else None,
         currency=trip.currency if trip else None,
     )
+
+
+async def compose_agent_plan(plan: Plan, catalog: OfferCatalog, trips: TripBriefs) -> AgentPlanView:
+    """Prices, partners and the wish, as the assigned agent sees them."""
+    offer_ids = [item.offer_id for item in plan.items]
+    offers = {offer.id: offer for offer in await catalog.contacts_for(offer_ids)}
+    briefs = await trips.for_wish_ids([plan.wish_id])
+    return agent_plan_as_view(plan, offers, briefs.get(plan.wish_id))
 
 
 def agent_plan_as_view(

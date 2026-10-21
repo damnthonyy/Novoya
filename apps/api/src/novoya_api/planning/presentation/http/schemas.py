@@ -2,7 +2,7 @@ from datetime import date, datetime
 from decimal import Decimal
 from uuid import UUID
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 from novoya_api.catalog.public import OfferKind
 from novoya_api.planning.application.dto import AgentPlanView, PlanView, QueueEntryView
@@ -133,3 +133,13 @@ class SetPlanItemRequest(BaseModel):
 
     negotiated_price: Decimal | None = Field(default=None, gt=0, max_digits=10, decimal_places=2)
     removed: bool | None = None
+
+    @model_validator(mode="after")
+    def exactly_one_field(self) -> "SetPlanItemRequest":
+        priced = self.negotiated_price is not None
+        flagged = self.removed is not None
+        if priced and flagged:
+            raise ValueError("set a price or set removed, not both")
+        if not priced and not flagged:
+            raise ValueError("set a price or set removed")
+        return self

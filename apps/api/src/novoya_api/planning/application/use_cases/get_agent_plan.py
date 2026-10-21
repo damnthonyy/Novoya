@@ -1,6 +1,6 @@
 from uuid import UUID
 
-from novoya_api.planning.application.agent_view import agent_plan_as_view
+from novoya_api.planning.application.agent_view import compose_agent_plan
 from novoya_api.planning.application.dto import AgentPlanView
 from novoya_api.planning.application.ports.offer_catalog import OfferCatalog
 from novoya_api.planning.application.ports.plan_repository import PlanRepository
@@ -25,7 +25,4 @@ class GetAgentPlan:
             raise PlanNotFound("no such plan")
         if plan.assigned_agent_id != agent_id:
             raise PermissionDenied("only the assigned agent can see this plan")
-        offer_ids = [item.offer_id for item in plan.items]
-        offers = {offer.id: offer for offer in await self._catalog.contacts_for(offer_ids)}
-        briefs = await self._trips.for_wish_ids([plan.wish_id])
-        return agent_plan_as_view(plan, offers, briefs.get(plan.wish_id))
+        return await compose_agent_plan(plan, self._catalog, self._trips)
