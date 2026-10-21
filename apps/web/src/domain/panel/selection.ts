@@ -50,16 +50,28 @@ export type AnswerPanelErrorKey =
   | 'answers.alreadyAnswered'
   | 'answers.noOfferFits'
   | 'answers.tooManyRequests'
+  | 'answers.planFailed'
+  | 'answers.connectionLost'
+  | 'answers.inProgress'
   | 'answers.unknown'
 
-/** The key of the message for panel answers the API refused (errors.json). */
-export function answerPanelErrorKey(code: string | undefined): AnswerPanelErrorKey {
+/**
+ * The key of the message for panel answers that failed (errors.json). `status` is undefined
+ * when no response came back (network failure). Then, as on a gateway timeout (504), the API
+ * may still finish and save the plan: the message must not promise that nothing happened.
+ * Any other server error rolled the answers back: the client can simply send again.
+ */
+export function answerPanelErrorKey(code: string | undefined, status: number | undefined): AnswerPanelErrorKey {
+  if (status === undefined || status === 504) return 'answers.connectionLost'
+  if (status >= 500) return 'answers.planFailed'
   switch (code) {
     case 'invalid_answers':
     case 'invalid_input':
       return 'answers.invalid'
     case 'wish_not_found':
       return 'answers.wishNotFound'
+    case 'answer_in_progress':
+      return 'answers.inProgress'
     case 'invalid_transition':
     case 'conflict':
       return 'answers.alreadyAnswered'

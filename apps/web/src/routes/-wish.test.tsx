@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import '../api/client'
 import { client } from '../api/generated/client.gen'
-import type { MeResponse, WishResponse } from '../api/generated/types.gen'
+import type { MeResponse, PlanResponse, WishResponse } from '../api/generated/types.gen'
 import { type CachedWish, wishQueryKey } from '../api/wishes'
 import { createAppRouter } from '../router'
 
@@ -55,6 +55,17 @@ const PANEL_WISH: WishResponse = {
   },
 }
 
+const PLAN_ID = '0b5f8a52-0000-4000-8000-000000000020'
+
+const PLAN: PlanResponse = {
+  id: PLAN_ID,
+  wish_id: WISH_ID,
+  status: 'proposed',
+  based_on_preferences: true,
+  summary: 'Une semaine calme à Chania',
+  items: [],
+}
+
 const NOT_COVERED: WishResponse = {
   id: '0b5f8a52-0000-4000-8000-000000000011',
   status: 'not_covered',
@@ -72,7 +83,7 @@ let signedIn: MeResponse | null
 let calls: Call[]
 let wishAnswer: () => Response
 let loginAnswer: () => Response
-let answersAnswer: () => Response
+let answersAnswer: () => Response | Promise<Response>
 
 function mockApi() {
   vi.spyOn(globalThis, 'fetch').mockImplementation(async (input) => {
@@ -112,7 +123,7 @@ beforeEach(() => {
   calls = []
   wishAnswer = () => Response.json(PANEL_WISH, { status: 201 })
   loginAnswer = () => new Response(null, { status: 204 })
-  answersAnswer = () => Response.json({ id: WISH_ID, status: 'answered' })
+  answersAnswer = () => Response.json(PLAN, { status: 201 })
   mockApi()
 })
 afterEach(() => {
@@ -288,7 +299,7 @@ describe('the preferences panel', () => {
     fillConstraints()
     fireEvent.click(screen.getByRole('button', { name: /Compose my preview/ }))
 
-    await waitFor(() => expect(router.state.location.pathname).toBe(`/wish/${WISH_ID}/building`))
+    await waitFor(() => expect(router.state.location.pathname).toBe(`/plans/${PLAN_ID}`))
     expect(posts(`/wishes/${WISH_ID}/answers`)[0]!.body).toEqual({
       selected_tags: [
         { section: 'mood', tag: 'calm' },
@@ -301,8 +312,59 @@ describe('the preferences panel', () => {
       start_date: '2027-05-12',
       end_date: '2027-05-19',
     })
-    expect(await screen.findByRole('heading', { name: /Setting the evenings/ })).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: /See my trips/ })).toHaveAttribute('href', '/trips')
+  })
+
+  it('says the plan is being built while it waits, and sends only once', async () => {
+    let finish!: (response: Response) => void
+    answersAnswer = () => new Promise((resolve) => (finish = resolve))
+    const { router } = renderAt(`/wish/${WISH_ID}/preferences`, withWish)
+    await screen.findByRole('heading', { name: /What matters/ })
+    fillConstraints()
+
+    const send = screen.getByRole('button', { name: /Compose my preview/ })
+    fireEvent.click(send)
+    fireEvent.click(send)
+
+    expect(await screen.findByRole('heading', { name: /Setting the evenings/ })).toHaveFocus()
+    expect(screen.getByRole('status')).toHaveTextContent('up to a minute')
+    expect(screen.queryByRole('button', { name: /Compose my preview/ })).not.toBeInTheDocument()
+    expect(posts(`/wishes/${WISH_ID}/answers`)).toHaveLength(1)
+
+    finish(Response.json(PLAN, { status: 201 }))
+    await waitFor(() => expect(router.state.location.pathname).toBe(`/plans/${PLAN_ID}`))
+  })
+
+  it('keeps the answers when the plan could not be built, and lets the client try again', async () => {
+    answersAnswer = () => Response.json({ code: 'unknown', detail: 'boom' }, { status: 500 })
+    renderAt(`/wish/${WISH_ID}/preferences`, withWish)
+    await screen.findByRole('heading', { name: /What matters/ })
+    fireEvent.click(screen.getByRole('button', { name: 'Culture' }))
+    fillConstraints()
+
+    fireEvent.click(screen.getByRole('button', { name: /Compose my preview/ }))
+
+    expect(await screen.findByRole('alert')).toHaveTextContent("We couldn't compose your plan")
+    expect(screen.getByRole('alert')).toHaveFocus()
+    expect(screen.getByRole('button', { name: 'Culture' })).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.getByLabelText(/Maximum budget/)).toHaveValue('3 500 €')
+    expect(screen.getByLabelText('Departure')).toHaveValue('2027-05-12')
+    expect(screen.getByLabelText('Return')).toHaveValue('2027-05-19')
+
+    answersAnswer = () => Response.json(PLAN, { status: 201 })
+    fireEvent.click(screen.getByRole('button', { name: /Compose my preview/ }))
+    await waitFor(() => expect(posts(`/wishes/${WISH_ID}/answers`)).toHaveLength(2))
+  })
+
+  it('says so when no offer fits, with the answers still filled in', async () => {
+    answersAnswer = () => Response.json({ code: 'no_offer_fits', detail: 'nothing' }, { status: 422 })
+    renderAt(`/wish/${WISH_ID}/preferences`, withWish)
+    await screen.findByRole('heading', { name: /What matters/ })
+    fillConstraints()
+
+    fireEvent.click(screen.getByRole('button', { name: /Compose my preview/ }))
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('No offer fits these dates')
+    expect(screen.getByLabelText('Departure')).toHaveValue('2027-05-12')
   })
 
   it('checks the constraints before sending', async () => {
@@ -327,6 +389,48 @@ describe('the preferences panel', () => {
     fireEvent.click(screen.getByRole('button', { name: /Compose my preview/ }))
 
     expect(await screen.findByRole('alert')).toHaveTextContent('Check the dates and the budget')
+  })
+
+  it('says the plan may still be ready when the connection drops, keeping the answers', async () => {
+    answersAnswer = () => {
+      throw new TypeError('Failed to fetch')
+    }
+    renderAt(`/wish/${WISH_ID}/preferences`, withWish)
+    await screen.findByRole('heading', { name: /What matters/ })
+    fillConstraints()
+
+    fireEvent.click(screen.getByRole('button', { name: /Compose my preview/ }))
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('It may still be ready')
+    expect(screen.getByLabelText('Departure')).toHaveValue('2027-05-12')
+  })
+
+  it('asks to wait when the plan is still being composed by an earlier sending', async () => {
+    answersAnswer = () => Response.json({ code: 'answer_in_progress', detail: 'busy' }, { status: 409 })
+    renderAt(`/wish/${WISH_ID}/preferences`, withWish)
+    await screen.findByRole('heading', { name: /What matters/ })
+    fillConstraints()
+
+    fireEvent.click(screen.getByRole('button', { name: /Compose my preview/ }))
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('Your plan is still being composed')
+  })
+
+  it('leaves the client where they went when the plan is ready after they left', async () => {
+    let finish!: (response: Response) => void
+    answersAnswer = () => new Promise((resolve) => (finish = resolve))
+    const { router } = renderAt(`/wish/${WISH_ID}/preferences`, withWish)
+    await screen.findByRole('heading', { name: /What matters/ })
+    fillConstraints()
+    fireEvent.click(screen.getByRole('button', { name: /Compose my preview/ }))
+    await screen.findByRole('heading', { name: /Setting the evenings/ })
+
+    await router.navigate({ to: '/wish' })
+    finish(Response.json(PLAN, { status: 201 }))
+
+    await waitFor(() => expect(posts(`/wishes/${WISH_ID}/answers`)).toHaveLength(1))
+    await new Promise((resolve) => setTimeout(resolve, 50))
+    expect(router.state.location.pathname).toBe('/wish')
   })
 
   it('sends back to the wish when the panel is no longer known (page reloaded)', async () => {

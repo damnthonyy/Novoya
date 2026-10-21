@@ -24,5 +24,23 @@
     "midday": "Midday",
     "evening": "Evening"
   },
-  "placeHeading": "{{place}},"
+  "placeHeading": "{{place}},",
+  "live": {
+    "eyebrow": "Your plan",
+    "titleStart": "Your trip,",
+    "titleEnd": "day by day.",
+    "noPreferences": "You picked no preference: this plan follows your wish and the offers of our partners.",
+    "loading": "Loading your plan…",
+    "loadFailed": "Your plan could not be loaded.",
+    "day": "Day {{number}}",
+    "quantity": "× {{count}}",
+    "unavailable": "This offer is no longer available.",
+    "kind": {
+      "hotel": "Stay",
+      "guide": "Guide",
+      "transport": "Transport",
+      "activity": "Activity",
+      "agency": "Agency"
+    }
+  }
 }

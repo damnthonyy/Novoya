@@ -1,9 +1,9 @@
 {
-  "eyebrow": "Votre aperçu prend forme",
+  "eyebrow": "Votre plan prend forme",
   "titleStart": "On cale les soirées",
   "titleEnd": "au bon rythme…",
-  "progressLabel": "Composition de l’aperçu",
+  "progressLabel": "Composition de votre plan",
   "progressValue": "En cours",
-  "status": "Nous parcourons uniquement les offres de nos partenaires actifs.",
-  "seeTrips": "Voir mes voyages →"
+  "wait": "Cela peut prendre jusqu’à une minute. Gardez cette page ouverte : votre plan s’ouvrira tout seul.",
+  "status": "Nous parcourons uniquement les offres de nos partenaires actifs."
 }

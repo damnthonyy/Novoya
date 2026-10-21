@@ -24,5 +24,23 @@
     "midday": "Milieu de journée",
     "evening": "Soir"
   },
-  "placeHeading": "{{place}},"
+  "placeHeading": "{{place}},",
+  "live": {
+    "eyebrow": "Votre plan",
+    "titleStart": "Votre voyage,",
+    "titleEnd": "jour par jour.",
+    "noPreferences": "Vous n’avez choisi aucune préférence : ce plan suit votre envie et les offres de nos partenaires.",
+    "loading": "Chargement de votre plan…",
+    "loadFailed": "Votre plan n’a pas pu être chargé.",
+    "day": "Jour {{number}}",
+    "quantity": "× {{count}}",
+    "unavailable": "Cette offre n’est plus disponible.",
+    "kind": {
+      "hotel": "Hébergement",
+      "guide": "Guide",
+      "transport": "Transport",
+      "activity": "Activité",
+      "agency": "Agence"
+    }
+  }
 }

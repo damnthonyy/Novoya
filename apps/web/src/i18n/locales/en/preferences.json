@@ -26,7 +26,6 @@
   "picked_one": "{{count}} preference",
   "picked_other": "{{count}} preferences",
   "submit": "Compose my preview",
-  "sending": "Sending…",
   "lost": {
     "title": "Let's start again from your wish.",
     "text": "We can't find this wish's panel on this page. Describe it again: it only takes a moment.",

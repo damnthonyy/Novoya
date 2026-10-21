@@ -1,4 +1,4 @@
-// Demo data until the API exists (issue #76, GET /plans/{id}). A plan never has a price (#31).
+// The demo plan of the demo trips (/trips). Real plans are read from GET /plans/{id}. A plan never has a price (#31).
 import { PHOTOS } from './photos'
 
 /** When in the day: the page translates it. */
@@ -60,7 +60,7 @@ const DEMO: Plan = {
   ],
 }
 
-/** The plan to show. Replace with the API call when GET /plans/{id} exists. */
+/** The demo plan, by its id. */
 export function getPlan(planId: string): Plan | undefined {
   return planId === DEMO.id ? DEMO : undefined
 }

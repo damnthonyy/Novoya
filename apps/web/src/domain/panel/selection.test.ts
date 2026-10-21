@@ -102,10 +102,22 @@ describe('selectedTags', () => {
 
 describe('answerPanelErrorKey', () => {
   it('explains the API errors, with a fallback', () => {
-    expect(answerPanelErrorKey('invalid_answers')).toBe('answers.invalid')
-    expect(answerPanelErrorKey('wish_not_found')).toBe('answers.wishNotFound')
-    expect(answerPanelErrorKey('invalid_transition')).toBe('answers.alreadyAnswered')
-    expect(answerPanelErrorKey('no_offer_fits')).toBe('answers.noOfferFits')
-    expect(answerPanelErrorKey(undefined)).toBe('answers.unknown')
+    expect(answerPanelErrorKey('invalid_answers', 422)).toBe('answers.invalid')
+    expect(answerPanelErrorKey('wish_not_found', 404)).toBe('answers.wishNotFound')
+    expect(answerPanelErrorKey('invalid_transition', 409)).toBe('answers.alreadyAnswered')
+    expect(answerPanelErrorKey('no_offer_fits', 422)).toBe('answers.noOfferFits')
+    expect(answerPanelErrorKey('answer_in_progress', 409)).toBe('answers.inProgress')
+    expect(answerPanelErrorKey('too_many_requests', 429)).toBe('answers.tooManyRequests')
+    expect(answerPanelErrorKey('unknown', 400)).toBe('answers.unknown')
+  })
+
+  it('says the plan could not be built on a server error', () => {
+    expect(answerPanelErrorKey('unknown', 500)).toBe('answers.planFailed')
+    expect(answerPanelErrorKey('unknown', 503)).toBe('answers.planFailed')
+  })
+
+  it('says the plan may still be ready when the answer was lost on the way', () => {
+    expect(answerPanelErrorKey(undefined, undefined)).toBe('answers.connectionLost')
+    expect(answerPanelErrorKey('unknown', 504)).toBe('answers.connectionLost')
   })
 })

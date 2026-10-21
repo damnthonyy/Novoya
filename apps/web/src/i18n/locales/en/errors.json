@@ -42,7 +42,10 @@
     "tooManyRequests": "Too many requests at once. Please wait a moment and try again.",
     "unknown": "Your preferences couldn't be sent. Please try again in a moment.",
     "startInPast": "The departure cannot be in the past.",
-    "tripTooLong": "A trip lasts 366 days at most."
+    "tripTooLong": "A trip lasts 366 days at most.",
+    "planFailed": "We couldn't compose your plan. Your answers are still here: try again in a moment.",
+    "connectionLost": "The connection was lost while your plan was being composed. It may still be ready: wait a minute, then send again.",
+    "inProgress": "Your plan is still being composed. Wait a moment, then send again."
   },
   "account": {
     "invalid_email": "This e-mail address doesn't look right.",
