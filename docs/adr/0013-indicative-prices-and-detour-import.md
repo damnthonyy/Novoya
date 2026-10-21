@@ -28,8 +28,10 @@ We import partners, offers, publishable reviews and extras with
   reviews: a review whose consent was withdrawn is deleted on the next import. This is the
   GDPR review ADR 0003 asks for.
 - **Not imported:** circuits, advisors, scenarios, raw reviews and consents.
-- **Countries in English**, through the committed map of the 86 DÉTOUR names
-  (`detour/countries.py`). An unknown country stops the import. Cities are kept as given.
+- **Countries in English** (`detour/countries.py`). Any country written in French or in English
+  is found through the CLDR names that Babel ships, so a country the client adds later needs no
+  code change. The 86 names of the first export keep their English spelling ("Ivory Coast").
+  A name that is not a country stops the import. Cities are kept as given.
 - Partners have no phone in the export: `contact_phone` is optional. Imported partners are
   marked `source = 'detour'`, and the development seed refuses to run after an import.
 - Extras (`included`, `supplement`, `on_quote`) can be added when the client asks for a

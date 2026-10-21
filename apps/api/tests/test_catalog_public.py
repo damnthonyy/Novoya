@@ -228,6 +228,12 @@ async def test_get_offers_keeps_order_and_inactive_rows():
         ("greece", "Greece"),
         ("  GRÈCE ", "Greece"),
         ("Corée du Sud", "South Korea"),
+        # Any country, not only the DÉTOUR ones, and without accents as people type them.
+        ("Allemagne", "Germany"),
+        ("germany", "Germany"),
+        ("Bresil", "Brazil"),
+        ("Grece", "Greece"),
+        ("Cote d'Ivoire", "Ivory Coast"),
     ],
 )
 def test_canonical_country_reads_french_and_english_names(name, country):

@@ -145,8 +145,31 @@ def test_detour_country_names_are_translated_to_english(french, english):
     assert english_country(french) == english
 
 
-def test_an_unknown_country_has_no_english_name():
-    assert english_country("Atlantide") is None
+@pytest.mark.parametrize(
+    ("name", "english"),
+    [
+        # Not in the DÉTOUR map: a country the client adds later, in French or in English.
+        ("Allemagne", "Germany"),
+        ("Brésil", "Brazil"),
+        ("Jordanie", "Jordan"),
+        ("Nouvelle-Calédonie", "New Caledonia"),
+        ("Germany", "Germany"),
+        ("Uruguay", "Uruguay"),
+    ],
+)
+def test_a_new_country_in_french_or_english_gets_its_english_name(name, english):
+    assert english_country(name) == english
+
+
+def test_the_detour_map_wins_over_the_standard_names():
+    # The standard English name is "Côte d’Ivoire"; rows already imported say "Ivory Coast".
+    assert english_country("Côte d’Ivoire") == "Ivory Coast"
+    assert english_country("Ivory Coast") == "Ivory Coast"
+
+
+@pytest.mark.parametrize("name", ["Atlantide", "Europe", "Monde", "", "ZZ"])
+def test_an_unknown_country_has_no_english_name(name):
+    assert english_country(name) is None
 
 
 def test_the_country_map_covers_the_86_detour_countries():
