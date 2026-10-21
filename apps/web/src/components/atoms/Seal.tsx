@@ -9,7 +9,7 @@ const tones = {
   light: 'border border-white/30 text-white',
 }
 
-/** Novoya's round "N" mark, in several sizes. Decorative. */
+/** DÉTOUR's round "D" mark, in several sizes. Decorative. */
 export function Seal({
   tone = 'coral',
   className,
@@ -22,7 +22,7 @@ export function Seal({
       aria-hidden="true"
       className={cn('grid size-8 shrink-0 place-items-center rounded-full font-serif italic', tones[tone], className)}
     >
-      N
+      D
     </span>
   )
 }

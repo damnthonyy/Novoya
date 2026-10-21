@@ -10,6 +10,7 @@ import type demo from './locales/en/demo.json'
 import type errors from './locales/en/errors.json'
 import type header from './locales/en/header.json'
 import type home from './locales/en/home.json'
+import type legal from './locales/en/legal.json'
 import type plan from './locales/en/plan.json'
 import type preferences from './locales/en/preferences.json'
 import type quote from './locales/en/quote.json'
@@ -33,6 +34,7 @@ declare module 'i18next' {
       errors: typeof errors
       header: typeof header
       home: typeof home
+      legal: typeof legal
       plan: typeof plan
       preferences: typeof preferences
       quote: typeof quote

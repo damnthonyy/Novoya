@@ -2,7 +2,7 @@ import { Link } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
 
 import { Avatar } from '../atoms/Avatar'
-import { Logo } from '../atoms/Logo'
+import { HomeLink } from '../molecules/HomeLink'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -29,13 +29,10 @@ const navLink =
 /** The header of every signed-in page: brand, main links and the account menu. */
 export function AppHeader({ userName, role = 'client', onSignOut, signingOut = false, signOutError }: Props) {
   const { t } = useTranslation('header')
-  const { t: tCommon } = useTranslation()
   return (
     <header className="fixed inset-x-0 top-0 z-20 border-b border-line bg-paper/90 backdrop-blur-md">
       <div className="flex h-18 items-center justify-between px-5 md:h-22 md:px-[5vw]">
-        <Link to="/" aria-label={tCommon('homeLink')} className="flex min-h-11 items-center no-underline">
-          <Logo />
-        </Link>
+        <HomeLink />
         {userName && (
           <>
             <nav aria-label={t('mainNav')} className="hidden items-center gap-7 lg:flex">

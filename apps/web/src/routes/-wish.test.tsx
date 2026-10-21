@@ -468,4 +468,31 @@ describe('the landing page', () => {
     expect(await screen.findByRole('link', { name: 'My space' })).toHaveAttribute('href', '/wish')
     expect(screen.queryByRole('link', { name: /Continue with Google/ })).not.toBeInTheDocument()
   })
+
+  it('shows the agency e-mail in the footer, not the unchecked phone', async () => {
+    signedIn = null
+    renderAt('/')
+
+    expect(await screen.findByRole('link', { name: 'contact@detour-voyages.fr' })).toHaveAttribute(
+      'href',
+      'mailto:contact@detour-voyages.fr',
+    )
+    expect(screen.getByRole('link', { name: 'Legal notices' })).toHaveAttribute('href', '/legal')
+    expect(screen.queryByText(/02 40 00 00 00/)).not.toBeInTheDocument()
+    expect(document.querySelector('img[src="/images/logo-1600.webp"]')).not.toBeNull()
+  })
+
+  it('opens the legal notices with confirmed facts only', async () => {
+    signedIn = null
+    renderAt('/legal')
+
+    expect(await screen.findByRole('heading', { name: 'Legal notices' })).toBeInTheDocument()
+    expect(screen.getByText(/This website is the website of DÉTOUR Voyages/)).toBeInTheDocument()
+    expect(screen.getByText('DÉTOUR Voyages')).toBeInTheDocument()
+    expect(screen.getAllByText('contact@detour-voyages.fr').length).toBeGreaterThan(0)
+    expect(screen.getByText('The Novoya development team')).toBeInTheDocument()
+    expect(screen.getByText('Novoya development team, on behalf of the Novoya project')).toBeInTheDocument()
+    expect(screen.queryByText(/IM044120000/)).not.toBeInTheDocument()
+    expect(screen.queryByText(/Écluses/)).not.toBeInTheDocument()
+  })
 })
