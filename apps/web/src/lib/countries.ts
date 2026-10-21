@@ -1,4 +1,4 @@
-// The API stores country names in English (ADR 0013). They are shown in the page's language
+// The API stores country names in English (ADR 0014). They are shown in the page's language
 // through their ISO region code, found once from the English names Intl itself knows.
 
 // English names the catalogue spells differently from Intl ("Bosnia & Herzegovina", "Côte d’Ivoire").

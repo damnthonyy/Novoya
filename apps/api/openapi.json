@@ -976,7 +976,7 @@
         "type": "object"
       },
       "OfferDetailResponse": {
-        "description": "A listed offer for its page. The price is indicative, per person (ADR 0013): the agent\nnegotiates the price of the trip and the quote has it. Never the partner.",
+        "description": "A listed offer for its page. The price is indicative, per person (ADR 0014): the agent\nnegotiates the price of the trip and the quote has it. Never the partner.",
         "properties": {
           "available_from": {
             "format": "date",

@@ -3,5 +3,5 @@
     uv run python -m novoya_api.catalog.infrastructure.detour --source path/to/detour.sqlite
 
 read.py opens the file read-only, mapping.py turns rows into catalog entities, run.py writes
-them in one transaction. See ADR 0013.
+them in one transaction. See ADR 0014.
 """

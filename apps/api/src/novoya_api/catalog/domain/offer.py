@@ -26,7 +26,7 @@ class PriceUnit(StrEnum):
 
 @dataclass(frozen=True)
 class Offer:
-    """A partner product. Its price, when the partner gave one, is indicative only (ADR 0013):
+    """A partner product. Its price, when the partner gave one, is indicative only (ADR 0014):
     the agent still negotiates the price of each trip, and the quote has that one."""
 
     id: UUID

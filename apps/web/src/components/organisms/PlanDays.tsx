@@ -8,7 +8,7 @@ import { Chip } from '../atoms/Chip'
 
 /**
  * The plan's offers, day by day, on a vertical line. Never a price, never a partner (#31):
- * each offer opens its own page, where its indicative price is (ADR 0013).
+ * each offer opens its own page, where its indicative price is (ADR 0014).
  */
 export function PlanDays({ items }: { items: PlanItemResponse[] }) {
   const { t } = useTranslation('plan')

@@ -17,7 +17,7 @@ export const Route = createFileRoute('/_authenticated/offers/$offerId')({
   component: OfferRoute,
 })
 
-/** One offer of the catalogue, as GET /offers/{id} gives it. Never the partner (ADR 0013). */
+/** One offer of the catalogue, as GET /offers/{id} gives it. Never the partner (ADR 0014). */
 function OfferRoute() {
   const { offerId } = Route.useParams()
   const { t } = useTranslation('offer')

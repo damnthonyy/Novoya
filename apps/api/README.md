@@ -40,7 +40,7 @@ The API runs on http://localhost:8000. Interactive docs: http://localhost:8000/d
 
 ## Import the DÉTOUR catalog
 
-The real catalog comes from the client's DÉTOUR sqlite export ([ADR 0013](../../docs/adr/0013-indicative-prices-and-detour-import.md)). Keep the file outside the repository (`*.sqlite` and `livraison/` are ignored), then:
+The real catalog comes from the client's DÉTOUR sqlite export ([ADR 0014](../../docs/adr/0014-indicative-prices-and-detour-import.md)). Keep the file outside the repository (`*.sqlite` and `livraison/` are ignored), then:
 
 ```bash
 uv run alembic upgrade head

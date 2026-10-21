@@ -2,12 +2,12 @@
   "tryAgain": "Réessayer",
   "loading": "Chargement…",
   "comingSoon": "Bientôt",
-  "homeLink": "Novoya, accueil",
+  "homeLink": "{{name}}, accueil",
   "footer": {
-    "tagline": "Le voyage sur-mesure, avec l’intelligence de l’humain.",
+    "since": "Depuis {{year}}",
     "destinations": "Destinations et avis",
-    "legal": "Confidentialité · Mentions légales",
-    "copyright": "© {{year}} Novoya"
+    "legalNotices": "Mentions légales",
+    "copyright": "© {{year}} {{name}}"
   },
   "language": {
     "label": "Langue",

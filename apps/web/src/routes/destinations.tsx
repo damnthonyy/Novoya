@@ -6,8 +6,8 @@ import { useTranslation } from 'react-i18next'
 import { listReviewsOptions } from '../api/generated/@tanstack/react-query.gen'
 import type { ReviewResponse } from '../api/generated/types.gen'
 import { Eyebrow } from '../components/atoms/Eyebrow'
-import { Logo } from '../components/atoms/Logo'
 import { ErrorNote } from '../components/molecules/ErrorNote'
+import { HomeLink } from '../components/molecules/HomeLink'
 import { LanguageChoice } from '../components/organisms/LanguageChoice'
 import { SiteFooter } from '../components/organisms/SiteFooter'
 import { localizeCountry } from '../lib/countries'
@@ -34,18 +34,15 @@ function byDestination(reviews: ReviewResponse[]): Destination[] {
   return [...groups.values()]
 }
 
-/** Public: the published reviews of past travellers, by destination (ADR 0013). */
+/** Public: the published reviews of past travellers, by destination (ADR 0014). */
 function DestinationsPage() {
   const { t } = useTranslation('destinations')
-  const { t: tCommon } = useTranslation()
   const reviews = useQuery({ ...listReviewsOptions(), retry: false })
 
   return (
     <>
       <header className="flex h-18 items-center justify-between border-b border-line bg-paper px-5 md:h-22 md:px-[5vw]">
-        <Link to="/" aria-label={tCommon('homeLink')} className="flex min-h-11 items-center no-underline">
-          <Logo />
-        </Link>
+        <HomeLink />
         <LanguageChoice />
       </header>
       {/* At least a screen tall before the reviews arrive: the footer and the scrollbar stay put. */}

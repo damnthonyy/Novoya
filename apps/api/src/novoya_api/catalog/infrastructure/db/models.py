@@ -61,7 +61,7 @@ class OfferRow(Base):
     tags: Mapped[list[str]] = mapped_column(JSONB, nullable=False)
     featured: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
-    # Indicative only (ADR 0013): the agent still negotiates the price of each trip.
+    # Indicative only (ADR 0014): the agent still negotiates the price of each trip.
     price_eur: Mapped[int | None] = mapped_column(Integer, nullable=True)
     price_unit: Mapped[str | None] = mapped_column(String(16), nullable=True)
     opening_months: Mapped[list[int]] = mapped_column(
@@ -94,7 +94,7 @@ class OfferRow(Base):
 
 
 class ReviewRow(Base):
-    """A published review from DÉTOUR's avis_diffusables: consented and pseudonymised (ADR 0013).
+    """A published review from DÉTOUR's avis_diffusables: consented and pseudonymised (ADR 0014).
     The import deletes a row as soon as it leaves that view."""
 
     __tablename__ = "reviews"

@@ -181,7 +181,7 @@ class DestinationResponse(BaseModel):
 
 
 class OfferDetailResponse(BaseModel):
-    """A listed offer for its page. The price is indicative, per person (ADR 0013): the agent
+    """A listed offer for its page. The price is indicative, per person (ADR 0014): the agent
     negotiates the price of the trip and the quote has it. Never the partner."""
 
     model_config = ConfigDict(frozen=True)

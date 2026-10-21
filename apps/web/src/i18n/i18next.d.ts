@@ -11,6 +11,7 @@ import type destinations from './locales/en/destinations.json'
 import type errors from './locales/en/errors.json'
 import type header from './locales/en/header.json'
 import type home from './locales/en/home.json'
+import type legal from './locales/en/legal.json'
 import type offer from './locales/en/offer.json'
 import type plan from './locales/en/plan.json'
 import type preferences from './locales/en/preferences.json'
@@ -36,6 +37,7 @@ declare module 'i18next' {
       errors: typeof errors
       header: typeof header
       home: typeof home
+      legal: typeof legal
       offer: typeof offer
       plan: typeof plan
       preferences: typeof preferences

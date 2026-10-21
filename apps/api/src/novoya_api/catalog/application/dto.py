@@ -7,7 +7,7 @@ from novoya_api.catalog.domain import Extra, Offer, OfferKind, Partner
 @dataclass(frozen=True, slots=True)
 class OfferView:
     """A listed offer, as other modules see it. No price: an agent negotiates that per trip
-    (the indicative price is only for the offer page, ADR 0013).
+    (the indicative price is only for the offer page, ADR 0014).
 
     It carries the partner's name and contact; other modules decide who may see them."""
 

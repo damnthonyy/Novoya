@@ -2,7 +2,7 @@
 
 Reviews come only from the view avis_diffusables: the reviews whose author agreed to
 publication, already pseudonymised. The tables avis, avis_publics and consentements are never
-read (ADR 0013). Circuits, advisors and scenarios are not imported either.
+read (ADR 0014). Circuits, advisors and scenarios are not imported either.
 """
 
 import sqlite3

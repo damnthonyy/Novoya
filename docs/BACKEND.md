@@ -116,7 +116,7 @@ Each module owns its tables. Foreign keys across modules are allowed in the data
 | Module | Entities | Rules they own |
 |---|---|---|
 | accounts | `User`, `Role`, `PasswordCredential`, `OAuthIdentity`, `AuthSession`, `OneTimeToken`, `RoleChange` | A new account is `client`, and signing in never changes a role. Only an admin changes a role, never their own, and there is always at least one admin. `agent` and `admin` need a verified email. A password account cannot sign in before its email is verified. Only agents (and admins) handle quotes |
-| catalog | `Partner`, `Offer`, `Review`, `Extra` | An inactive partner's offers are never used. An offer fits a group size and dates or not. An offer's price is **indicative only** (offer page): price and unit come together, more than 0, opening months 1 to 12 ([ADR 0013](adr/0013-indicative-prices-and-detour-import.md)). A review is rated 1 to 5 and keeps its author as given. An extra is `included`, `supplement` (with an amount more than 0) or `on_quote` (no amount) |
+| catalog | `Partner`, `Offer`, `Review`, `Extra` | An inactive partner's offers are never used. An offer fits a group size and dates or not. An offer's price is **indicative only** (offer page): price and unit come together, more than 0, opening months 1 to 12 ([ADR 0014](adr/0014-indicative-prices-and-detour-import.md)). A review is rated 1 to 5 and keeps its author as given. An extra is `included`, `supplement` (with an amount more than 0) or `on_quote` (no amount) |
 | wishes | `Wish`, `Panel`, `Tag` | `draft` → `not_covered` or `panel_shown` → `answered` → `planned`. Selected tags must come from the panel shown |
 | planning | `Plan`, `PlanItem`, `PlanExtra` | The status machine below. Every item is a real, active offer. Only the assigned agent sets prices. Extras are chosen when the quote is requested; a supplement is counted once, an `on_quote` extra needs the agent's price before the plan is ready to quote, an `included` one is never counted |
 | quoting | `Quote` | Total = sum of the kept items' prices. Valid 7 days. Answered once, before it expires |
@@ -153,7 +153,7 @@ Every module also uses the shared `UnitOfWork` port: one use case is one transac
 | Module | Adapter | Tool |
 |---|---|---|
 | all | `infrastructure/db/` repositories and tables | SQLAlchemy 2 (async) + PostgreSQL |
-| catalog | `detour/` (read.py, mapping.py, countries.py, run.py) | The DÉTOUR sqlite export, opened read-only with `sqlite3`; one transaction, counts only, errors name DÉTOUR ids ([ADR 0013](adr/0013-indicative-prices-and-detour-import.md)) |
+| catalog | `detour/` (read.py, mapping.py, countries.py, run.py) | The DÉTOUR sqlite export, opened read-only with `sqlite3`; one transaction, counts only, errors name DÉTOUR ids ([ADR 0014](adr/0014-indicative-prices-and-detour-import.md)) |
 | accounts | `google_oauth.py`, `security.py`, `email/` | Google OpenID Connect with Authlib (`openid email profile`, PKCE), Argon2id password hashes, SMTP (Mailpit locally) |
 | wishes | `llm/panel_builder.py` | OpenRouter, through `shared/infrastructure/llm` |
 | planning | `llm/plan_generator.py`, `llm/tools.py` | OpenRouter tool calling; `travel_tools()` reads offers through `catalog.public` and sends them without partner name or contact |

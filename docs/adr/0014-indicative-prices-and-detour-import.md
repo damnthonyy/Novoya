@@ -1,4 +1,4 @@
-# 0013. Indicative partner prices, and the DÉTOUR catalog import
+# 0014. Indicative partner prices, and the DÉTOUR catalog import
 
 - **Status:** Accepted
 - **Date:** 2026-10-21

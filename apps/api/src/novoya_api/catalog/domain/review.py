@@ -16,7 +16,7 @@ class Review:
     """A traveller's published review of a trip to a destination.
 
     Only reviews the traveller agreed to publish reach Novoya, already pseudonymised: the
-    author is "First name I." or "Voyageur anonyme", kept as DÉTOUR wrote it (ADR 0013)."""
+    author is "First name I." or "Voyageur anonyme", kept as DÉTOUR wrote it (ADR 0014)."""
 
     id: UUID
     country: str
