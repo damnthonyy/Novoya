@@ -90,6 +90,8 @@ class GoogleIdentityProvider:
                 email_verified=claims.get("email_verified") in (True, "true"),
                 email_authoritative=_google_owns(email, claims.get("hd")),
                 name=_text(claims.get("name")),
+                first_name=_text(claims.get("given_name")),
+                last_name=_text(claims.get("family_name")),
                 locale=_text(claims.get("locale")),
             )
         except (httpx.HTTPError, JoseError, InvalidEmail, KeyError, TypeError, ValueError) as error:

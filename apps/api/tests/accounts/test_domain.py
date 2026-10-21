@@ -15,6 +15,7 @@ from novoya_api.accounts.domain.errors import (
 from novoya_api.accounts.domain.one_time_token import OneTimeToken, TokenPurpose
 from novoya_api.accounts.domain.policies import PasswordPolicy
 from novoya_api.accounts.domain.role import Role
+from novoya_api.accounts.domain.user import User
 from novoya_api.accounts.domain.value_objects import Email, PlainPassword, UserId
 from novoya_api.shared.domain.value_objects import Locale
 from tests.accounts.fakes import FrozenClock, make_user
@@ -59,6 +60,65 @@ def test_a_long_unique_password_is_accepted():
 
 def test_a_new_user_is_a_client():
     assert make_user().role is Role.CLIENT
+
+
+def test_register_keeps_trimmed_names_and_composes_the_display_name():
+    user = User.register(Email("alice@example.com"), " Alice ", " Martin ", Locale.EN, NOW)
+    assert user.first_name == "Alice"
+    assert user.last_name == "Martin"
+    assert user.name == "Alice Martin"
+
+
+def test_register_clips_a_display_name_that_would_not_fit():
+    first, last = "A" * 100, "B" * 100
+    user = User.register(Email("alice@example.com"), first, last, Locale.EN, NOW)
+    assert user.first_name == first
+    assert user.last_name == last
+    assert user.name == (first + " " + last)[:200]
+    assert len(user.name) == 200
+
+
+def test_fill_in_from_provider_does_not_overwrite_a_name_chosen_at_sign_up():
+    user = make_user()
+    user.fill_in_from_provider(first_name="A.", last_name="M.", name="A. M.")
+    assert user.first_name == "Alice"
+    assert user.last_name == "Martin"
+    assert user.name == "Alice Martin"
+
+
+def test_fill_in_from_provider_fills_empty_names():
+    user = User.register(Email("alice@example.com"), None, None, Locale.EN, NOW)
+    user.fill_in_from_provider(first_name=" Alice ", last_name=" Martin ", name="Alice Martin")
+    assert user.first_name == "Alice"
+    assert user.last_name == "Martin"
+    assert user.name == "Alice Martin"
+
+
+def test_fill_in_from_provider_derives_names_from_an_existing_display_name():
+    user = User.register(Email("alice@example.com"), None, None, Locale.EN, NOW)
+    user.name = "Ali B."
+    user.fill_in_from_provider(first_name="Alice", last_name="Martin", name="Alice Martin")
+    assert user.first_name == "Ali"
+    assert user.last_name == "B."
+    assert user.name == "Ali B."
+
+
+def test_fill_in_from_provider_keeps_a_single_given_or_family_name():
+    only_given = User.register(Email("a@example.com"), "Alice", None, Locale.EN, NOW)
+    only_given.fill_in_from_provider(first_name="Alice", last_name=None, name=None)
+    assert (only_given.first_name, only_given.last_name, only_given.name) == (
+        "Alice",
+        None,
+        "Alice",
+    )
+
+    only_family = User.register(Email("b@example.com"), None, "Martin", Locale.EN, NOW)
+    only_family.fill_in_from_provider(first_name=None, last_name="Martin", name=None)
+    assert (only_family.first_name, only_family.last_name, only_family.name) == (
+        None,
+        "Martin",
+        "Martin",
+    )
 
 
 def test_role_change_is_logged_with_the_admin():

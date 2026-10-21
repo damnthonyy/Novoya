@@ -38,6 +38,8 @@ def user_to_entity(row: UserModel) -> User:
         id=UserId(row.id),
         email=Email(row.email),
         name=row.name,
+        first_name=row.first_name,
+        last_name=row.last_name,
         role=Role(row.role),
         locale=Locale(row.locale),
         status=UserStatus(row.status),
@@ -50,6 +52,8 @@ def user_columns(user: User) -> dict[str, object]:
     return {
         "email": user.email.value,
         "name": user.name,
+        "first_name": user.first_name,
+        "last_name": user.last_name,
         "role": user.role.value,
         "locale": user.locale.value,
         "status": user.status.value,
@@ -115,7 +119,12 @@ class SqlUserRepository:
         if query:
             pattern = f"%{query.strip()}%"
             statement = statement.where(
-                or_(UserModel.email.ilike(pattern), UserModel.name.ilike(pattern))
+                or_(
+                    UserModel.email.ilike(pattern),
+                    UserModel.name.ilike(pattern),
+                    UserModel.first_name.ilike(pattern),
+                    UserModel.last_name.ilike(pattern),
+                )
             )
         if role is not None:
             statement = statement.where(UserModel.role == role.value)

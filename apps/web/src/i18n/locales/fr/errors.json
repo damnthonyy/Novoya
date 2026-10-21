@@ -56,6 +56,10 @@
     "no_password_set": "Ce compte n’a pas encore de mot de passe.",
     "account_disabled": "Ce compte est désactivé.",
     "too_many_attempts": "Trop de tentatives. Patientez un instant, puis réessayez.",
+    "first_name_required": "Indiquez votre prénom.",
+    "first_name_too_long": "Un prénom fait 100 caractères au plus.",
+    "last_name_required": "Indiquez votre nom de famille.",
+    "last_name_too_long": "Un nom de famille fait 100 caractères au plus.",
     "unknown": "Une erreur est survenue. Réessayez dans un instant."
   }
 }

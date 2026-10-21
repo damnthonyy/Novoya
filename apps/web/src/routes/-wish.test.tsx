@@ -13,6 +13,8 @@ const CAMILLE: MeResponse = {
   id: '6f1c2b1e-0000-4000-8000-000000000002',
   email: 'camille@exemple.fr',
   name: 'Camille Martin',
+  first_name: 'Camille',
+  last_name: 'Martin',
   role: 'client',
   locale: 'en',
   status: 'active',
@@ -181,6 +183,12 @@ describe('sending a wish', () => {
   }
 
   it('greets the client by first name', async () => {
+    renderAt('/wish')
+    expect(await screen.findByText('Hello Camille')).toBeInTheDocument()
+  })
+
+  it('greets with the first word of name when first_name is missing', async () => {
+    signedIn = { ...CAMILLE, first_name: null }
     renderAt('/wish')
     expect(await screen.findByText('Hello Camille')).toBeInTheDocument()
   })

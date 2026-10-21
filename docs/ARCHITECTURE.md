@@ -216,7 +216,7 @@ The PDF exists in English and French, in the client's language (`users.locale`).
 
 | Table | Main columns |
 |---|---|
-| `users` | id, email, name, role (`client`, `agent`, `admin`), locale (`en`, `fr`), status (`active`, `disabled`), email_verified_at, created_at, updated_at |
+| `users` | id, email, name, first_name, last_name, role (`client`, `agent`, `admin`), locale (`en`, `fr`), status (`active`, `disabled`), email_verified_at, created_at, updated_at |
 | `oauth_identities` | id, user_id, provider (`google`), subject (Google's `sub`), created_at, last_login_at |
 | `password_credentials` | user_id, password_hash (Argon2id), updated_at |
 | `sessions` | id, user_id, token_hash, created_at, last_seen_at, idle_expires_at, absolute_expires_at, revoked_at, user_agent |
@@ -313,7 +313,7 @@ novoya/
 
 ## 9. Privacy (GDPR)
 
-- We store only the account (email, name, role, language), a hash of the password if the user has one, the sessions (with the browser's user agent, never the IP address, kept 30 days at most), what the client types (wishes, panel answers, budget, travellers, dates), the plans and the quotes. No mailbox, document or social media data, no avatar and no Google token.
+- We store only the account (email, name, first name, last name, role, language), a hash of the password if the user has one, the sessions (with the browser's user agent, never the IP address, kept 30 days at most), what the client types (wishes, panel answers, budget, travellers, dates), the plans and the quotes. No mailbox, document or social media data, no avatar and no Google token.
 - A privacy page says what we store, why, and for how long.
 - The client can delete their account and everything linked to it (`DELETE /me`).
 - Agents see client data only for the plans in their queue.

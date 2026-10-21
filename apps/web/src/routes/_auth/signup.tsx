@@ -38,9 +38,9 @@ function SignUpPage() {
 
   return (
     <>
-      <Eyebrow>{t('signUp.eyebrow')}</Eyebrow>
-      <h1 className="mb-2.5 text-[45px] leading-none md:text-[55px]">{t('signUp.title')}</h1>
-      <p className="text-muted">{t('signUp.intro')}</p>
+      <Eyebrow className="mb-2">{t('signUp.eyebrow')}</Eyebrow>
+      <h1 className="mb-1.5 text-[32px] leading-none md:text-[40px]">{t('signUp.title')}</h1>
+      <p className="text-sm text-muted">{t('signUp.intro')}</p>
       <SignUpForm
         googleHref={googleSignInUrl('/wish')}
         onSubmit={(account) =>

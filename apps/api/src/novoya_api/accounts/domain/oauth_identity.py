@@ -17,6 +17,8 @@ class ExternalIdentity:
     # email proves who holds it today. Only then may it be linked to an existing account.
     email_authoritative: bool
     name: str | None
+    first_name: str | None
+    last_name: str | None
     locale: str | None
 
 

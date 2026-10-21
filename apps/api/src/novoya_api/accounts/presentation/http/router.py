@@ -113,7 +113,8 @@ async def register(
         RegisterCommand(
             email=body.email,
             password=body.password.get_secret_value(),
-            name=body.name,
+            first_name=body.first_name,
+            last_name=body.last_name,
             locale_hint=body.locale or request.headers.get("accept-language"),
             ip_address=client.ip_address,
         )

@@ -25,7 +25,8 @@ from novoya_api.shared.domain.value_objects import Locale
 class RegisterCommand:
     email: str
     password: str
-    name: str | None
+    first_name: str
+    last_name: str
     locale_hint: str | None  # the locale picked in the form, or the Accept-Language header
     ip_address: str | None
 
@@ -67,8 +68,9 @@ class Register:
             raise EmailAlreadyUsed("this email address already has an account")
 
         now = self._clock.now()
-        name = cmd.name.strip() if cmd.name and cmd.name.strip() else None
-        user = User.register(email, name, Locale.from_hint(cmd.locale_hint), now)
+        user = User.register(
+            email, cmd.first_name, cmd.last_name, Locale.from_hint(cmd.locale_hint), now
+        )
         await self._users.add(user)
         password_hash = await self._hasher.hash(password)
         await self._credentials.upsert(PasswordCredential(user.id, password_hash, now))

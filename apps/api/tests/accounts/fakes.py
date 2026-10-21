@@ -74,7 +74,14 @@ class InMemoryUserRepository:
         users = sorted(self.rows.values(), key=lambda u: u.created_at, reverse=True)
         if query:
             q = query.lower()
-            users = [u for u in users if q in u.email.value or q in (u.name or "").lower()]
+            users = [
+                u
+                for u in users
+                if q in u.email.value
+                or q in (u.name or "").lower()
+                or q in (u.first_name or "").lower()
+                or q in (u.last_name or "").lower()
+            ]
         if role is not None:
             users = [u for u in users if u.role is role]
         return [replace(u) for u in users[offset : offset + limit]]
@@ -281,7 +288,7 @@ def make_user(
     now: datetime | None = None,
 ) -> User:
     now = now or datetime(2026, 10, 19, 9, 0, tzinfo=UTC)
-    user = User.register(Email(email), "Alice", Locale.EN, now)
+    user = User.register(Email(email), "Alice", "Martin", Locale.EN, now)
     user.role = role
     user.status = status
     if verified:
@@ -294,11 +301,21 @@ def google_identity(
     email: str = "alice@example.com",
     email_verified: bool = True,
     name: str | None = "Alice Martin",
+    first_name: str | None = "Alice",
+    last_name: str | None = "Martin",
     locale: str | None = "en",
     email_authoritative: bool = True,
 ) -> ExternalIdentity:
     return ExternalIdentity(
-        "google", subject, Email(email), email_verified, email_authoritative, name, locale
+        "google",
+        subject,
+        Email(email),
+        email_verified,
+        email_authoritative,
+        name,
+        first_name,
+        last_name,
+        locale,
     )
 
 

@@ -1,17 +1,27 @@
 import { describe, expect, it } from 'vitest'
 
 import en from '../../i18n/locales/en/errors.json'
-import { accountError, passwordSignInErrorKey, signInErrorKey } from './errors'
+import { accountError, invalidInputFieldErrors, passwordSignInErrorKey, signInErrorKey } from './errors'
 import { displayName, safeRedirect } from './session'
 
 describe('displayName', () => {
-  it('uses the name', () => {
-    expect(displayName({ name: 'Léa Martin', email: 'lea@example.com' })).toBe('Léa Martin')
+  it('uses the first name', () => {
+    expect(displayName({ first_name: 'Léa', email: 'lea@example.com' })).toBe('Léa')
+  })
+
+  it('uses the first word of name when first_name is missing', () => {
+    expect(
+      displayName({ first_name: null, name: 'Léa Martin', email: 'lea@example.com' }),
+    ).toBe('Léa')
   })
 
   it('falls back to the email when there is no name', () => {
-    expect(displayName({ name: null, email: 'lea@example.com' })).toBe('lea@example.com')
-    expect(displayName({ name: '  ', email: 'lea@example.com' })).toBe('lea@example.com')
+    expect(displayName({ first_name: null, name: null, email: 'lea@example.com' })).toBe(
+      'lea@example.com',
+    )
+    expect(displayName({ first_name: '  ', name: '  ', email: 'lea@example.com' })).toBe(
+      'lea@example.com',
+    )
   })
 })
 
@@ -101,6 +111,39 @@ describe('accountError', () => {
   it('has a text for every key it can give', () => {
     for (const code of [...Object.keys(en.account), 'too_many_requests', 'something_new']) {
       expect(en.account).toHaveProperty(accountError(code).key.replace('account.', ''))
+    }
+  })
+})
+
+describe('invalidInputFieldErrors', () => {
+  it('puts a missing or blank name next to its field', () => {
+    expect(invalidInputFieldErrors('first_name: Field required')).toEqual({
+      firstName: 'account.first_name_required',
+    })
+    expect(invalidInputFieldErrors('last_name: String should have at least 1 character')).toEqual({
+      lastName: 'account.last_name_required',
+    })
+  })
+
+  it('puts a too-long name next to its field', () => {
+    expect(invalidInputFieldErrors('first_name: String should have at most 100 characters')).toEqual({
+      firstName: 'account.first_name_too_long',
+    })
+  })
+
+  it('can mark both fields at once', () => {
+    expect(
+      invalidInputFieldErrors('first_name: Field required; last_name: String should have at most 100 characters'),
+    ).toEqual({
+      firstName: 'account.first_name_required',
+      lastName: 'account.last_name_too_long',
+    })
+  })
+
+  it('has a text for every key it can give', () => {
+    const detail = 'first_name: Field required; last_name: String should have at most 100 characters'
+    for (const key of Object.values(invalidInputFieldErrors(detail))) {
+      expect(en.account).toHaveProperty(key.replace('account.', ''))
     }
   })
 })
