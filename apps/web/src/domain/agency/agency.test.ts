@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
+import raw from '../../../brand/agency.json'
+import schema from '../../../brand/agency.schema.json'
 import { agencyView, shown } from './agency'
 
 describe('shown', () => {
@@ -37,5 +39,30 @@ describe('agencyView', () => {
     const agency = agencyView('en')
     expect(agency.tagline).toBeUndefined()
     expect(agency.descriptionShort).toBeUndefined()
+  })
+})
+
+// agency.ts reads the JSON with a type cast, so TypeScript does not see it change. These
+// checks follow agency.schema.json for what the reader depends on.
+describe('agency.json', () => {
+  type Entry = { value?: unknown; status?: unknown; translation_status?: Record<string, unknown> }
+
+  function entries(node: unknown, path = ''): [string, Entry][] {
+    if (!node || typeof node !== 'object') return []
+    const own: [string, Entry][] = 'status' in node ? [[path, node as Entry]] : []
+    return own.concat(Object.entries(node).flatMap(([key, child]) => entries(child, `${path}.${key}`)))
+  }
+
+  it('has the sections the schema requires', () => {
+    for (const section of schema.required) expect(raw).toHaveProperty(section)
+  })
+
+  it('marks every value confirmed or to_check, with a value', () => {
+    const statuses: unknown[] = schema.$defs.status.enum
+    for (const [path, entry] of entries(raw)) {
+      expect(statuses, path).toContain(entry.status)
+      expect(entry, path).toHaveProperty('value')
+      for (const status of Object.values(entry.translation_status ?? {})) expect(statuses, path).toContain(status)
+    }
   })
 })

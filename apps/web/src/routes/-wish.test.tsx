@@ -1,6 +1,6 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { createMemoryHistory, RouterProvider } from '@tanstack/react-router'
-import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import '../api/client'
@@ -488,10 +488,12 @@ describe('the landing page', () => {
 
     expect(await screen.findByRole('heading', { name: 'Legal notices' })).toBeInTheDocument()
     expect(screen.getByText(/This website is the website of DÉTOUR Voyages/)).toBeInTheDocument()
-    expect(screen.getByText('DÉTOUR Voyages')).toBeInTheDocument()
-    expect(screen.getAllByText('contact@detour-voyages.fr').length).toBeGreaterThan(0)
-    expect(screen.getByText('The Novoya development team')).toBeInTheDocument()
-    expect(screen.getByText('Novoya development team, on behalf of the Novoya project')).toBeInTheDocument()
+    const notices = within(document.querySelector('dl') as HTMLElement)
+    expect(notices.getByText('DÉTOUR Voyages')).toBeInTheDocument()
+    expect(notices.getByText('contact@detour-voyages.fr')).toBeInTheDocument()
+    expect(notices.getByText('Novoya development team, on behalf of the Novoya project')).toBeInTheDocument()
+    // No publication director until the agency names one: it is a legal role, not a credit.
+    expect(notices.queryByText('Publication director')).not.toBeInTheDocument()
     expect(screen.queryByText(/IM044120000/)).not.toBeInTheDocument()
     expect(screen.queryByText(/Écluses/)).not.toBeInTheDocument()
   })

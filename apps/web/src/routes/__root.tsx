@@ -13,7 +13,6 @@ import { useTranslation } from 'react-i18next'
 import { ErrorNote } from '../components/molecules/ErrorNote'
 import { HomeLink } from '../components/molecules/HomeLink'
 import { resolveLocale } from '../domain/i18n/locale'
-import { useAgency } from '../hooks/ui/useAgency'
 import i18n from '../i18n'
 
 export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()({
@@ -31,13 +30,9 @@ function RootLayout() {
   // The /_authenticated guard already switches before a signed-in page renders; this keeps
   // the language right when there is no user any more, for example after signing out.
   const locale = resolveLocale(me?.locale, navigator.languages)
-  const agency = useAgency()
   useEffect(() => {
     if (i18n.language !== locale) void i18n.changeLanguage(locale)
   }, [locale])
-  useEffect(() => {
-    document.title = agency.tradeName
-  }, [agency.tradeName])
 
   return (
     <>

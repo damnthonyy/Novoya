@@ -9,7 +9,7 @@ import { resolveLocale } from '../domain/i18n/locale'
 const files = import.meta.glob<Record<string, unknown>>('./locales/*/*.json', {
   eager: true,
   import: 'default',
-}) // every locales/<lang>/<screen>.json, including new screens
+})
 
 export const resources: Record<string, Record<string, Record<string, unknown>>> = {}
 for (const [path, messages] of Object.entries(files)) {

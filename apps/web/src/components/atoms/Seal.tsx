@@ -1,5 +1,7 @@
 import { cn } from '@/lib/utils'
 
+import { useAgency } from '../../hooks/ui/useAgency'
+
 const tones = {
   // Coral ring on a light background.
   coral: 'border border-coral text-coral-text',
@@ -9,7 +11,7 @@ const tones = {
   light: 'border border-white/30 text-white',
 }
 
-/** DÉTOUR's round "D" mark, in several sizes. Decorative. */
+/** The agency's round initial mark, in several sizes. Decorative. */
 export function Seal({
   tone = 'coral',
   className,
@@ -17,12 +19,13 @@ export function Seal({
   tone?: keyof typeof tones
   className?: string
 }) {
+  const agency = useAgency()
   return (
     <span
       aria-hidden="true"
       className={cn('grid size-8 shrink-0 place-items-center rounded-full font-serif italic', tones[tone], className)}
     >
-      D
+      {agency.tradeName.charAt(0)}
     </span>
   )
 }

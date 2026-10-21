@@ -37,12 +37,6 @@ function LegalPage() {
               <dd className="mt-1 mb-0">{line.value}</dd>
             </div>
           ))}
-          {!agency.legalLines.some((line) => line.key === 'publicationDirector') && (
-            <div>
-              <dt className="text-muted">{t('publicationDirector')}</dt>
-              <dd className="mt-1 mb-0">{t('publicationDirectorValue')}</dd>
-            </div>
-          )}
           <div>
             <dt className="text-muted">{t('madeBy')}</dt>
             <dd className="mt-1 mb-0">{t('madeByValue')}</dd>
