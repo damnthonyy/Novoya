@@ -3,6 +3,7 @@
   "nav": {
     "users": "Users",
     "partners": "Partners",
+    "reviews": "Reviews",
     "activity": "Activity"
   },
   "eyebrow": "Administration",
@@ -317,6 +318,23 @@
       "sentOn": "Sent on {{date}}",
       "validUntil": "Valid until {{date}}",
       "pdf": "Download the PDF"
+    }
+  },
+  "reviews": {
+    "title": "Reviews",
+    "loading": "Loading reviews…",
+    "loadFailed": "The reviews could not be loaded.",
+    "empty": "No published review yet.",
+    "switchFailed": "The change could not be saved. Please try again.",
+    "table": {
+      "caption": "Published reviews",
+      "review": "Review",
+      "rating": "Rating",
+      "date": "Date",
+      "text": "Text",
+      "hidden": "Hidden",
+      "hiddenOf": "Hidden: {{author}}",
+      "ratingOf": "{{rating}} / 5"
     }
   }
 }

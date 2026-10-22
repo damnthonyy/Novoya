@@ -17,6 +17,7 @@ from novoya_api.catalog.application.use_cases.create_partner import (
     CreatePartnerCommand,
 )
 from novoya_api.catalog.application.use_cases.list_all_extras import ListAllExtras
+from novoya_api.catalog.application.use_cases.list_all_reviews import ListAllReviews
 from novoya_api.catalog.application.use_cases.list_offers import ListOffers
 from novoya_api.catalog.application.use_cases.list_partners import ListPartners
 from novoya_api.catalog.application.use_cases.update_extra import UpdateExtra, UpdateExtraCommand
@@ -24,6 +25,10 @@ from novoya_api.catalog.application.use_cases.update_offer import UpdateOffer, U
 from novoya_api.catalog.application.use_cases.update_partner import (
     UpdatePartner,
     UpdatePartnerCommand,
+)
+from novoya_api.catalog.application.use_cases.update_review import (
+    UpdateReview,
+    UpdateReviewCommand,
 )
 from novoya_api.catalog.domain import (
     Extra,
@@ -38,16 +43,20 @@ from novoya_api.catalog.domain import (
     PartnerKind,
     PartnerNotFound,
     PriceUnit,
+    Review,
+    ReviewNotFound,
 )
 from novoya_api.catalog.presentation.http.dependencies import (
     get_create_offer,
     get_create_partner,
     get_list_all_extras,
+    get_list_all_reviews,
     get_list_offers,
     get_list_partners,
     get_update_extra,
     get_update_offer,
     get_update_partner,
+    get_update_review,
 )
 from novoya_api.main import create_app
 from novoya_api.shared.domain.errors import Conflict
@@ -142,6 +151,43 @@ class FakeExtras:
 
     async def save(self, extra: Extra) -> None:
         self.by_id[extra.id] = extra
+
+
+class FakeReviews:
+    def __init__(self, reviews: list[Review] | None = None) -> None:
+        self.by_id = {review.id: review for review in reviews or []}
+
+    async def list_at(self, country: str | None, city: str | None, limit: int) -> list[Review]:
+        shown = [review for review in self.by_id.values() if not review.hidden]
+        shown.sort(key=lambda review: (review.reviewed_on, review.id), reverse=True)
+        return shown[:limit]
+
+    async def list_all(self) -> list[Review]:
+        return sorted(
+            self.by_id.values(),
+            key=lambda review: (review.reviewed_on, str(review.id)),
+            reverse=True,
+        )
+
+    async def get(self, review_id: UUID) -> Review | None:
+        return self.by_id.get(review_id)
+
+    async def save(self, review: Review) -> None:
+        self.by_id[review.id] = review
+
+
+def _review(**overrides: object) -> Review:
+    values: dict[str, object] = {
+        "id": uuid4(),
+        "country": "Greece",
+        "city": "Chania",
+        "rating": 5,
+        "reviewed_on": date(2026, 6, 1),
+        "text": "A made-up stay by the sea.",
+        "author": "Zélie Q.",
+    }
+    values.update(overrides)
+    return Review(**values)  # type: ignore[arg-type]
 
 
 def _extra(**overrides: object) -> Extra:
@@ -587,6 +633,33 @@ async def test_the_admin_extras_list_includes_hidden_and_inactive_ones():
     assert [extra.label for extra in listed] == ["Gone", "Hidden", "Quiet room"]
 
 
+async def test_a_review_can_be_hidden_and_shown_again():
+    review = _review()
+    reviews = FakeReviews([review])
+
+    hidden = await UpdateReview(reviews, FakeUow())(UpdateReviewCommand(review.id, hidden=True))
+    assert hidden.hidden is True
+    assert await reviews.list_at(None, None, 100) == []
+    assert await reviews.list_all() == [hidden]
+
+    shown = await UpdateReview(reviews, FakeUow())(UpdateReviewCommand(review.id, hidden=False))
+    assert shown == review
+
+
+async def test_hiding_a_missing_review_is_not_found():
+    with pytest.raises(ReviewNotFound):
+        await UpdateReview(FakeReviews(), FakeUow())(UpdateReviewCommand(uuid4(), hidden=True))
+
+
+async def test_the_admin_reviews_list_includes_hidden_ones():
+    hidden = _review(author="Voyageur anonyme", hidden=True, reviewed_on=date(2026, 8, 1))
+    shown = _review()
+
+    listed = await ListAllReviews(FakeReviews([shown, hidden]))()
+
+    assert [review.author for review in listed] == ["Voyageur anonyme", "Zélie Q."]
+
+
 # HTTP
 
 
@@ -630,9 +703,18 @@ def _as_agent(
     app.dependency_overrides[get_update_extra] = lambda: UpdateExtra(extras, uow)
 
 
+def _as_admin(app, reviews: FakeReviews | None = None) -> None:
+    reviews = reviews or FakeReviews()
+    uow = FakeUow()
+    app.dependency_overrides[current_user] = lambda: signed_in_as(Role.ADMIN)
+    app.dependency_overrides[get_list_all_reviews] = lambda: ListAllReviews(reviews)
+    app.dependency_overrides[get_update_review] = lambda: UpdateReview(reviews, uow)
+
+
 async def test_admin_partners_without_a_session_returns_401(client):
     assert (await client.get("/admin/partners")).status_code == 401
     assert (await client.get("/admin/offers")).status_code == 401
+    assert (await client.get("/admin/reviews")).status_code == 401
 
 
 async def test_admin_catalog_rejects_a_client(app, client):
@@ -640,6 +722,7 @@ async def test_admin_catalog_rejects_a_client(app, client):
 
     assert (await client.get("/admin/partners")).status_code == 403
     assert (await client.get("/admin/offers")).status_code == 403
+    assert (await client.get("/admin/reviews")).status_code == 403
 
 
 async def test_admin_can_create_list_and_deactivate_a_partner(app, client):
@@ -952,6 +1035,37 @@ async def test_admin_extras_need_an_agent(app, client):
     assert (await client.get("/admin/extras")).status_code == 403
 
 
+async def test_an_admin_hides_a_review_over_http(app, client):
+    review = _review()
+    _as_admin(app, FakeReviews([review]))
+
+    response = await client.patch(f"/admin/reviews/{review.id}", json={"hidden": True})
+
+    assert response.status_code == 200
+    assert response.json()["hidden"] is True
+    listed = await client.get("/admin/reviews")
+    assert [(row["id"], row["hidden"], row["author"]) for row in listed.json()] == [
+        (str(review.id), True, "Zélie Q.")
+    ]
+
+
+async def test_the_content_of_a_review_cannot_be_patched(app, client):
+    review = _review()
+    _as_admin(app, FakeReviews([review]))
+
+    response = await client.patch(f"/admin/reviews/{review.id}", json={"text": "Changed"})
+
+    assert response.status_code == 422
+
+
+async def test_admin_reviews_need_an_admin(app, client):
+    app.dependency_overrides[current_user] = lambda: signed_in_as(Role.AGENT)
+
+    assert (await client.get("/admin/reviews")).status_code == 403
+    hidden = await client.patch(f"/admin/reviews/{uuid4()}", json={"hidden": True})
+    assert hidden.status_code == 403
+
+
 async def test_admin_offers_filtered_by_partner_over_http(app, client):
     riad = _partner(name="Riad Lune")
     lodge = _partner(name="Lodge Nord")
@@ -995,6 +1109,8 @@ def test_admin_catalog_routes_are_documented(app):
     assert paths["/admin/offers/{offer_id}"]["patch"]["operationId"] == "updateOffer"
     assert paths["/admin/extras"]["get"]["operationId"] == "listAllExtras"
     assert paths["/admin/extras/{extra_id}"]["patch"]["operationId"] == "updateExtra"
+    assert paths["/admin/reviews"]["get"]["operationId"] == "listAllReviews"
+    assert paths["/admin/reviews/{review_id}"]["patch"]["operationId"] == "updateReview"
     assert "409" in paths["/admin/offers/{offer_id}"]["patch"]["responses"]
     offer_params = {
         param["name"]: param for param in paths["/admin/offers"]["get"].get("parameters", [])
