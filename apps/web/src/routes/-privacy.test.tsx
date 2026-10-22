@@ -57,6 +57,8 @@ describe('privacy page', () => {
     expect(text).toContain('A session: 30 days at most.')
     expect(text).toContain('Mistral AI, in France')
     expect(text).toContain('agreed to their publication')
+    expect(text).toContain('12 rue des Écluses, 44000 Nantes')
+    expect(screen.getAllByRole('link', { name: '02 40 00 00 00' })[0]).toHaveAttribute('href', 'tel:+33240000000')
     expect(screen.getByRole('link', { name: 'Open my account settings' })).toHaveAttribute('href', '/settings')
     expect(router?.state.location.pathname).toBe('/privacy')
   })

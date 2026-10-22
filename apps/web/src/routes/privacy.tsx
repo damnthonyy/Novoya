@@ -57,6 +57,25 @@ function PrivacyPage() {
       </ul>,
     )
 
+  // Who is responsible, with the agency's confirmed address and phone (brand/agency.json).
+  const controller = () =>
+    section(
+      'controller',
+      <>
+        <p className="m-0">{t('controller.body', values)}</p>
+        {(agency.address || agency.phone) && (
+          <address className="mt-3 grid not-italic">
+            {agency.address && <span>{agency.address}</span>}
+            {agency.phone && (
+              <a href={agency.phone.href} className="inline-flex min-h-11 w-fit items-center underline underline-offset-4">
+                {agency.phone.display}
+              </a>
+            )}
+          </address>
+        )}
+      </>,
+    )
+
   return (
     <div className="flex min-h-screen flex-col bg-paper">
       <header className="flex h-18 items-center border-b border-line px-5 md:h-22 md:px-[5vw]">
@@ -66,7 +85,9 @@ function PrivacyPage() {
         <h1 className="mb-3 font-serif text-[40px] leading-none md:text-[56px]">{t('title')}</h1>
         <p className="mb-6 text-muted">{t('updated')}</p>
         <p className="m-0">{t('intro', values)}</p>
-        {SECTIONS.map((entry) => ('list' in entry ? list(entry.list) : paragraph(entry.paragraph)))}
+        {SECTIONS.map((entry) =>
+          'list' in entry ? list(entry.list) : entry.paragraph === 'controller' ? controller() : paragraph(entry.paragraph),
+        )}
         {section(
           'rights',
           <>
