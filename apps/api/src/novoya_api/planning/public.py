@@ -10,14 +10,21 @@
   (403, another agent), InvalidTransition (409, not negotiating) or PlanNotReady (422).
 - plan_trip(plan_id) -> TripBrief | None: the wish behind the plan (place, dates,
   travellers), for the quote email. None when the plan or its wish is gone.
+- find_plan_ids(query, user_ids) -> the ids of the plans whose destination contains `query`
+  or whose client is one of `user_ids`, for the admin search of quotes. At most SEARCH_CAP.
+- plan_trips(plan_ids) -> {plan_id: TripBrief}: where and when each plan's trip goes; a plan
+  whose wish is gone is left out.
+- priced_plan(plan_id) -> PricedPlan | None: a quoted plan (answered or not) as its quote
+  shows it, read only, for the client's quote page. None when it is gone or not quoted.
+- mark_accepted(plan_id), mark_rejected(plan_id): the client's answer to the quote, in the
+  caller's session (the caller commits, with the answer on its quote). Raises PlanNotFound
+  (404) or InvalidTransition (409, not quoted, or changed meanwhile).
 - delete_for_user(user_id): erases the plans of this user's wishes; their items and extras
   go with them. Erase the user's quotes first (quoting.public.delete_for_user) and the wishes
   after (wishes.public.delete_for_user): neither has a cascade. The caller commits.
-
-Planned:
-- mark_accepted(plan_id), mark_rejected(plan_id) (called by quoting)
 """
 
+from collections.abc import Sequence
 from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -33,13 +40,16 @@ from novoya_api.planning.application.dto import (
 )
 from novoya_api.planning.application.ports.plan_writer import PlanWriter
 from novoya_api.planning.application.use_cases.generate_plan import GeneratePlan
+from novoya_api.planning.application.use_cases.get_priced_plan import GetPricedPlan
 from novoya_api.planning.application.use_cases.quote_plan import QuotePlan
+from novoya_api.planning.application.use_cases.record_answer import RecordAnswer
 from novoya_api.planning.domain.errors import NoOfferFits, PlanNotFound, PlanNotReady
 from novoya_api.planning.infrastructure.catalog import PartnerOffers
 from novoya_api.planning.infrastructure.db.repository import SqlPlanRepository
 from novoya_api.planning.infrastructure.llm.plan_writer import LlmPlanWriter, NoModelPlanWriter
 from novoya_api.planning.infrastructure.llm.tools import travel_tools
 from novoya_api.planning.infrastructure.wish_owners import WishOwners
+from novoya_api.planning.infrastructure.wish_search import WishesSearch
 from novoya_api.planning.infrastructure.wish_trips import WishTrips
 from novoya_api.shared.infrastructure.db.unit_of_work import SqlAlchemyUnitOfWork
 from novoya_api.shared.infrastructure.llm.client import get_orchestrator
@@ -59,10 +69,19 @@ __all__ = [
     "PricedPlan",
     "TripBrief",
     "delete_for_user",
+    "find_plan_ids",
     "generate_plan",
+    "mark_accepted",
+    "mark_rejected",
+    "plan_trips",
     "plan_trip",
+    "priced_plan",
     "quote_plan",
 ]
+
+# The plans a quote search may match, last changed first: past it the query is too broad, and
+# the rest is dropped without a sign. Fine at the agency's size; a page would say "refine".
+SEARCH_CAP = 1000
 
 # The client waits for the plan; the fallback covers a slow model.
 DEADLINE_SECONDS = 60
@@ -98,6 +117,51 @@ async def plan_trip(plan_id: UUID, *, session: AsyncSession) -> TripBrief | None
     if plan is None:
         return None
     return (await WishTrips(session).for_wish_ids([plan.wish_id])).get(plan.wish_id)
+
+
+async def priced_plan(plan_id: UUID, *, session: AsyncSession) -> PricedPlan | None:
+    """A quoted plan as its quote shows it, read only. None when gone or not quoted."""
+    use_case = GetPricedPlan(
+        plans=SqlPlanRepository(session),
+        catalog=PartnerOffers(session),
+        trips=WishTrips(session),
+        wishes=WishOwners(session),
+    )
+    return await use_case(plan_id)
+
+
+async def mark_accepted(plan_id: UUID, *, session: AsyncSession) -> None:
+    """The client accepted the quote: the plan becomes accepted in `session`. The caller
+    commits."""
+    await RecordAnswer(SqlPlanRepository(session), SystemClock())(plan_id, accepted=True)
+
+
+async def mark_rejected(plan_id: UUID, *, session: AsyncSession) -> None:
+    """The client rejected the quote: the plan becomes rejected in `session`. The caller
+    commits."""
+    await RecordAnswer(SqlPlanRepository(session), SystemClock())(plan_id, accepted=False)
+
+
+async def find_plan_ids(
+    query: str, user_ids: Sequence[UUID] = (), *, session: AsyncSession
+) -> list[UUID]:
+    """The plans whose destination contains `query`, or whose client is one of `user_ids`,
+    newest first. The caller finds the users: accounts erases plans, so importing it here
+    would loop. Stops at SEARCH_CAP without saying so: a search that broad needs refining.
+    For admins only: the caller's router must require the admin role."""
+    wish_ids = await WishesSearch(session).matching(query, user_ids)
+    if not wish_ids:
+        return []
+    plans = await SqlPlanRepository(session).search([], wish_ids, limit=SEARCH_CAP)
+    return [plan.id for plan in plans]
+
+
+async def plan_trips(plan_ids: Sequence[UUID], *, session: AsyncSession) -> dict[UUID, TripBrief]:
+    """Where and when each plan's trip goes, keyed by plan id. A plan whose wish is gone is
+    left out."""
+    plans = await SqlPlanRepository(session).list_by_ids(plan_ids)
+    trips = await WishTrips(session).for_wish_ids([plan.wish_id for plan in plans])
+    return {plan.id: trips[plan.wish_id] for plan in plans if plan.wish_id in trips}
 
 
 def _writer() -> PlanWriter:

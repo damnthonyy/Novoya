@@ -40,11 +40,11 @@ Agents also manage partners and offers in the admin pages.
 
 ### Admin
 
-1. The admin signs in like everyone else. Their account has the `admin` role, which can do everything an agent can.
-2. The admin lists the users and changes their role (`client`, `agent` or `admin`). They cannot change their own role, and there is always at least one admin.
-3. `agent` and `admin` are only given to accounts with a verified email. Every change is logged.
+1. The admin signs in like everyone else. Their account has the `admin` or `super_admin` role, which can do everything an agent can.
+2. The admin lists the users, changes their role and disables or enables their account. A plain admin manages clients and agents; only a super admin gives the `admin` role and acts on admins, and super admins are managed with the `grant-role` command only: the API never gives or takes that role, nor disables a super admin ([ADR 0015](adr/0015-super-admin-role.md)). Nobody changes their own role or account, and there is always at least one active super admin.
+3. `agent`, `admin` and `super_admin` are only given to accounts with a verified email. Every role change is logged.
 
-The first admin is created with a server command (`grant-role`), because no one can call the admin API before an admin exists.
+Super admins are named and demoted with a server command only (`grant-role`).
 
 ## 2. System overview
 
@@ -233,11 +233,11 @@ The PDF exists in English and French, in the client's language (`users.locale`).
 | `plans` | id, wish_id, status (`proposed`, `requested`, `negotiating`, `quoted`, `accepted`, `rejected`), based_on_preferences, summary, assigned_agent_id, created_at, updated_at |
 | `plan_items` | id, plan_id, offer_id, day, quantity, note, negotiated_price (empty until the agent fills it), removed |
 | `plan_extras` | plan_id, extra_id, pricing, price_eur (the supplement when requested, or the agent's price for `on_quote`), label and unit (copied when requested), confirmed (the agent set its price; a supplement per person, night or day needs it before the quote) |
-| `quotes` | id, number (`NV-YYYYMMDD-XXXXXX`), plan_id (one quote per plan), client_id, agent_id, total_price, currency (`EUR`), locale, sent_at, valid_until (sent_at + 7 days), pdf (the file's bytes: the demo host wipes its disk, [ADR 0013](adr/0013-host-the-demo-on-render.md)), decided_at, client_comment |
+| `quotes` | id, number (`NV-YYYYMMDD-XXXXXX`), plan_id (one quote per plan), client_id, agent_id, total_price, currency (`EUR`), locale, sent_at, valid_until (sent_at + 7 days; the quote stays open to the end of that day in Paris), pdf (the file's bytes: the demo host wipes its disk, [ADR 0013](adr/0013-host-the-demo-on-render.md)), answer (`accepted`, `rejected`) and decided_at (both set together when the client answers), client_comment |
 
 `wishes` holds the whole request: the text, the panel we showed, the tags the client clicked, the budget, the number of travellers and the dates. `panel_json` and `selected_tags` are JSONB columns.
 
-Roles live in the database (`users.role`). A new account is `client`, and signing in never changes a role. Only an admin changes it, through `/admin/users`, and each change is written to `role_changes`. The first admin is set with the `grant-role` command.
+Roles live in the database (`users.role`). A new account is `client`, and signing in never changes a role. Only an admin changes it, through `/admin/users`, and only a super admin when the admin roles are involved; each change is written to `role_changes`. The first super admin is set with the `grant-role` command.
 
 An account can have Google, a password, or both: `oauth_identities` and `password_credentials` hold one sign-in method each. Sessions are opaque tokens stored hashed in `sessions`, so signing out, resetting a password or changing a role takes effect at the next request. Sessions expire after 7 days without use and 30 days at most.
 
@@ -270,8 +270,9 @@ Client:
 | POST | `/wishes/{id}/answers` | Send the selected tags, budget, travellers and dates. Saves them on the wish and returns the proposed plan |
 | GET | `/plans/{id}` | The plan, day by day, with no prices until it is quoted and no partner names |
 | POST | `/plans/{id}/request-quote` | Ask the agency for a quote, with optional `extra_ids` |
+| GET | `/quotes/{id}` | Read a quote and its status: `open`, `expired` after its validity date, or the client's answer (`accepted`, `rejected`). A quote is open until the end of its validity day in Paris time, the day the PDF shows. With what the quote page shows: the agent's name, the trip, the priced items and extras, the budget, and the answer's date and comment. Its client, an agent or an admin; 404 for anyone else. Not cached (`private, no-store`) |
 | GET | `/quotes/{id}/pdf` | Download the quote PDF |
-| POST | `/quotes/{id}/accept`, `/quotes/{id}/reject` | The client's answer, with an optional comment |
+| POST | `/quotes/{id}/accept`, `/quotes/{id}/reject` | The client's answer, with an optional comment (up to 1000 characters). Saves it on the quote and moves the plan to `accepted` or `rejected`, together. 204. Only the quote's client: 403 for staff, 404 for anyone else. 409 `quote_expired` after the validity day, 409 `quote_answered` when already answered |
 | DELETE | `/me` | Delete the account, its wishes, plans and quotes (with their PDF), then sign out. Clients only: 403 `staff_account` for an agent or an admin |
 
 Agent (roles `agent` and `admin`):
@@ -293,6 +294,11 @@ Admin (role `admin` only; an admin can also use every agent route):
 |---|---|---|
 | GET | `/admin/users` | List users, filtered by email or role |
 | PATCH | `/admin/users/{id}/role` | Change a user's role |
+| GET | `/admin/wishes` | Every client's wishes with their status, searched by client or destination |
+| GET | `/admin/plans`, `/admin/plans/{id}` | Every plan with its client, status and agent; one plan read-only, as its agent sees it |
+| GET | `/admin/quotes` | Every quote with its client, total and status (`sent`, `expired`, `accepted`, `rejected`) |
+
+The three lists live in their own module (wishes, planning, quoting). A search by client goes through `accounts.public.search_user_ids`, called from the module's adapters: a `public.py` never imports accounts, because accounts imports them to erase an account's data.
 
 FastAPI generates the OpenAPI file. The frontend generates its TypeScript client and types from it with `@hey-api/openapi-ts`, so both sides agree on types without writing them twice.
 

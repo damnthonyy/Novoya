@@ -5,13 +5,16 @@ from novoya_api.accounts.presentation.http.router import router as accounts_rout
 from novoya_api.catalog.presentation.http.router import router as catalog_router
 from novoya_api.config import get_settings
 from novoya_api.health.presentation.http.router import router as health_router
+from novoya_api.planning.presentation.http.router import admin_router as admin_plans_router
 from novoya_api.planning.presentation.http.router import agent_router as planning_agent_router
 from novoya_api.planning.presentation.http.router import router as planning_router
+from novoya_api.quoting.presentation.http.router import admin_router as admin_quotes_router
 from novoya_api.quoting.presentation.http.router import agent_quotes_router
 from novoya_api.quoting.presentation.http.router import agent_router as quoting_agent_router
 from novoya_api.quoting.presentation.http.router import router as quoting_router
 from novoya_api.shared.presentation.http.errors import register_error_handlers
 from novoya_api.shared.presentation.http.origin_middleware import OriginCheckMiddleware
+from novoya_api.wishes.presentation.http.router import admin_router as admin_wishes_router
 from novoya_api.wishes.presentation.http.router import router as wishes_router
 
 
@@ -31,11 +34,14 @@ def create_app() -> FastAPI:
     app.include_router(accounts_router)
     app.include_router(catalog_router)
     app.include_router(wishes_router)
+    app.include_router(admin_wishes_router)
     app.include_router(planning_router)
     app.include_router(planning_agent_router)
+    app.include_router(admin_plans_router)
     app.include_router(quoting_router)
     app.include_router(quoting_agent_router)
     app.include_router(agent_quotes_router)
+    app.include_router(admin_quotes_router)
     return app
 
 

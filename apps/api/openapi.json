@@ -76,6 +76,406 @@
         "title": "AdminExtraResponse",
         "type": "object"
       },
+      "AdminPlan": {
+        "description": "One plan, read-only, for an admin: the agent's view, the client and the agent.",
+        "properties": {
+          "agent": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PersonOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "client": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PersonOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "plan": {
+            "$ref": "#/components/schemas/AgentPlan"
+          }
+        },
+        "required": [
+          "plan",
+          "client",
+          "agent"
+        ],
+        "title": "AdminPlan",
+        "type": "object"
+      },
+      "AdminPlanEntry": {
+        "description": "One plan in the admin overview. No prices and no partner: GET /admin/plans/{id}.\nclient or agent is null when the account is gone or nobody took the plan yet.",
+        "properties": {
+          "agent": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PersonOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "city": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "City"
+          },
+          "client": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PersonOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "country": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Country"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "end_date": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "End Date"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "persons": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Persons"
+          },
+          "start_date": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Start Date"
+          },
+          "status": {
+            "$ref": "#/components/schemas/PlanStatus"
+          },
+          "summary": {
+            "title": "Summary",
+            "type": "string"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          },
+          "wish_id": {
+            "format": "uuid",
+            "title": "Wish Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "wish_id",
+          "status",
+          "summary",
+          "created_at",
+          "updated_at",
+          "country",
+          "city",
+          "persons",
+          "start_date",
+          "end_date",
+          "client",
+          "agent"
+        ],
+        "title": "AdminPlanEntry",
+        "type": "object"
+      },
+      "AdminQuote": {
+        "description": "One quote in the admin overview, with the status GET /quotes/{id} gives it. The PDF\nis at GET /quotes/{id}/pdf.",
+        "properties": {
+          "city": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "City"
+          },
+          "client": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/QuoteClient"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "country": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Country"
+          },
+          "currency": {
+            "title": "Currency",
+            "type": "string"
+          },
+          "end_date": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "End Date"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "locale": {
+            "enum": [
+              "en",
+              "fr"
+            ],
+            "title": "Locale",
+            "type": "string"
+          },
+          "number": {
+            "title": "Number",
+            "type": "string"
+          },
+          "plan_id": {
+            "format": "uuid",
+            "title": "Plan Id",
+            "type": "string"
+          },
+          "sent_at": {
+            "format": "date-time",
+            "title": "Sent At",
+            "type": "string"
+          },
+          "start_date": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Start Date"
+          },
+          "status": {
+            "$ref": "#/components/schemas/QuoteStatus"
+          },
+          "total": {
+            "title": "Total",
+            "type": "string"
+          },
+          "valid_until": {
+            "format": "date-time",
+            "title": "Valid Until",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "number",
+          "plan_id",
+          "total",
+          "currency",
+          "locale",
+          "sent_at",
+          "valid_until",
+          "status",
+          "country",
+          "city",
+          "start_date",
+          "end_date",
+          "client"
+        ],
+        "title": "AdminQuote",
+        "type": "object"
+      },
+      "AdminWish": {
+        "description": "One wish in the admin overview. client is null when the account is gone.",
+        "properties": {
+          "city": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "City"
+          },
+          "client": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/WishClient"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "country": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Country"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "end_date": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "End Date"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "persons": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Persons"
+          },
+          "start_date": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Start Date"
+          },
+          "status": {
+            "enum": [
+              "draft",
+              "not_covered",
+              "panel_shown",
+              "answered",
+              "planned"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "text": {
+            "title": "Text",
+            "type": "string"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "status",
+          "text",
+          "country",
+          "city",
+          "persons",
+          "start_date",
+          "end_date",
+          "created_at",
+          "updated_at",
+          "client"
+        ],
+        "title": "AdminWish",
+        "type": "object"
+      },
       "AgentPlan": {
         "description": "The plan as the assigned agent sees it. Prices, partners, running total and budget.\ntotal counts priced items and priced extras; ready_to_quote is false while a kept item or\nan on_quote extra has no price, or a supplement that needs a quantity check is not\nconfirmed.",
         "properties": {
@@ -497,6 +897,25 @@
         "title": "AnswerPanelRequest",
         "type": "object"
       },
+      "AnswerQuoteRequest": {
+        "description": "An optional comment for the agent with the answer.",
+        "properties": {
+          "comment": {
+            "anyOf": [
+              {
+                "maxLength": 1000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Comment"
+          }
+        },
+        "title": "AnswerQuoteRequest",
+        "type": "object"
+      },
       "ChangePasswordRequest": {
         "properties": {
           "current_password": {
@@ -525,7 +944,8 @@
             "enum": [
               "client",
               "agent",
-              "admin"
+              "admin",
+              "super_admin"
             ],
             "title": "Role",
             "type": "string"
@@ -1040,7 +1460,8 @@
             "enum": [
               "client",
               "agent",
-              "admin"
+              "admin",
+              "super_admin"
             ],
             "title": "Role",
             "type": "string"
@@ -1574,6 +1995,38 @@
         "title": "PartnerResponse",
         "type": "object"
       },
+      "PersonOut": {
+        "description": "A client or an agent: name and email, as on the admin users page.",
+        "properties": {
+          "email": {
+            "title": "Email",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "email"
+        ],
+        "title": "PersonOut",
+        "type": "object"
+      },
       "Plan": {
         "description": "The plan day by day. Never a price: the quote has it. Never a partner name.",
         "properties": {
@@ -2001,6 +2454,328 @@
         ],
         "title": "Quote",
         "type": "object"
+      },
+      "QuoteClient": {
+        "description": "Who the quote is for: name and email, as on the admin users page.",
+        "properties": {
+          "email": {
+            "title": "Email",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "email"
+        ],
+        "title": "QuoteClient",
+        "type": "object"
+      },
+      "QuoteDetail": {
+        "description": "A quote and where it stands: open, expired once the validity day is over in Paris, or\nthe client's answer (accepted, rejected) with decided_at and client_comment. With the\ntrip and its priced lines, as the PDF shows them; those are null or empty when the plan\nis gone. Unlike the quote just sent, it has no email_sent: that only matters when it is\nsent.",
+        "properties": {
+          "agent_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Agent Name"
+          },
+          "budget_max": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Budget Max"
+          },
+          "city": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "City"
+          },
+          "client_comment": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Client Comment"
+          },
+          "country": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Country"
+          },
+          "currency": {
+            "title": "Currency",
+            "type": "string"
+          },
+          "decided_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Decided At"
+          },
+          "end_date": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "End Date"
+          },
+          "extras": {
+            "items": {
+              "$ref": "#/components/schemas/QuoteExtra"
+            },
+            "title": "Extras",
+            "type": "array"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/QuoteItem"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "locale": {
+            "enum": [
+              "en",
+              "fr"
+            ],
+            "title": "Locale",
+            "type": "string"
+          },
+          "number": {
+            "title": "Number",
+            "type": "string"
+          },
+          "persons": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Persons"
+          },
+          "plan_id": {
+            "format": "uuid",
+            "title": "Plan Id",
+            "type": "string"
+          },
+          "sent_at": {
+            "format": "date-time",
+            "title": "Sent At",
+            "type": "string"
+          },
+          "start_date": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Start Date"
+          },
+          "status": {
+            "$ref": "#/components/schemas/QuoteStatus"
+          },
+          "total": {
+            "title": "Total",
+            "type": "string"
+          },
+          "valid_until": {
+            "format": "date-time",
+            "title": "Valid Until",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "number",
+          "plan_id",
+          "total",
+          "currency",
+          "locale",
+          "sent_at",
+          "valid_until",
+          "status",
+          "decided_at",
+          "client_comment",
+          "agent_name",
+          "country",
+          "city",
+          "start_date",
+          "end_date",
+          "persons",
+          "budget_max",
+          "items",
+          "extras"
+        ],
+        "title": "QuoteDetail",
+        "type": "object"
+      },
+      "QuoteExtra": {
+        "description": "An extra the client chose. price is null for an included extra.",
+        "properties": {
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "price": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Price"
+          },
+          "unit": {
+            "title": "Unit",
+            "type": "string"
+          }
+        },
+        "required": [
+          "label",
+          "unit",
+          "price"
+        ],
+        "title": "QuoteExtra",
+        "type": "object"
+      },
+      "QuoteItem": {
+        "description": "A kept item on its day. title is null when the offer left the catalog. price is the\nline's price in EUR.",
+        "properties": {
+          "day": {
+            "title": "Day",
+            "type": "integer"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "kind": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Kind"
+          },
+          "price": {
+            "title": "Price",
+            "type": "string"
+          },
+          "quantity": {
+            "title": "Quantity",
+            "type": "integer"
+          },
+          "title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
+          }
+        },
+        "required": [
+          "day",
+          "kind",
+          "title",
+          "description",
+          "quantity",
+          "price"
+        ],
+        "title": "QuoteItem",
+        "type": "object"
+      },
+      "QuoteStatus": {
+        "description": "Where a quote stands: open until the client answers or its validity ends.",
+        "enum": [
+          "open",
+          "expired",
+          "accepted",
+          "rejected"
+        ],
+        "title": "QuoteStatus",
+        "type": "string"
       },
       "RegisterRequest": {
         "properties": {
@@ -2788,7 +3563,8 @@
             "enum": [
               "client",
               "agent",
-              "admin"
+              "admin",
+              "super_admin"
             ],
             "title": "Role",
             "type": "string"
@@ -2921,7 +3697,8 @@
             "enum": [
               "client",
               "agent",
-              "admin"
+              "admin",
+              "super_admin"
             ],
             "title": "Role",
             "type": "string"
@@ -3014,6 +3791,38 @@
           "type"
         ],
         "title": "ValidationError",
+        "type": "object"
+      },
+      "WishClient": {
+        "description": "Who sent it: name and email, as on the admin users page.",
+        "properties": {
+          "email": {
+            "title": "Email",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "email"
+        ],
+        "title": "WishClient",
         "type": "object"
       },
       "WishResponse": {
@@ -3768,6 +4577,366 @@
         ]
       }
     },
+    "/admin/plans": {
+      "get": {
+        "description": "Every client's plans, last changed first: client, destination, dates, status and agent.\nNo prices and no partner names: open the plan for those. Admin only.",
+        "operationId": "listAdminPlans",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "status",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/PlanStatus"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Status"
+            }
+          },
+          {
+            "description": "Part of the client's email or name, or of the place",
+            "in": "query",
+            "name": "q",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 254,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Part of the client's email or name, or of the place",
+              "title": "Q"
+            }
+          },
+          {
+            "in": "query",
+            "name": "wish_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Wish Id"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "maximum": 100,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "minimum": 0,
+              "title": "Offset",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/AdminPlanEntry"
+                  },
+                  "title": "Response Listadminplans",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Admin Plans",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/admin/plans/{plan_id}": {
+      "get": {
+        "description": "One plan, read-only: what its agent sees (prices, partners, total and budget), with the\nclient and the agent. Admin only.",
+        "operationId": "getAdminPlan",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "plan_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Plan Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminPlan"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Admin Plan",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/admin/quotes": {
+      "get": {
+        "description": "Every client's quotes, newest first: number, client, trip, total, validity and status.\nplan_id gives the quote of one plan. Admin only.",
+        "operationId": "listAdminQuotes",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "status",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/QuoteStatus"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Status"
+            }
+          },
+          {
+            "description": "Part of the client's email or name, or of the place",
+            "in": "query",
+            "name": "q",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 254,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Part of the client's email or name, or of the place",
+              "title": "Q"
+            }
+          },
+          {
+            "in": "query",
+            "name": "plan_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Plan Id"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "maximum": 100,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "minimum": 0,
+              "title": "Offset",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/AdminQuote"
+                  },
+                  "title": "Response Listadminquotes",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Admin Quotes",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
     "/admin/users": {
       "get": {
         "description": "The users, newest first. Admin only.",
@@ -3802,7 +4971,8 @@
                   "enum": [
                     "client",
                     "agent",
-                    "admin"
+                    "admin",
+                    "super_admin"
                   ],
                   "type": "string"
                 },
@@ -4015,7 +5185,7 @@
     },
     "/admin/users/{user_id}/role": {
       "patch": {
-        "description": "Give a user another role. Admin only, never on their own account. The change is logged.",
+        "description": "Give a user another role. Admin only, never on their own account (409). Only a super\nadmin gives or takes the admin role (403). The super admin role is never given nor taken\nhere: only the grant-role command does (403). The change is logged.",
         "operationId": "changeUserRole",
         "parameters": [
           {
@@ -4119,7 +5289,7 @@
     },
     "/admin/users/{user_id}/status": {
       "patch": {
-        "description": "Disable or enable a user's account. Admin only, never on their own account (409) nor\non another admin's (403). Disabling ends the user's sessions; who and when are kept.",
+        "description": "Disable or enable a user's account. Admin only, never on their own account (409), only\na super admin on an admin's (403), and never on a super admin's: that is done on the server\n(403). Disabling ends the user's sessions; who and when are kept.",
         "operationId": "changeUserStatus",
         "parameters": [
           {
@@ -4221,9 +5391,132 @@
         ]
       }
     },
+    "/admin/wishes": {
+      "get": {
+        "description": "Every client's wishes, last changed first, with who sent them. Admin only.",
+        "operationId": "listAdminWishes",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "status",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "draft",
+                    "not_covered",
+                    "panel_shown",
+                    "answered",
+                    "planned"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Status"
+            }
+          },
+          {
+            "description": "Part of the client's email or name, or of the country or city",
+            "in": "query",
+            "name": "q",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 254,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Part of the client's email or name, or of the country or city",
+              "title": "Q"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "maximum": 100,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "minimum": 0,
+              "title": "Offset",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/AdminWish"
+                  },
+                  "title": "Response Listadminwishes",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Admin Wishes",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
     "/agent/plans": {
       "get": {
-        "description": "Plans waiting for a quote, oldest first. Wish text, destination, dates, travellers, budget.\nNever a price and never a partner name: take the plan to see those.",
+        "description": "The agent's queue, oldest first. Wish text, destination, dates, travellers, budget.\nstatus repeats: requested lists the plans waiting for anyone; negotiating, quoted,\naccepted and rejected list only the caller's own plans. Never a price and never a\npartner name: open the plan to see those.",
         "operationId": "listQuoteQueue",
         "parameters": [
           {
@@ -4231,10 +5524,21 @@
             "name": "status",
             "required": false,
             "schema": {
-              "const": "requested",
-              "default": "requested",
+              "default": [
+                "requested"
+              ],
+              "items": {
+                "enum": [
+                  "requested",
+                  "negotiating",
+                  "quoted",
+                  "accepted",
+                  "rejected"
+                ],
+                "type": "string"
+              },
               "title": "Status",
-              "type": "string"
+              "type": "array"
             }
           },
           {
@@ -4606,6 +5910,78 @@
       }
     },
     "/agent/plans/{plan_id}/quote": {
+      "get": {
+        "description": "The quote sent for this plan, with the id of its PDF. Only the agent who sent it\n(403). 404 before the quote is sent.",
+        "operationId": "getPlanQuote",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "plan_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Plan Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Quote"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Plan Quote",
+        "tags": [
+          "agent"
+        ]
+      },
       "post": {
         "description": "Send the quote: the total of the priced items and extras, valid 7 days, rendered as a\nPDF in the language the agent chose (en or fr; the client's language without a body).\nThe plan becomes quoted and the client gets an email that leads to the quote; email_sent\nis false if it did not go out (the quote is saved anyway). Only the assigned agent (403).\n409 if the plan is not negotiating (a second click too). 422 plan_not_ready while a kept\nitem or an on_quote extra has no price, or a supplement is not confirmed.",
         "operationId": "sendQuote",
@@ -6501,6 +7877,174 @@
         ]
       }
     },
+    "/quotes/{quote_id}": {
+      "get": {
+        "description": "The quote and where it stands (open, expired after its validity date, accepted or\nrejected), for its client or staff (agents, admins). 404 for anyone else, so the id\nstays hidden.",
+        "operationId": "getQuote",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "quote_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Quote Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/QuoteDetail"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Quote",
+        "tags": [
+          "quoting"
+        ]
+      }
+    },
+    "/quotes/{quote_id}/accept": {
+      "post": {
+        "description": "The client accepts their quote, with an optional comment for the agent. The plan\nbecomes accepted. 409 quote_expired after the validity day, 409 quote_answered when it\nis answered already; 403 for staff, 404 for anyone else.",
+        "operationId": "acceptQuote",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "quote_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Quote Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/AnswerQuoteRequest"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Body"
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Accept Quote",
+        "tags": [
+          "quoting"
+        ]
+      }
+    },
     "/quotes/{quote_id}/pdf": {
       "get": {
         "description": "The quote as a PDF, for its client or an agent. 404 for anyone else, so the id stays\nhidden.",
@@ -6566,6 +8110,100 @@
           }
         },
         "summary": "Get Quote Pdf",
+        "tags": [
+          "quoting"
+        ]
+      }
+    },
+    "/quotes/{quote_id}/reject": {
+      "post": {
+        "description": "The client rejects their quote, with an optional comment for the agent. The plan\nbecomes rejected, and the client can start a new wish. Same errors as accept.",
+        "operationId": "rejectQuote",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "quote_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Quote Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/AnswerQuoteRequest"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Body"
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Reject Quote",
         "tags": [
           "quoting"
         ]
