@@ -5,6 +5,8 @@
 - ids_for_user(user_id) -> the ids of this user's wishes
 - delete_for_user(user_id) -> erases every wish of this user. Erase their plans first
   (plans.wish_id has no cascade).
+- wishes_for_user(user_id) -> this user's wishes, newest first, with their status, place and
+  dates
 
 Planned:
 - mark_planned(wish_id)
@@ -12,7 +14,7 @@ Planned:
 
 from collections.abc import Sequence
 from dataclasses import dataclass
-from datetime import date
+from datetime import date, datetime
 from decimal import Decimal
 from uuid import UUID
 
@@ -35,6 +37,21 @@ class WishTrip:
     start_date: date | None
     end_date: date | None
     tags: tuple[str, ...] = ()  # "section:tag", what the client clicked
+
+
+@dataclass(frozen=True)
+class UserWish:
+    """One wish in its client's own list: where, when, and how far it has got."""
+
+    wish_id: UUID
+    text: str
+    status: str  # draft, not_covered, panel_shown, answered or planned
+    country: str | None
+    city: str | None
+    persons: int | None
+    start_date: date | None
+    end_date: date | None
+    created_at: datetime
 
 
 async def owner_id(wish_id: UUID, *, session: AsyncSession) -> UUID | None:
@@ -77,3 +94,22 @@ async def ids_for_user(user_id: UUID, *, session: AsyncSession) -> list[UUID]:
 async def delete_for_user(user_id: UUID, *, session: AsyncSession) -> None:
     """Erase every wish of this user. Plans must be erased first. The caller commits."""
     await SqlWishRepository(session).delete_for_user(user_id)
+
+
+async def wishes_for_user(user_id: UUID, *, session: AsyncSession) -> list[UserWish]:
+    """This user's wishes, newest first, for their list of trips."""
+    wishes = await SqlWishRepository(session).list_for_user(user_id)
+    return [
+        UserWish(
+            wish_id=wish.id,
+            text=wish.text,
+            status=wish.status.value,
+            country=wish.destination.country if wish.destination else None,
+            city=wish.destination.city if wish.destination else None,
+            persons=wish.answers.persons if wish.answers else None,
+            start_date=wish.answers.start_date if wish.answers else None,
+            end_date=wish.answers.end_date if wish.answers else None,
+            created_at=wish.created_at,
+        )
+        for wish in wishes
+    ]
