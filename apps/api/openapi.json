@@ -2297,6 +2297,92 @@
         "title": "PlanItemResponse",
         "type": "object"
       },
+      "PlanQuote": {
+        "description": "The quote of a plan, for the agent who sent it: where it stands (open, expired,\naccepted, rejected), and when the client answered with their comment (null until then).\nNo email_sent: that only matters on the answer to sending.",
+        "properties": {
+          "client_comment": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Client Comment"
+          },
+          "currency": {
+            "title": "Currency",
+            "type": "string"
+          },
+          "decided_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Decided At"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "locale": {
+            "enum": [
+              "en",
+              "fr"
+            ],
+            "title": "Locale",
+            "type": "string"
+          },
+          "number": {
+            "title": "Number",
+            "type": "string"
+          },
+          "plan_id": {
+            "format": "uuid",
+            "title": "Plan Id",
+            "type": "string"
+          },
+          "sent_at": {
+            "format": "date-time",
+            "title": "Sent At",
+            "type": "string"
+          },
+          "status": {
+            "$ref": "#/components/schemas/QuoteStatus"
+          },
+          "total": {
+            "title": "Total",
+            "type": "string"
+          },
+          "valid_until": {
+            "format": "date-time",
+            "title": "Valid Until",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "number",
+          "plan_id",
+          "total",
+          "currency",
+          "locale",
+          "sent_at",
+          "valid_until",
+          "status",
+          "decided_at",
+          "client_comment"
+        ],
+        "title": "PlanQuote",
+        "type": "object"
+      },
       "PlanResponse": {
         "description": "The proposed plan, day by day. No price until it is quoted and no partner name.\nbased_on_preferences is false when the client picked no tag.",
         "properties": {
@@ -6365,7 +6451,7 @@
     },
     "/agent/plans/{plan_id}/quote": {
       "get": {
-        "description": "The quote sent for this plan, with the id of its PDF. Only the agent who sent it\n(403). 404 before the quote is sent.",
+        "description": "The quote sent for this plan, with the id of its PDF, where it stands and the\nclient's answer and comment. Only the agent who sent it or an admin (403). 404 before\nthe quote is sent.",
         "operationId": "getPlanQuote",
         "parameters": [
           {
@@ -6384,7 +6470,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Quote"
+                  "$ref": "#/components/schemas/PlanQuote"
                 }
               }
             },
@@ -8333,7 +8419,7 @@
     },
     "/quotes/{quote_id}": {
       "get": {
-        "description": "The quote and where it stands (open, expired after its validity date, accepted or\nrejected), for its client or staff (agents, admins). 404 for anyone else, so the id\nstays hidden.",
+        "description": "The quote and where it stands (open, expired after its validity date, accepted or\nrejected), for its client, the agent who sent it or an admin. 404 for anyone else\n(another agent too), so the id stays hidden.",
         "operationId": "getQuote",
         "parameters": [
           {
@@ -8407,7 +8493,7 @@
     },
     "/quotes/{quote_id}/accept": {
       "post": {
-        "description": "The client accepts their quote, with an optional comment for the agent. The plan\nbecomes accepted. 409 quote_expired after the validity day, 409 quote_answered when it\nis answered already; 403 for staff, 404 for anyone else.",
+        "description": "The client accepts their quote, with an optional comment for the agent. The plan\nbecomes accepted. 409 quote_expired after the validity day, 409 quote_answered when it\nis answered already; 403 for its agent and admins, 404 for anyone else.",
         "operationId": "acceptQuote",
         "parameters": [
           {
@@ -8501,7 +8587,7 @@
     },
     "/quotes/{quote_id}/pdf": {
       "get": {
-        "description": "The quote as a PDF, for its client or an agent. 404 for anyone else, so the id stays\nhidden.",
+        "description": "The quote as a PDF, for its client, the agent who sent it or an admin. 404 for anyone\nelse (another agent too), so the id stays hidden.",
         "operationId": "getQuotePdf",
         "parameters": [
           {
