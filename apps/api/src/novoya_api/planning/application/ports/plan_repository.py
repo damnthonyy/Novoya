@@ -34,6 +34,18 @@ class PlanRepository(Protocol):
         plans are everyone's; any other status lists only the plans assigned to agent_id."""
         ...
 
+    async def search(
+        self,
+        statuses: Sequence[PlanStatus],
+        wish_ids: Sequence[UUID] | None,
+        *,
+        limit: int = QUEUE_PAGE,
+        offset: int = 0,
+    ) -> list[Plan]:
+        """Every client's plans, last changed first, without their items. No statuses means
+        all of them; wish_ids None means every wish."""
+        ...
+
     async def save(self, plan: Plan) -> None:
         """Writes the plan row (status, assignee, timestamps). Not the items. When the plan
         leaves proposed, also its chosen extras (fixed from then on).

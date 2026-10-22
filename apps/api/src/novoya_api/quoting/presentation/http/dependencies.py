@@ -18,6 +18,7 @@ from novoya_api.quoting.application.use_cases.answer_quote import AnswerQuote
 from novoya_api.quoting.application.use_cases.get_plan_quote import GetPlanQuote
 from novoya_api.quoting.application.use_cases.get_quote import GetQuote
 from novoya_api.quoting.application.use_cases.get_quote_pdf import GetQuotePdf
+from novoya_api.quoting.application.use_cases.list_admin_quotes import ListAdminQuotes
 from novoya_api.quoting.application.use_cases.resend_quote_email import ResendQuoteEmail
 from novoya_api.quoting.application.use_cases.send_quote import SendQuote
 from novoya_api.quoting.infrastructure.db.repository import SqlQuoteRepository
@@ -116,6 +117,17 @@ def get_get_plan_quote(session: Annotated[AsyncSession, Depends(get_session)]) -
 
 def get_get_quote(session: Annotated[AsyncSession, Depends(get_session)]) -> GetQuote:
     return GetQuote(
+        quotes=SqlQuoteRepository(session),
+        plans=PlanningPlans(session),
+        people=AccountPeople(session),
+        clock=SystemClock(),
+    )
+
+
+def get_list_admin_quotes(
+    session: Annotated[AsyncSession, Depends(get_session)],
+) -> ListAdminQuotes:
+    return ListAdminQuotes(
         quotes=SqlQuoteRepository(session),
         plans=PlanningPlans(session),
         people=AccountPeople(session),

@@ -2,7 +2,8 @@
   "area": "Administration",
   "nav": {
     "users": "Users",
-    "partners": "Partners"
+    "partners": "Partners",
+    "activity": "Activity"
   },
   "eyebrow": "Administration",
   "title": "Users",
@@ -208,5 +209,112 @@
     "invalid": "Some fields were refused. Check them and try again.",
     "notFound": "This partner or offer no longer exists.",
     "unknown": "This could not be saved. Please try again."
+  },
+  "activity": {
+    "title": "Activity",
+    "intro": "Every wish, plan and quote of every client, to follow the agency's work and spot a request that is stuck.",
+    "tabs": {
+      "wishes": "Wishes",
+      "plans": "Plans",
+      "quotes": "Quotes"
+    },
+    "searchLabel": "Search by client or destination",
+    "searchPlaceholder": "Client name, email, city or country…",
+    "statusFilter": "Filter by status",
+    "allStatuses": "All statuses",
+    "loading": "Loading…",
+    "loadFailed": "This list could not be loaded.",
+    "empty": "Nothing matches this search.",
+    "wishStatus": {
+      "draft": "Draft",
+      "not_covered": "Not covered",
+      "panel_shown": "Choosing",
+      "answered": "Answered",
+      "planned": "Planned"
+    },
+    "planStatus": {
+      "proposed": "Proposed",
+      "requested": "Quote asked",
+      "negotiating": "Negotiating",
+      "quoted": "Quoted",
+      "accepted": "Accepted",
+      "rejected": "Rejected"
+    },
+    "quoteStatus": {
+      "open": "Waiting for the client",
+      "expired": "Expired",
+      "accepted": "Accepted",
+      "rejected": "Rejected"
+    },
+    "noClient": "Deleted account",
+    "noAgent": "Not taken",
+    "noPlace": "No destination yet",
+    "noDates": "No dates yet",
+    "travellers_one": "{{count}} traveller",
+    "travellers_other": "{{count}} travellers",
+    "wishes": {
+      "caption": "Every client's wishes",
+      "client": "Client",
+      "wish": "Wish",
+      "dates": "Dates",
+      "status": "Status",
+      "updated": "Updated",
+      "seePlans": "See its plans"
+    },
+    "plans": {
+      "caption": "Every client's plans",
+      "client": "Client",
+      "trip": "Trip",
+      "status": "Status",
+      "agent": "Agent",
+      "updated": "Updated",
+      "open": "Open the plan to {{place}}",
+      "ofWish": "Plans of one wish only.",
+      "allPlans": "Show every plan"
+    },
+    "quotes": {
+      "caption": "Every client's quotes",
+      "quote": "Quote",
+      "trip": "Trip",
+      "total": "Total",
+      "validUntil": "Valid until",
+      "status": "Status"
+    },
+    "plan": {
+      "back": "Activity",
+      "eyebrow": "Plan",
+      "loading": "Loading the plan…",
+      "loadFailed": "The plan could not be loaded.",
+      "notFound": "This plan doesn't exist.",
+      "readOnly": "Read-only: the agent who takes the plan enters the prices.",
+      "client": "Client",
+      "agent": "Agent",
+      "dates": "Dates",
+      "travellers": "Travellers",
+      "budget": "Client's budget",
+      "total": "Total so far",
+      "overBudget": "Over the client's budget",
+      "noBudget": "Not given",
+      "items": "Day by day",
+      "itemsCaption": "The plan's items, partners and prices",
+      "day": "Day",
+      "item": "What",
+      "partner": "Partner",
+      "quantity": "Qty",
+      "price": "Price",
+      "noPrice": "No price yet",
+      "removed": "Removed",
+      "unavailable": "No longer listed",
+      "dayN": "Day {{day}}",
+      "extras": "Extras",
+      "included": "Included",
+      "onQuote": "On quote",
+      "quote": "Quote",
+      "noQuote": "No quote sent yet.",
+      "quoteLoadFailed": "The quote could not be loaded.",
+      "sentOn": "Sent on {{date}}",
+      "validUntil": "Valid until {{date}}",
+      "pdf": "Download the PDF"
+    }
   }
 }
