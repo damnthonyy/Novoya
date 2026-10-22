@@ -54,9 +54,9 @@ We import partners, offers, publishable reviews and extras with
   partner; anything but `featured` and `hidden` of its offers; adding an offer to it. An
   extra only takes `hidden` (`PATCH /admin/extras/{id}`). There is no delete. Sending a
   row its own values is not a change. Hand-made partners and offers stay fully editable.
-- An agent hides a row with `hidden`; it is left out everywhere an inactive one is (search,
-  coverage, tags, `GET /offers/{id}`, `GET /extras`, the extras of a quote request) and
-  stays hidden after every import. A phone added in Novoya can no longer be erased by the
+- An admin hides a row with `hidden` (the catalog routes are admin only, #127); it is left
+  out everywhere an inactive one is (search, coverage, tags, `GET /offers/{id}`,
+  `GET /extras`, the extras of a quote request) and stays hidden after every import. A phone added in Novoya can no longer be erased by the
   import, since an imported partner's phone cannot be edited.
 - The import is idempotent (ids are uuid5 of the DÉTOUR ids), runs in one transaction, opens
   the file read-only, prints counts only, and its errors name DÉTOUR ids, never a name or

@@ -3,7 +3,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query, status
 
-from novoya_api.accounts.public import current_user, require_agent
+from novoya_api.accounts.public import current_user, require_admin
 from novoya_api.catalog.application.use_cases.create_offer import CreateOffer, CreateOfferCommand
 from novoya_api.catalog.application.use_cases.create_partner import (
     CreatePartner,
@@ -66,20 +66,20 @@ partners_router = APIRouter(
     prefix="/admin/partners",
     tags=["admin"],
     responses=ERRORS,
-    dependencies=[Depends(require_agent)],
+    dependencies=[Depends(require_admin)],
 )
 offers_router = APIRouter(
     prefix="/admin/offers",
     tags=["admin"],
     responses=ERRORS,
-    dependencies=[Depends(require_agent)],
+    dependencies=[Depends(require_admin)],
 )
 
 extras_router = APIRouter(
     prefix="/admin/extras",
     tags=["admin"],
     responses=ERRORS,
-    dependencies=[Depends(require_agent)],
+    dependencies=[Depends(require_admin)],
 )
 
 
