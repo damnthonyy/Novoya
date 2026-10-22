@@ -1,7 +1,12 @@
+from collections.abc import Sequence
+from datetime import datetime
 from typing import Protocol
 from uuid import UUID
 
-from novoya_api.quoting.domain.quote import Quote
+from novoya_api.quoting.domain.quote import Quote, QuoteStatus
+
+ADMIN_PAGE = 50
+ADMIN_CAP = 100
 
 
 class QuoteRepository(Protocol):
@@ -21,4 +26,17 @@ class QuoteRepository(Protocol):
     async def save_answer(self, quote: Quote) -> None:
         """Writes the quote's answer, decided_at and client_comment. Raises
         QuoteAlreadyAnswered when the stored quote has an answer already."""
+        ...
+
+    async def search(
+        self,
+        plan_ids: Sequence[UUID] | None,
+        status: QuoteStatus | None,
+        now: datetime,
+        *,
+        limit: int = ADMIN_PAGE,
+        offset: int = 0,
+    ) -> list[Quote]:
+        """Every client's quotes, newest first, without their PDF. plan_ids None means every
+        plan; status keeps the quotes that have it at `now`, as Quote.status says."""
         ...

@@ -40,11 +40,11 @@ Agents also manage partners and offers in the admin pages.
 
 ### Admin
 
-1. The admin signs in like everyone else. Their account has the `admin` role, which can do everything an agent can.
-2. The admin lists the users and changes their role (`client`, `agent` or `admin`). They cannot change their own role, and there is always at least one admin.
-3. `agent` and `admin` are only given to accounts with a verified email. Every change is logged.
+1. The admin signs in like everyone else. Their account has the `admin` or `super_admin` role, which can do everything an agent can.
+2. The admin lists the users, changes their role and disables or enables their account. A plain admin manages clients and agents; only a super admin gives the `admin` role and acts on admins, and super admins are managed with the `grant-role` command only: the API never gives or takes that role, nor disables a super admin ([ADR 0015](adr/0015-super-admin-role.md)). Nobody changes their own role or account, and there is always at least one active super admin.
+3. `agent`, `admin` and `super_admin` are only given to accounts with a verified email. Every role change is logged.
 
-The first admin is created with a server command (`grant-role`), because no one can call the admin API before an admin exists.
+Super admins are named and demoted with a server command only (`grant-role`).
 
 ## 2. System overview
 
@@ -237,7 +237,7 @@ The PDF exists in English and French, in the client's language (`users.locale`).
 
 `wishes` holds the whole request: the text, the panel we showed, the tags the client clicked, the budget, the number of travellers and the dates. `panel_json` and `selected_tags` are JSONB columns.
 
-Roles live in the database (`users.role`). A new account is `client`, and signing in never changes a role. Only an admin changes it, through `/admin/users`, and each change is written to `role_changes`. The first admin is set with the `grant-role` command.
+Roles live in the database (`users.role`). A new account is `client`, and signing in never changes a role. Only an admin changes it, through `/admin/users`, and only a super admin when the admin roles are involved; each change is written to `role_changes`. The first super admin is set with the `grant-role` command.
 
 An account can have Google, a password, or both: `oauth_identities` and `password_credentials` hold one sign-in method each. Sessions are opaque tokens stored hashed in `sessions`, so signing out, resetting a password or changing a role takes effect at the next request. Sessions expire after 7 days without use and 30 days at most.
 
@@ -294,6 +294,11 @@ Admin (role `admin` only; an admin can also use every agent route):
 |---|---|---|
 | GET | `/admin/users` | List users, filtered by email or role |
 | PATCH | `/admin/users/{id}/role` | Change a user's role |
+| GET | `/admin/wishes` | Every client's wishes with their status, searched by client or destination |
+| GET | `/admin/plans`, `/admin/plans/{id}` | Every plan with its client, status and agent; one plan read-only, as its agent sees it |
+| GET | `/admin/quotes` | Every quote with its client, total and status (`sent`, `expired`, `accepted`, `rejected`) |
+
+The three lists live in their own module (wishes, planning, quoting). A search by client goes through `accounts.public.search_user_ids`, called from the module's adapters: a `public.py` never imports accounts, because accounts imports them to erase an account's data.
 
 FastAPI generates the OpenAPI file. The frontend generates its TypeScript client and types from it with `@hey-api/openapi-ts`, so both sides agree on types without writing them twice.
 
