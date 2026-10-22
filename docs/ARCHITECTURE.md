@@ -36,7 +36,7 @@ This document is the starting proposal. Change it by pull request, like code.
 5. The agent generates the quote: Novoya computes the total, renders the PDF, makes it visible to the client and emails them.
 6. The agent sees when the client accepts or rejects.
 
-Agents also manage partners and offers in the admin pages.
+Admins manage partners, offers, extras and reviews in the admin pages.
 
 ### Admin
 
@@ -74,7 +74,7 @@ flowchart LR
 
 | Part | Tech | Job |
 |---|---|---|
-| `apps/web` | React, TypeScript, Vite, TanStack Router, TanStack Query, TanStack Form | Client pages (wish, panel, plan, quote) and agent pages (quote queue, pricing) and admin pages (users, partners and offers, extras, activity) |
+| `apps/web` | React, TypeScript, Vite, TanStack Router, TanStack Query, TanStack Form | Client pages (wish, panel, plan, quote) and agent pages (quote queue, pricing) and admin pages (users, partners and offers, extras, reviews, activity) |
 | `apps/api` | Python 3.12, FastAPI, Pydantic v2, SQLAlchemy 2, Alembic | Modular monolith with Clean Architecture: accounts, catalog, wishes, planning and quoting modules, each with domain, use cases, adapters and REST endpoints |
 | Database | PostgreSQL | Users, partners and offers, wishes, plans, quotes |
 | LLM | OpenRouter, called with the OpenAI Python SDK | Check coverage, build the panel, write the plan |
@@ -227,7 +227,7 @@ The PDF exists in English and French, in the client's language (`users.locale`).
 | `role_changes` | id, user_id, old_role, new_role, source (`admin_api`, `cmd_grant_role`), changed_by, changed_at |
 | `partners` | id, name, kind (hotel, guide, transport, activity, agency), country, city, contact_email, contact_phone (optional), active, hidden (the agent's switch, kept by the import), source (`detour` when imported), created_at |
 | `offers` | id, partner_id, kind, title, description, country, city, min_persons, max_persons, available_from, available_to, tags, featured, active, hidden, price_eur and price_unit (indicative, per person per night, trip or activity), opening_months, conditions, restrictions, cancellation, confirmation_delay_hours |
-| `reviews` | id, country, city, rating (1 to 5), reviewed_on, text, author ("First name I." or "Voyageur anonyme"), imported_at. Only published, consented reviews |
+| `reviews` | id, country, city, rating (1 to 5), reviewed_on, text, author ("First name I." or "Voyageur anonyme"), hidden, imported_at. Only published, consented reviews |
 | `extras` | id, category, label, description, pricing (`included`, `supplement`, `on_quote`), supplement_eur, unit, constraints, active, hidden |
 | `wishes` | id, user_id, text, destination_country, destination_city, status (`draft`, `not_covered`, `panel_shown`, `answered`, `planned`), panel_json (the panel we showed), selected_tags (what the client clicked, for example `[{"section": "style", "tag": "beach"}]`), budget_max, currency, persons, start_date, end_date, created_at, updated_at |
 | `plans` | id, wish_id, status (`proposed`, `requested`, `negotiating`, `quoted`, `accepted`, `rejected`), based_on_preferences, summary, assigned_agent_id, created_at, updated_at |
@@ -263,7 +263,7 @@ Client:
 | GET | `/me` | The signed-in user, their role, language and sign-in methods |
 | PATCH | `/me` | Change the signed-in user's language (`{"locale": "en"}` or `"fr"`); answers like `GET /me` |
 | GET | `/destinations` | Destinations with at least one listed offer (active offer of an active partner) |
-| GET | `/reviews?country=&city=` | Published reviews, newest first. Public |
+| GET | `/reviews?country=&city=` | Published reviews, newest first. Public. Hidden reviews are omitted |
 | GET | `/offers/{id}` | A listed offer: indicative price, opening months, terms. Never the partner |
 | GET | `/extras` | The extras a client can add to a plan |
 | POST | `/wishes` | Send the wish. Returns the panel, or `not_covered` with suggested destinations |
@@ -292,6 +292,7 @@ Admin (role `admin` only; an admin can also use every agent route):
 |---|---|---|
 | GET | `/admin/users` | List users, filtered by email or role |
 | PATCH | `/admin/users/{id}/role` | Change a user's role |
+| GET, PATCH | `/admin/reviews` | List published reviews, hide or show one |
 | GET | `/admin/wishes` | Every client's wishes with their status, searched by client or destination |
 | GET | `/admin/plans`, `/admin/plans/{id}` | Every plan with its client, status and agent; one plan read-only, as its agent sees it |
 | GET | `/admin/quotes` | Every quote with its client, total and status (`open`, `expired`, `accepted`, `rejected`, as `GET /quotes/{id}` gives it) |
@@ -332,7 +333,7 @@ novoya/
 ## 9. Privacy (GDPR)
 
 - We store only the account (email, name, first name, last name, role, language), a hash of the password if the user has one, the sessions (with the browser's user agent, never the IP address, kept 30 days at most), what the client types (wishes, panel answers, budget, travellers, dates), the plans and the quotes. No mailbox, document or social media data, no avatar and no Google token.
-- Published reviews come from DÉTOUR's `avis_diffusables` only: the traveller agreed to publication, and the author is already pseudonymised ("First name I." or "Voyageur anonyme", kept as given). Raw reviews and consents are never imported, and a review whose consent is withdrawn is deleted at the next import ([ADR 0014](adr/0014-indicative-prices-and-detour-import.md)). The privacy page (#45) must say so.
+- Published reviews come from DÉTOUR's `avis_diffusables` only: the traveller agreed to publication, and the author is already pseudonymised ("First name I." or "Voyageur anonyme", kept as given). Raw reviews and consents are never imported, and a review whose consent is withdrawn is deleted at the next import ([ADR 0014](adr/0014-indicative-prices-and-detour-import.md)). An admin can hide a review at once (`PATCH /admin/reviews/{id}`); the import never shows it again. The privacy page (#45) must say so.
 - A privacy page says what we store, why, and for how long.
 - The client can delete their account and everything linked to it (`DELETE /me`).
 - Agents see client data only for the plans in their queue.

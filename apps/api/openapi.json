@@ -359,6 +359,57 @@
         "title": "AdminQuote",
         "type": "object"
       },
+      "AdminReviewResponse": {
+        "description": "A review for admins: hidden ones too. hidden is the only field an admin changes;\nD\u00c9TOUR owns the rest.",
+        "properties": {
+          "author": {
+            "title": "Author",
+            "type": "string"
+          },
+          "city": {
+            "title": "City",
+            "type": "string"
+          },
+          "country": {
+            "title": "Country",
+            "type": "string"
+          },
+          "hidden": {
+            "title": "Hidden",
+            "type": "boolean"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "rating": {
+            "title": "Rating",
+            "type": "integer"
+          },
+          "reviewed_on": {
+            "format": "date",
+            "title": "Reviewed On",
+            "type": "string"
+          },
+          "text": {
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "country",
+          "city",
+          "rating",
+          "reviewed_on",
+          "text",
+          "author",
+          "hidden"
+        ],
+        "title": "AdminReviewResponse",
+        "type": "object"
+      },
       "AdminWish": {
         "description": "One wish in the admin overview. client is null when the account is gone.",
         "properties": {
@@ -3497,6 +3548,21 @@
         "title": "UpdatePartnerRequest",
         "type": "object"
       },
+      "UpdateReviewRequest": {
+        "additionalProperties": false,
+        "description": "true hides the review from GET /reviews, false shows it again. The import never\nchanges it.",
+        "properties": {
+          "hidden": {
+            "title": "Hidden",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "hidden"
+        ],
+        "title": "UpdateReviewRequest",
+        "type": "object"
+      },
       "UserDetailResponse": {
         "description": "One user for an admin: with their sign-in methods.",
         "properties": {
@@ -4932,6 +4998,176 @@
           }
         },
         "summary": "List Admin Quotes",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/admin/reviews": {
+      "get": {
+        "description": "All published reviews, hidden ones too. Admins only.",
+        "operationId": "listAllReviews",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/AdminReviewResponse"
+                  },
+                  "title": "Response Listallreviews",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "summary": "List All Reviews",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/admin/reviews/{review_id}": {
+      "patch": {
+        "description": "Hide a review from GET /reviews, or show it again. The import never changes hidden.\nAdmins only.",
+        "operationId": "updateReview",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "review_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Review Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateReviewRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminReviewResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "summary": "Update Review",
         "tags": [
           "admin"
         ]
@@ -8211,7 +8447,7 @@
     },
     "/reviews": {
       "get": {
-        "description": "Published reviews, newest first, at most 100. Public: only reviews the travellers agreed\nto publish, under \"First name I.\" or \"Voyageur anonyme\". Filter by country and city.",
+        "description": "Published reviews, newest first, at most 100. Public: only reviews the travellers agreed\nto publish, under \"First name I.\" or \"Voyageur anonyme\". Hidden reviews are omitted.\nFilter by country and city.",
         "operationId": "listReviews",
         "parameters": [
           {
