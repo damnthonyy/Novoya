@@ -3222,7 +3222,7 @@
         "type": "object"
       },
       "StatsRows": {
-        "description": "active: clients may see it; hidden: an admin hid it; inactive: it left the D\u00c9TOUR\nexport.",
+        "description": "active: clients may see it; hidden: an admin hid it; inactive: it left the D\u00c9TOUR\nexport. An offer counts with its partner: hidden or inactive when its partner is.",
         "properties": {
           "active": {
             "title": "Active",

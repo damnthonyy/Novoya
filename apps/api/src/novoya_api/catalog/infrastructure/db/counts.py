@@ -1,4 +1,4 @@
-from sqlalchemy import and_, func, not_, select
+from sqlalchemy import ColumnElement, FromClause, and_, func, join, not_, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from novoya_api.catalog.application.dto import CatalogCounts, RowCounts
@@ -7,9 +7,16 @@ from novoya_api.catalog.infrastructure.db.models import ExtraRow, OfferRow, Part
 
 async def count_catalog(session: AsyncSession) -> CatalogCounts:
     """One query per table: only counts are read."""
-    partners, offers, extras = [
-        await _rows(session, model) for model in (PartnerRow, OfferRow, ExtraRow)
-    ]
+    partners = await _rows(session, PartnerRow.__table__, PartnerRow.active, PartnerRow.hidden)
+    # An offer is listed only when its partner is too, as in the client search: an offer
+    # under a hidden partner counts as hidden, one under an inactive partner as inactive.
+    offers = await _rows(
+        session,
+        join(OfferRow, PartnerRow, OfferRow.partner_id == PartnerRow.id),
+        and_(OfferRow.active, PartnerRow.active),
+        or_(OfferRow.hidden, PartnerRow.hidden),
+    )
+    extras = await _rows(session, ExtraRow.__table__, ExtraRow.active, ExtraRow.hidden)
     hidden, published = (
         await session.execute(
             select(
@@ -21,14 +28,17 @@ async def count_catalog(session: AsyncSession) -> CatalogCounts:
     return CatalogCounts(partners, offers, extras, published, hidden)
 
 
-async def _rows(session: AsyncSession, model: type[PartnerRow | OfferRow | ExtraRow]) -> RowCounts:
-    active, hidden, inactive = (
-        await session.execute(
-            select(
-                func.count().filter(and_(model.active, not_(model.hidden))),
-                func.count().filter(model.hidden),
-                func.count().filter(and_(not_(model.active), not_(model.hidden))),
-            )
-        )
-    ).one()
-    return RowCounts(active, hidden, inactive)
+async def _rows(
+    session: AsyncSession,
+    rows: FromClause,
+    active: ColumnElement[bool],
+    hidden: ColumnElement[bool],
+) -> RowCounts:
+    """Hidden wins over inactive: a hidden row is counted once, as hidden."""
+    counts = select(
+        func.count().filter(and_(active, not_(hidden))),
+        func.count().filter(hidden),
+        func.count().filter(and_(not_(active), not_(hidden))),
+    ).select_from(rows)
+    active_count, hidden_count, inactive_count = (await session.execute(counts)).one()
+    return RowCounts(active_count, hidden_count, inactive_count)

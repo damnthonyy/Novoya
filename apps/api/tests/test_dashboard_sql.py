@@ -61,12 +61,25 @@ async def test_a_hidden_partner_and_extras_by_state(engine, agency: Agency):  # 
         catalog = (await get_get_admin_stats(session)()).catalog
 
     assert (catalog.partners.active, catalog.partners.hidden) == (0, 1)
+    # Its offer is still switched on, but clients no longer see it: it counts as hidden.
+    assert (catalog.offers.active, catalog.offers.hidden, catalog.offers.inactive) == (0, 1, 0)
     extras = catalog.extras
     assert (extras.active, extras.hidden, extras.inactive) == (
         before.active + 1,
         before.hidden + 1,
         before.inactive + 1,
     )
+
+
+async def test_an_offer_under_an_inactive_partner_is_inactive(engine, agency: Agency):  # noqa: F811
+    async with new_session(engine) as session:
+        await session.execute(update(PartnerRow).values(active=False))
+        await session.commit()
+
+    async with new_session(engine) as session:
+        offers = (await get_get_admin_stats(session)()).catalog.offers
+
+    assert (offers.active, offers.hidden, offers.inactive) == (0, 0, 1)
 
 
 async def test_an_answer_and_an_expiry_move_the_quote_counts(engine, agency: Agency):  # noqa: F811

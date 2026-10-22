@@ -5,7 +5,7 @@ from novoya_api.dashboard.application.dto import AdminStats, RowCounts
 
 class StatsRows(BaseModel):
     """active: clients may see it; hidden: an admin hid it; inactive: it left the DÉTOUR
-    export."""
+    export. An offer counts with its partner: hidden or inactive when its partner is."""
 
     active: int
     hidden: int

@@ -67,8 +67,9 @@ class ExtraView:
 
 @dataclass(frozen=True)
 class RowCounts:
-    """How many rows clients may see (active, not hidden), how many an admin hid, and how
-    many left the DÉTOUR export (inactive, not hidden)."""
+    """How many rows clients may see, how many an admin hid, and how many left the DÉTOUR
+    export (inactive, not hidden). An offer counts with its partner: it is hidden when
+    either is hidden, inactive when either is inactive."""
 
     active: int
     hidden: int
