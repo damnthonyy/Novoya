@@ -14,8 +14,13 @@ from novoya_api.accounts.public import current_user
 from novoya_api.main import create_app
 from novoya_api.planning.domain.errors import PlanNotReady
 from novoya_api.quoting.application.use_cases.get_quote_pdf import GetQuotePdf
+from novoya_api.quoting.application.use_cases.resend_quote_email import ResendQuoteEmail
 from novoya_api.quoting.application.use_cases.send_quote import SendQuote
-from novoya_api.quoting.presentation.http.dependencies import get_get_quote_pdf, get_send_quote
+from novoya_api.quoting.presentation.http.dependencies import (
+    get_get_quote_pdf,
+    get_resend_quote_email,
+    get_send_quote,
+)
 from novoya_api.shared.domain.errors import InvalidTransition, PermissionDenied
 from novoya_api.shared.domain.value_objects import Locale
 from tests.quoting_fakes import (
@@ -27,6 +32,7 @@ from tests.quoting_fakes import (
     NOW,
     OTHER_CLIENT,
     PLAN_ID,
+    FakeNotifier,
     FakePeople,
     FakePlanQuoting,
     FakeQuotes,
@@ -51,7 +57,9 @@ def signed_in_as(role: Role, user_id: UUID = AGENT_ID) -> CurrentUserView:
     )
 
 
-def app_with(plans: FakePlanQuoting, role: Role | None, user_id: UUID = AGENT_ID):
+def app_with(
+    plans: FakePlanQuoting, role: Role | None, user_id: UUID = AGENT_ID, email_sent: bool = True
+):
     quotes = FakeQuotes(QUOTE)
     app = create_app()
     app.dependency_overrides[get_send_quote] = lambda: SendQuote(
@@ -59,11 +67,15 @@ def app_with(plans: FakePlanQuoting, role: Role | None, user_id: UUID = AGENT_ID
         FakePeople(CLIENT_FR, AGENT),
         FakeRenderer(),
         quotes,
+        FakeNotifier(),
         FakeUow(),
         FixedClock(),
         FRONTEND,
     )
     app.dependency_overrides[get_get_quote_pdf] = lambda: GetQuotePdf(quotes)
+    app.dependency_overrides[get_resend_quote_email] = lambda: ResendQuoteEmail(
+        quotes, plans, FakePeople(CLIENT_FR, AGENT), FakeNotifier(email_sent), FRONTEND
+    )
     if role is not None:
         app.dependency_overrides[current_user] = lambda: signed_in_as(role, user_id)
     return app
@@ -93,6 +105,7 @@ async def test_the_agent_sends_the_quote(agent):
     assert body["locale"] == "fr"
     assert datetime.fromisoformat(body["sent_at"]) == NOW
     assert datetime.fromisoformat(body["valid_until"]) == NOW + timedelta(days=7)
+    assert body["email_sent"] is True
     assert UUID(body["id"])
 
 
@@ -203,3 +216,61 @@ async def test_an_unknown_language_is_refused(agent):
     response = await agent.post(f"/agent/plans/{PLAN_ID}/quote", json={"locale": "de"})
 
     assert response.status_code == 422
+
+
+async def test_the_agent_who_sent_the_quote_resends_its_email():
+    app = app_with(FakePlanQuoting(), Role.AGENT, AGENT_ID)
+
+    response = await call(app, "POST", f"/agent/quotes/{QUOTE.id}/email")
+
+    assert response.status_code == 204
+
+
+async def test_an_admin_resends_any_quote_email():
+    app = app_with(FakePlanQuoting(), Role.ADMIN, ADMIN_ID)
+
+    response = await call(app, "POST", f"/agent/quotes/{QUOTE.id}/email")
+
+    assert response.status_code == 204
+
+
+async def test_another_agent_cannot_resend_the_quote_email():
+    app = app_with(FakePlanQuoting(), Role.AGENT, uuid4())
+
+    response = await call(app, "POST", f"/agent/quotes/{QUOTE.id}/email")
+
+    assert response.status_code == 403
+    assert response.json()["code"] == "forbidden"
+
+
+async def test_a_client_cannot_resend_the_quote_email():
+    app = app_with(FakePlanQuoting(), Role.CLIENT, CLIENT_ID)
+
+    response = await call(app, "POST", f"/agent/quotes/{QUOTE.id}/email")
+
+    assert response.status_code == 403
+
+
+async def test_resending_without_a_session_returns_401():
+    app = app_with(FakePlanQuoting(), None)
+
+    response = await call(app, "POST", f"/agent/quotes/{QUOTE.id}/email")
+
+    assert response.status_code == 401
+
+
+async def test_resending_the_email_of_a_missing_quote_returns_404():
+    app = app_with(FakePlanQuoting(), Role.ADMIN, ADMIN_ID)
+
+    response = await call(app, "POST", f"/agent/quotes/{uuid4()}/email")
+
+    assert response.status_code == 404
+
+
+async def test_an_email_server_that_refuses_returns_503_email_not_sent():
+    app = app_with(FakePlanQuoting(), Role.AGENT, AGENT_ID, email_sent=False)
+
+    response = await call(app, "POST", f"/agent/quotes/{QUOTE.id}/email")
+
+    assert response.status_code == 503
+    assert response.json()["code"] == "email_not_sent"

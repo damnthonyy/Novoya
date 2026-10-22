@@ -15,7 +15,9 @@ class SendQuoteRequest(BaseModel):
 
 
 class Quote(BaseModel):
-    """A sent quote. total is in currency (always EUR); the PDF is at GET /quotes/{id}/pdf."""
+    """A sent quote. total is in currency (always EUR); the PDF is at GET /quotes/{id}/pdf.
+    email_sent is false when the client's email did not go out: POST
+    /agent/quotes/{id}/email sends it again."""
 
     id: UUID
     number: str
@@ -25,6 +27,7 @@ class Quote(BaseModel):
     locale: Literal["en", "fr"]
     sent_at: datetime
     valid_until: datetime
+    email_sent: bool
 
     @classmethod
     def of(cls, view: QuoteView) -> "Quote":

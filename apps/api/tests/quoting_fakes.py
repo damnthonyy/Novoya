@@ -10,6 +10,8 @@ from novoya_api.quoting.application.dto import (
     QuotedItem,
     QuoteDocument,
     QuotedPlan,
+    QuoteEmail,
+    QuoteTrip,
 )
 from novoya_api.quoting.domain.quote import Quote
 from novoya_api.shared.domain.value_objects import Locale
@@ -50,6 +52,7 @@ QUOTED = QuotedPlan(
 CLIENT_FR = Person(CLIENT_ID, "Alice Martin", "alice@example.com", Locale.FR)
 CLIENT_EN = Person(CLIENT_ID, "Alice Martin", "alice@example.com", Locale.EN)
 AGENT = Person(AGENT_ID, "Paul Agent", "agent@novoya.example", Locale.EN)
+TRIP = QuoteTrip("Greece", "Chania", date(2026, 5, 10), date(2026, 5, 17))
 
 
 def document(locale: Locale) -> QuoteDocument:
@@ -59,8 +62,9 @@ def document(locale: Locale) -> QuoteDocument:
 
 
 class FakePlanQuoting:
-    def __init__(self, error: Exception | None = None) -> None:
+    def __init__(self, error: Exception | None = None, trip: QuoteTrip | None = TRIP) -> None:
         self.error = error
+        self.trip_found = trip
         self.calls: list[tuple[UUID, UUID]] = []
 
     async def quote(self, plan_id: UUID, agent_id: UUID) -> QuotedPlan:
@@ -68,6 +72,9 @@ class FakePlanQuoting:
         if self.error is not None:
             raise self.error
         return QUOTED
+
+    async def trip(self, plan_id: UUID) -> QuoteTrip | None:
+        return self.trip_found
 
 
 class FakePeople:
@@ -98,6 +105,22 @@ class FakeQuotes:
 
     async def get(self, quote_id: UUID) -> Quote | None:
         return self.quotes.get(quote_id)
+
+
+class FakeNotifier:
+    """Records the emails; sent=False plays an email server that refuses them."""
+
+    def __init__(self, sent: bool = True, uow: "FakeUow | None" = None) -> None:
+        self.sent = sent
+        self.uow = uow
+        self.emails: list[QuoteEmail] = []
+        self.commits_before: list[int] = []  # how many commits had happened at each email
+
+    async def send_quote_ready(self, email: QuoteEmail) -> bool:
+        self.emails.append(email)
+        if self.uow is not None:
+            self.commits_before.append(self.uow.commits)
+        return self.sent
 
 
 class FakeUow:

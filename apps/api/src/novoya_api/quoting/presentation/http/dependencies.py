@@ -12,9 +12,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from novoya_api.accounts.public import CurrentUser, CurrentUserView, Role, require_agent
 from novoya_api.config import get_settings
+from novoya_api.quoting.application.ports.notifier import QuoteNotifier
 from novoya_api.quoting.application.use_cases.get_quote_pdf import GetQuotePdf
+from novoya_api.quoting.application.use_cases.resend_quote_email import ResendQuoteEmail
 from novoya_api.quoting.application.use_cases.send_quote import SendQuote
 from novoya_api.quoting.infrastructure.db.repository import SqlQuoteRepository
+from novoya_api.quoting.infrastructure.email.smtp_quote_notifier import SmtpQuoteNotifier
 from novoya_api.quoting.infrastructure.pdf.renderer import WeasyPrintRenderer
 from novoya_api.quoting.infrastructure.plans import PlanningPlans
 from novoya_api.quoting.infrastructure.users import AccountPeople
@@ -30,14 +33,38 @@ class Reader(NamedTuple):
     staff: bool  # an agent or an admin reads every quote
 
 
+class Staff(NamedTuple):
+    user_id: UUID
+    admin: bool  # an admin may resend any quote's email
+
+
 def get_current_agent_id(user: Annotated[CurrentUserView, Depends(require_agent)]) -> UUID:
     """The signed-in agent: 401 without a session, 403 for a client (the admin passes)."""
     return user.user_id.value
 
 
+def get_staff(user: Annotated[CurrentUserView, Depends(require_agent)]) -> Staff:
+    """The signed-in agent or admin: 401 without a session, 403 for a client."""
+    return Staff(user.user_id.value, user.role is Role.ADMIN)
+
+
 def get_reader(user: CurrentUser) -> Reader:
     """Whoever is signed in: 401 without a session. The use case decides what they may read."""
     return Reader(user.user_id.value, user.role in STAFF)
+
+
+def get_notifier() -> QuoteNotifier:
+    """The same NOVOYA_SMTP_* settings as the accounts emails."""
+    settings = get_settings()
+    password = settings.smtp_password.get_secret_value() if settings.smtp_password else None
+    return SmtpQuoteNotifier(
+        settings.smtp_host,
+        settings.smtp_port,
+        settings.mail_from,
+        username=settings.smtp_username,
+        password=password,
+        start_tls=settings.smtp_start_tls,
+    )
 
 
 def get_send_quote(session: Annotated[AsyncSession, Depends(get_session)]) -> SendQuote:
@@ -46,6 +73,7 @@ def get_send_quote(session: Annotated[AsyncSession, Depends(get_session)]) -> Se
         people=AccountPeople(session),
         renderer=WeasyPrintRenderer(),
         quotes=SqlQuoteRepository(session),
+        notifier=get_notifier(),
         uow=SqlAlchemyUnitOfWork(session),
         clock=SystemClock(),
         frontend_url=get_settings().frontend_url,
@@ -54,3 +82,15 @@ def get_send_quote(session: Annotated[AsyncSession, Depends(get_session)]) -> Se
 
 def get_get_quote_pdf(session: Annotated[AsyncSession, Depends(get_session)]) -> GetQuotePdf:
     return GetQuotePdf(quotes=SqlQuoteRepository(session))
+
+
+def get_resend_quote_email(
+    session: Annotated[AsyncSession, Depends(get_session)],
+) -> ResendQuoteEmail:
+    return ResendQuoteEmail(
+        quotes=SqlQuoteRepository(session),
+        plans=PlanningPlans(session),
+        people=AccountPeople(session),
+        notifier=get_notifier(),
+        frontend_url=get_settings().frontend_url,
+    )

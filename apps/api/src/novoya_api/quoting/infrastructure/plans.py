@@ -2,8 +2,8 @@ from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from novoya_api.planning.public import quote_plan
-from novoya_api.quoting.application.dto import QuotedExtra, QuotedItem, QuotedPlan
+from novoya_api.planning.public import plan_trip, quote_plan
+from novoya_api.quoting.application.dto import QuotedExtra, QuotedItem, QuotedPlan, QuoteTrip
 
 
 class PlanningPlans:
@@ -49,3 +49,9 @@ class PlanningPlans:
             currency=priced.currency,
             tags=priced.tags,
         )
+
+    async def trip(self, plan_id: UUID) -> QuoteTrip | None:
+        brief = await plan_trip(plan_id, session=self._session)
+        if brief is None:
+            return None
+        return QuoteTrip(brief.country, brief.city, brief.start_date, brief.end_date)

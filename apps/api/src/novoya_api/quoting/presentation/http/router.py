@@ -4,13 +4,17 @@ from uuid import UUID
 from fastapi import APIRouter, Body, Depends, Response, status
 
 from novoya_api.quoting.application.use_cases.get_quote_pdf import GetQuotePdf
+from novoya_api.quoting.application.use_cases.resend_quote_email import ResendQuoteEmail
 from novoya_api.quoting.application.use_cases.send_quote import SendQuote
 from novoya_api.quoting.presentation.http.dependencies import (
     Reader,
+    Staff,
     get_current_agent_id,
     get_get_quote_pdf,
     get_reader,
+    get_resend_quote_email,
     get_send_quote,
+    get_staff,
 )
 from novoya_api.quoting.presentation.http.schemas import Quote, SendQuoteRequest
 from novoya_api.shared.domain.value_objects import Locale
@@ -35,11 +39,31 @@ async def send_quote(
 ) -> Quote:
     """Send the quote: the total of the priced items and extras, valid 7 days, rendered as a
     PDF in the language the agent chose (en or fr; the client's language without a body).
-    The plan becomes quoted. Only the assigned agent (403).
+    The plan becomes quoted and the client gets an email that leads to the quote; email_sent
+    is false if it did not go out (the quote is saved anyway). Only the assigned agent (403).
     409 if the plan is not negotiating (a second click too). 422 plan_not_ready while a kept
     item or an on_quote extra has no price, or a supplement is not confirmed."""
     locale = Locale(body.locale) if body is not None and body.locale is not None else None
     return Quote.of(await use_case(plan_id, agent_id, locale))
+
+
+agent_quotes_router = APIRouter(prefix="/agent/quotes", tags=["agent"], responses=ERRORS)
+
+
+@agent_quotes_router.post(
+    "/{quote_id}/email",
+    operation_id="resendQuoteEmail",
+    status_code=status.HTTP_204_NO_CONTENT,
+    responses={503: {"model": ErrorResponse}},
+)
+async def resend_quote_email(
+    quote_id: UUID,
+    staff: Annotated[Staff, Depends(get_staff)],
+    use_case: Annotated[ResendQuoteEmail, Depends(get_resend_quote_email)],
+) -> None:
+    """Send the client's "your quote is ready" email again. Only the agent who sent the quote,
+    or an admin (403). 503 email_not_sent if the email server did not take it."""
+    await use_case(quote_id, staff.user_id, staff.admin)
 
 
 router = APIRouter(prefix="/quotes", tags=["quoting"], responses=ERRORS)

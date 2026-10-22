@@ -8,6 +8,8 @@
   becomes quoted in the caller's session (the caller commits, with its quote) and its priced
   items come back, never with a partner name. Raises PlanNotFound (404), PermissionDenied
   (403, another agent), InvalidTransition (409, not negotiating) or PlanNotReady (422).
+- plan_trip(plan_id) -> TripBrief | None: the wish behind the plan (place, dates,
+  travellers), for the quote email. None when the plan or its wish is gone.
 - delete_for_user(user_id): erases the plans of this user's wishes; their items and extras
   go with them. Erase the user's quotes first (quoting.public.delete_for_user) and the wishes
   after (wishes.public.delete_for_user): neither has a cascade. The caller commits.
@@ -27,6 +29,7 @@ from novoya_api.planning.application.dto import (
     PricedExtra,
     PricedItem,
     PricedPlan,
+    TripBrief,
 )
 from novoya_api.planning.application.ports.plan_writer import PlanWriter
 from novoya_api.planning.application.use_cases.generate_plan import GeneratePlan
@@ -54,8 +57,10 @@ __all__ = [
     "PricedExtra",
     "PricedItem",
     "PricedPlan",
+    "TripBrief",
     "delete_for_user",
     "generate_plan",
+    "plan_trip",
     "quote_plan",
 ]
 
@@ -85,6 +90,14 @@ async def quote_plan(plan_id: UUID, agent_id: UUID, *, session: AsyncSession) ->
         clock=SystemClock(),
     )
     return await use_case(plan_id, agent_id)
+
+
+async def plan_trip(plan_id: UUID, *, session: AsyncSession) -> TripBrief | None:
+    """The wish behind the plan: where, when, how many. None when either is gone."""
+    plan = await SqlPlanRepository(session).get(plan_id)
+    if plan is None:
+        return None
+    return (await WishTrips(session).for_wish_ids([plan.wish_id])).get(plan.wish_id)
 
 
 def _writer() -> PlanWriter:
