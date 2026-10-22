@@ -1,8 +1,11 @@
 {
   "area": "Administration",
   "nav": {
+    "overview": "Overview",
     "users": "Users",
     "partners": "Partners",
+    "extras": "Extras",
+    "reviews": "Reviews",
     "activity": "Activity"
   },
   "eyebrow": "Administration",
@@ -212,6 +215,28 @@
     "notFound": "This partner or offer no longer exists.",
     "unknown": "This could not be saved. Please try again."
   },
+  "extras": {
+    "title": "Extras",
+    "intro": "The options a client can add when asking for a quote. They come from {{agency}}: here you can only hide one, so clients no longer see it.",
+    "loading": "Loading extras…",
+    "loadFailed": "The extras could not be loaded.",
+    "empty": "No extra yet: they come with the {{agency}} import.",
+    "switchFailed": "The change could not be saved. Please try again.",
+    "pricing": {
+      "included": "Included",
+      "supplement": "Supplement",
+      "on_quote": "On quote"
+    },
+    "table": {
+      "caption": "Extras and their pricing",
+      "extra": "Extra",
+      "pricing": "Pricing",
+      "status": "Status",
+      "hidden": "Hidden",
+      "hiddenOf": "Hidden: {{label}}",
+      "supplementOf": "{{price}} {{unit}}"
+    }
+  },
   "activity": {
     "title": "Activity",
     "intro": "Every wish, plan and quote of every client, to follow the agency's work and spot a request that is stuck.",
@@ -318,5 +343,55 @@
       "validUntil": "Valid until {{date}}",
       "pdf": "Download the PDF"
     }
+  },
+  "reviews": {
+    "title": "Reviews",
+    "loading": "Loading reviews…",
+    "loadFailed": "The reviews could not be loaded.",
+    "empty": "No published review yet.",
+    "switchFailed": "The change could not be saved. Please try again.",
+    "table": {
+      "caption": "Published reviews",
+      "review": "Review",
+      "rating": "Rating",
+      "date": "Date",
+      "text": "Text",
+      "hidden": "Hidden",
+      "hiddenOf": "Hidden: {{author}}",
+      "ratingOf": "{{rating}} / 5"
+    }
+  },
+  "dashboard": {
+    "title": "Overview",
+    "intro": "The agency at a glance. Each number opens its page.",
+    "loading": "Loading the numbers…",
+    "loadFailed": "The numbers could not be loaded.",
+    "sections": {
+      "work": "Quotes to handle",
+      "catalog": "Catalog",
+      "accounts": "Accounts"
+    },
+    "waiting": "Plans waiting for a quote",
+    "waitingDetail_one": "{{count}} being negotiated",
+    "waitingDetail_other": "{{count}} being negotiated",
+    "openQuotes": "Quotes waiting for the client",
+    "expiredQuotes": "Expired quotes",
+    "answered": "Accepted quotes",
+    "rejected_one": "{{count}} rejected",
+    "rejected_other": "{{count}} rejected",
+    "partners": "Active partners",
+    "offers": "Active offers",
+    "extras": "Active extras",
+    "reviews": "Published reviews",
+    "hidden_one": "{{count}} hidden",
+    "hidden_other": "{{count}} hidden",
+    "inactive_one": "{{count}} no longer in {{agency}}",
+    "inactive_other": "{{count}} no longer in {{agency}}",
+    "offersHidden_one": "{{count}} hidden",
+    "offersHidden_other": "{{count}} hidden",
+    "offersInactive_one": "{{count}} no longer in {{agency}}",
+    "offersInactive_other": "{{count}} no longer in {{agency}}",
+    "users": "Accounts",
+    "byRole": "{{client}} clients · {{agent}} agents · {{admin}} admins"
   }
 }

@@ -495,8 +495,9 @@ describe('admin partners and offers', () => {
     expect(document.documentElement).toHaveAttribute('lang', 'fr')
   })
   it.each([
-    ['/admin', 'Users', 'Partners'],
+    ['/admin/users', 'Users', 'Partners'],
     [`/admin/partners/${RIAD.id}`, 'Partners', 'Users'],
+    ['/admin/partners', 'Partners', 'Reviews'],
   ])('marks the open section in the admin nav on %s', async (url, current, other) => {
     renderAt(url)
 
