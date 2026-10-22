@@ -1,3 +1,4 @@
+from collections.abc import Sequence
 from enum import StrEnum
 from typing import Protocol
 from uuid import UUID
@@ -24,6 +25,18 @@ class PlanRepository(Protocol):
     async def list_by_status(
         self, status: PlanStatus, *, limit: int = QUEUE_PAGE, offset: int = 0
     ) -> list[Plan]: ...
+
+    async def search(
+        self,
+        statuses: Sequence[PlanStatus],
+        wish_ids: Sequence[UUID] | None,
+        *,
+        limit: int = QUEUE_PAGE,
+        offset: int = 0,
+    ) -> list[Plan]:
+        """Every client's plans, last changed first, without their items. No statuses means
+        all of them; wish_ids None means every wish."""
+        ...
 
     async def save(self, plan: Plan) -> None:
         """Writes the plan row (status, assignee, timestamps). Not the items. When the plan

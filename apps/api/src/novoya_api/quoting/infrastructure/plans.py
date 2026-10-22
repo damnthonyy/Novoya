@@ -1,9 +1,16 @@
+from collections.abc import Sequence
 from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from novoya_api.planning.public import plan_trip, quote_plan
-from novoya_api.quoting.application.dto import QuotedExtra, QuotedItem, QuotedPlan, QuoteTrip
+from novoya_api.planning.public import find_plan_ids, plan_facts, plan_trip, quote_plan
+from novoya_api.quoting.application.dto import (
+    QuotedExtra,
+    QuotedItem,
+    QuotedPlan,
+    QuotePlanFacts,
+    QuoteTrip,
+)
 
 
 class PlanningPlans:
@@ -55,3 +62,22 @@ class PlanningPlans:
         if brief is None:
             return None
         return QuoteTrip(brief.country, brief.city, brief.start_date, brief.end_date)
+
+    async def find_ids(
+        self, statuses: Sequence[str], query: str | None, user_ids: Sequence[UUID]
+    ) -> list[UUID]:
+        return await find_plan_ids(statuses, query, user_ids, session=self._session)
+
+    async def facts(self, plan_ids: Sequence[UUID]) -> dict[UUID, QuotePlanFacts]:
+        found = await plan_facts(plan_ids, session=self._session)
+        return {
+            plan_id: QuotePlanFacts(
+                fact.status,
+                QuoteTrip(
+                    fact.trip.country, fact.trip.city, fact.trip.start_date, fact.trip.end_date
+                )
+                if fact.trip
+                else QuoteTrip(None, None, None, None),
+            )
+            for plan_id, fact in found.items()
+        }

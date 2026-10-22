@@ -129,3 +129,29 @@ class QuoteView:
 class QuotePdf:
     filename: str
     content: bytes
+
+
+@dataclass(frozen=True)
+class QuotePlanFacts:
+    """What the admin overview shows about the quote's plan: its status and its trip."""
+
+    status: str
+    trip: QuoteTrip
+
+
+@dataclass(frozen=True)
+class AdminQuoteView:
+    """One quote in the admin overview, without its PDF. client is None when the account is
+    gone."""
+
+    id: UUID
+    number: str
+    plan_id: UUID
+    status: str
+    total: Decimal
+    currency: str
+    locale: str
+    sent_at: datetime
+    valid_until: datetime
+    trip: QuoteTrip
+    client: Person | None

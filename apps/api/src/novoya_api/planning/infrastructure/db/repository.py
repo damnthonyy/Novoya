@@ -99,6 +99,33 @@ class SqlPlanRepository:
         ).all()
         return [self._to_plan(row, ()) for row in rows]
 
+    async def search(
+        self,
+        statuses: Sequence[PlanStatus],
+        wish_ids: Sequence[UUID] | None,
+        *,
+        limit: int = QUEUE_PAGE,
+        offset: int = 0,
+    ) -> list[Plan]:
+        statement = select(PlanModel)
+        if statuses:
+            statement = statement.where(PlanModel.status.in_([s.value for s in statuses]))
+        if wish_ids is not None:
+            statement = statement.where(PlanModel.wish_id.in_(wish_ids))
+        rows = await self._session.scalars(
+            statement.order_by(PlanModel.updated_at.desc(), PlanModel.id)
+            .limit(limit)
+            .offset(offset)
+        )
+        return [self._to_plan(row, ()) for row in rows]
+
+    async def list_by_ids(self, plan_ids: Sequence[UUID]) -> list[Plan]:
+        """These plans, without their items. Missing ids are omitted."""
+        if not plan_ids:
+            return []
+        rows = await self._session.scalars(select(PlanModel).where(PlanModel.id.in_(plan_ids)))
+        return [self._to_plan(row, ()) for row in rows]
+
     def _to_plan(
         self,
         row: PlanModel,

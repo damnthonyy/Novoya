@@ -1,6 +1,7 @@
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from decimal import Decimal
+from enum import StrEnum
 from uuid import UUID, uuid4
 from zoneinfo import ZoneInfo
 
@@ -12,6 +13,15 @@ VALIDITY = timedelta(days=7)
 CURRENCY = "EUR"
 # The agency works in Paris: the dates on a quote, and in its number, are Paris dates.
 AGENCY_TIMEZONE = ZoneInfo("Europe/Paris")
+
+
+class QuoteStatus(StrEnum):
+    """Where the quote stands for the admin. The client's answer is the plan's status."""
+
+    SENT = "sent"  # waiting for the client's answer
+    EXPIRED = "expired"  # no answer within the week
+    ACCEPTED = "accepted"
+    REJECTED = "rejected"
 
 
 @dataclass(slots=True)
@@ -57,3 +67,9 @@ class Quote:
             sent_at=sent_at,
             valid_until=sent_at + VALIDITY,
         )
+
+    def status(self, plan_status: str | None, now: datetime) -> QuoteStatus:
+        """Accepted or rejected as the plan says; otherwise sent, or expired after valid_until."""
+        if plan_status in (QuoteStatus.ACCEPTED, QuoteStatus.REJECTED):
+            return QuoteStatus(plan_status)
+        return QuoteStatus.EXPIRED if now > self.valid_until else QuoteStatus.SENT

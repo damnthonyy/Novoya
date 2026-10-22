@@ -10,6 +10,10 @@
   (403, another agent), InvalidTransition (409, not negotiating) or PlanNotReady (422).
 - plan_trip(plan_id) -> TripBrief | None: the wish behind the plan (place, dates,
   travellers), for the quote email. None when the plan or its wish is gone.
+- find_plan_ids(statuses, query, user_ids) -> the ids of the plans with one of these statuses
+  (any when empty) whose destination contains `query` or whose client is one of `user_ids`,
+  for the admin overview of quotes.
+- plan_facts(plan_ids) -> {plan_id: PlanFacts}: each plan's status and its wish.
 - delete_for_user(user_id): erases the plans of this user's wishes; their items and extras
   go with them. Erase the user's quotes first (quoting.public.delete_for_user) and the wishes
   after (wishes.public.delete_for_user): neither has a cascade. The caller commits.
@@ -18,11 +22,13 @@ Planned:
 - mark_accepted(plan_id), mark_rejected(plan_id) (called by quoting)
 """
 
+from collections.abc import Sequence
 from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from novoya_api.planning.application.dto import (
+    PlanFacts,
     PlanItemView,
     PlanRequest,
     PlanView,
@@ -35,11 +41,13 @@ from novoya_api.planning.application.ports.plan_writer import PlanWriter
 from novoya_api.planning.application.use_cases.generate_plan import GeneratePlan
 from novoya_api.planning.application.use_cases.quote_plan import QuotePlan
 from novoya_api.planning.domain.errors import NoOfferFits, PlanNotFound, PlanNotReady
+from novoya_api.planning.domain.plan import PlanStatus
 from novoya_api.planning.infrastructure.catalog import PartnerOffers
 from novoya_api.planning.infrastructure.db.repository import SqlPlanRepository
 from novoya_api.planning.infrastructure.llm.plan_writer import LlmPlanWriter, NoModelPlanWriter
 from novoya_api.planning.infrastructure.llm.tools import travel_tools
 from novoya_api.planning.infrastructure.wish_owners import WishOwners
+from novoya_api.planning.infrastructure.wish_search import WishesSearch
 from novoya_api.planning.infrastructure.wish_trips import WishTrips
 from novoya_api.shared.infrastructure.db.unit_of_work import SqlAlchemyUnitOfWork
 from novoya_api.shared.infrastructure.llm.client import get_orchestrator
@@ -49,6 +57,7 @@ from novoya_api.wishes.public import ids_for_user as wish_ids_for_user
 
 __all__ = [
     "NoOfferFits",
+    "PlanFacts",
     "PlanItemView",
     "PlanNotFound",
     "PlanNotReady",
@@ -59,10 +68,15 @@ __all__ = [
     "PricedPlan",
     "TripBrief",
     "delete_for_user",
+    "find_plan_ids",
     "generate_plan",
+    "plan_facts",
     "plan_trip",
     "quote_plan",
 ]
+
+# The plans a quote search may match, last changed first: past it the query is too broad.
+SEARCH_CAP = 1000
 
 # The client waits for the plan; the fallback covers a slow model.
 DEADLINE_SECONDS = 60
@@ -98,6 +112,35 @@ async def plan_trip(plan_id: UUID, *, session: AsyncSession) -> TripBrief | None
     if plan is None:
         return None
     return (await WishTrips(session).for_wish_ids([plan.wish_id])).get(plan.wish_id)
+
+
+async def find_plan_ids(
+    statuses: Sequence[str],
+    query: str | None,
+    user_ids: Sequence[UUID] = (),
+    *,
+    session: AsyncSession,
+) -> list[UUID]:
+    """The plans with one of these statuses (any when empty) whose destination contains
+    `query`, or whose client is one of `user_ids` (any plan when `query` is None). The caller
+    finds the users: accounts erases plans, so importing it here would loop. For admins only:
+    the caller's router must require the admin role."""
+    wish_ids = await WishesSearch(session).matching(query, user_ids) if query else None
+    if wish_ids == []:
+        return []
+    plans = await SqlPlanRepository(session).search(
+        [PlanStatus(status) for status in statuses], wish_ids, limit=SEARCH_CAP
+    )
+    return [plan.id for plan in plans]
+
+
+async def plan_facts(plan_ids: Sequence[UUID], *, session: AsyncSession) -> dict[UUID, PlanFacts]:
+    """Each plan's status and its wish (place, dates, travellers), keyed by plan id."""
+    plans = await SqlPlanRepository(session).list_by_ids(plan_ids)
+    trips = await WishTrips(session).for_wish_ids([plan.wish_id for plan in plans])
+    return {
+        plan.id: PlanFacts(plan.id, plan.status.value, trips.get(plan.wish_id)) for plan in plans
+    }
 
 
 def _writer() -> PlanWriter:

@@ -15,6 +15,7 @@ from novoya_api.accounts.public import CurrentUser, CurrentUserView, Role, requi
 from novoya_api.config import get_settings
 from novoya_api.quoting.application.ports.notifier import QuoteNotifier
 from novoya_api.quoting.application.use_cases.get_quote_pdf import GetQuotePdf
+from novoya_api.quoting.application.use_cases.list_admin_quotes import ListAdminQuotes
 from novoya_api.quoting.application.use_cases.resend_quote_email import ResendQuoteEmail
 from novoya_api.quoting.application.use_cases.send_quote import SendQuote
 from novoya_api.quoting.infrastructure.db.repository import SqlQuoteRepository
@@ -104,4 +105,15 @@ def get_resend_quote_email(
         notifier=get_notifier(),
         rate_limiter=rate_limiter,
         frontend_url=get_settings().frontend_url,
+    )
+
+
+def get_list_admin_quotes(
+    session: Annotated[AsyncSession, Depends(get_session)],
+) -> ListAdminQuotes:
+    return ListAdminQuotes(
+        quotes=SqlQuoteRepository(session),
+        plans=PlanningPlans(session),
+        people=AccountPeople(session),
+        clock=SystemClock(),
     )

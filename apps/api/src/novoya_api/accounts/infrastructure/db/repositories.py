@@ -4,6 +4,7 @@ They map rows to entities and back: no ORM object leaves this file. They never c
 use case does, through the UnitOfWork that shares their session.
 """
 
+from collections.abc import Sequence
 from datetime import datetime
 from uuid import UUID
 
@@ -82,6 +83,12 @@ class SqlUserRepository:
     async def get(self, user_id: UserId) -> User | None:
         row = await self._session.get(UserModel, user_id.value)
         return self._entity(row) if row else None
+
+    async def list_by_ids(self, user_ids: Sequence[UUID]) -> list[User]:
+        if not user_ids:
+            return []
+        rows = await self._session.scalars(select(UserModel).where(UserModel.id.in_(user_ids)))
+        return [self._entity(row) for row in rows]
 
     async def get_by_email(self, email: Email) -> User | None:
         row = await self._session.scalar(select(UserModel).where(UserModel.email == email.value))

@@ -293,6 +293,11 @@ Admin (role `admin` only; an admin can also use every agent route):
 |---|---|---|
 | GET | `/admin/users` | List users, filtered by email or role |
 | PATCH | `/admin/users/{id}/role` | Change a user's role |
+| GET | `/admin/wishes` | Every client's wishes with their status, searched by client or destination |
+| GET | `/admin/plans`, `/admin/plans/{id}` | Every plan with its client, status and agent; one plan read-only, as its agent sees it |
+| GET | `/admin/quotes` | Every quote with its client, total and status (`sent`, `expired`, `accepted`, `rejected`) |
+
+The three lists live in their own module (wishes, planning, quoting). A search by client goes through `accounts.public.search_user_ids`, called from the module's adapters: a `public.py` never imports accounts, because accounts imports them to erase an account's data.
 
 FastAPI generates the OpenAPI file. The frontend generates its TypeScript client and types from it with `@hey-api/openapi-ts`, so both sides agree on types without writing them twice.
 
