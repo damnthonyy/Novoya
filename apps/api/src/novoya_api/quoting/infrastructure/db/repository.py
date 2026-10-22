@@ -1,9 +1,11 @@
 from uuid import UUID
 
-from sqlalchemy import delete
+from sqlalchemy import delete, update
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import defer
 
-from novoya_api.quoting.domain.quote import Quote
+from novoya_api.quoting.domain.errors import QuoteAlreadyAnswered
+from novoya_api.quoting.domain.quote import Quote, QuoteStatus
 from novoya_api.quoting.infrastructure.db.models import QuoteModel
 from novoya_api.shared.domain.value_objects import Locale
 
@@ -30,12 +32,20 @@ class SqlQuoteRepository:
                 sent_at=quote.sent_at,
                 valid_until=quote.valid_until,
                 pdf=quote.pdf,
+                answer=None if quote.answer is None else quote.answer.value,
+                decided_at=quote.decided_at,
+                client_comment=quote.client_comment,
             )
         )
         await self._session.flush()
 
-    async def get(self, quote_id: UUID) -> Quote | None:
-        row = await self._session.get(QuoteModel, quote_id)
+    async def get(self, quote_id: UUID, with_pdf: bool = True) -> Quote | None:
+        # populate_existing: a row this session read earlier without its PDF is read again,
+        # so row.pdf never lazy-loads (that fails under asyncio).
+        options = () if with_pdf else (defer(QuoteModel.pdf),)
+        row = await self._session.get(
+            QuoteModel, quote_id, options=options, populate_existing=with_pdf
+        )
         if row is None:
             return None
         return Quote(
@@ -49,8 +59,27 @@ class SqlQuoteRepository:
             locale=Locale(row.locale),
             sent_at=row.sent_at,
             valid_until=row.valid_until,
-            pdf=row.pdf,
+            pdf=row.pdf if with_pdf else None,
+            answer=None if row.answer is None else QuoteStatus(row.answer),
+            decided_at=row.decided_at,
+            client_comment=row.client_comment,
         )
+
+    async def save_answer(self, quote: Quote) -> None:
+        """Writes the client's answer, only if the row has none yet: of two answers sent at
+        once, the second fails. The caller commits."""
+        result = await self._session.execute(
+            update(QuoteModel)
+            .where(QuoteModel.id == quote.id, QuoteModel.answer.is_(None))
+            .values(
+                answer=None if quote.answer is None else quote.answer.value,
+                decided_at=quote.decided_at,
+                client_comment=quote.client_comment,
+            )
+            .execution_options(synchronize_session=False)
+        )
+        if result.rowcount != 1:
+            raise QuoteAlreadyAnswered("the quote is already answered")
 
     async def delete_for_client(self, client_id: UUID) -> None:
         """Erase this client's quotes; the PDF is a column, so it goes too. The caller commits."""
