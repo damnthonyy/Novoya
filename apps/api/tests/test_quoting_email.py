@@ -130,3 +130,24 @@ async def test_a_failing_server_returns_false_and_logs_no_address(monkeypatch, c
 
     assert "SMTPRecipientsRefused" in caplog.text
     assert "alice@example.com" not in caplog.text
+
+
+async def test_a_message_that_cannot_be_built_returns_false(monkeypatch, caplog):
+    def broken_message(email, sender):
+        raise KeyError("a template or Babel bug")
+
+    sent = []
+
+    async def fake_send(message, **options):
+        sent.append(message)
+
+    monkeypatch.setattr(smtp_quote_notifier, "quote_ready_message", broken_message)
+    monkeypatch.setattr(smtp_quote_notifier.aiosmtplib, "send", fake_send)
+    monkeypatch.setattr(smtp_quote_notifier.logger, "disabled", False)
+    notifier = SmtpQuoteNotifier("smtp.example", 587, SENDER)
+
+    with caplog.at_level(logging.ERROR):
+        assert await notifier.send_quote_ready(email(Locale.EN)) is False
+
+    assert sent == []
+    assert "KeyError" in caplog.text

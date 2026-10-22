@@ -120,8 +120,9 @@ class SmtpQuoteNotifier:
                 start_tls=self._start_tls,
                 timeout=10,
             )
-        except (aiosmtplib.SMTPException, OSError) as error:
-            # The quote is already committed; the agent can send the email again.
+        except Exception as error:
+            # The quote is already committed: any failure, SMTP or building the message
+            # (template, Babel), must give email_sent false, not a 500 the agent cannot retry.
             # Only the error type: SMTP messages can contain the address.
             logger.error("could not send the quote email: %s", type(error).__name__)
             return False

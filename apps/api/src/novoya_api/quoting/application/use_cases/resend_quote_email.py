@@ -49,6 +49,8 @@ class ResendQuoteEmail:
         client = await self._people.get(quote.client_id)
         if client is None:
             raise QuoteNotFound("the client is gone")
+        # The wish as it is now, not as quoted: if its dates changed since, this email can
+        # differ from the PDF. Rare, and keeping a copy on the quote would need a migration.
         trip = await self._plans.trip(quote.plan_id) or QuoteTrip(None, None, None, None)
         email = QuoteEmail(
             client.email,
