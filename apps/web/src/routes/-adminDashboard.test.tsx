@@ -89,6 +89,7 @@ describe('admin dashboard', () => {
     expect(tile(/Expired quotes/)).toHaveAttribute('href', '/admin/activity?tab=quotes')
     expect(tile(/Active partners/)).toHaveAttribute('href', '/admin/partners')
     expect(tile(/Active offers/)).toHaveAttribute('href', '/admin/partners')
+    expect(tile(/Active extras/)).toHaveAttribute('href', '/admin/extras')
     expect(tile(/Published reviews/)).toHaveAttribute('href', '/admin/reviews')
     expect(tile(/^16\s*Accounts/)).toHaveAttribute('href', '/admin/users')
   })

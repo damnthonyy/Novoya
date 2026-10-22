@@ -90,7 +90,16 @@ function Numbers({ stats }: { stats: AdminStatsResponse }) {
           details={leftOut(stats.offers)}
           renderLink={toPartners}
         />
-        <StatTile label={t('dashboard.extras')} value={stats.extras.active} details={leftOut(stats.extras)} />
+        <StatTile
+          label={t('dashboard.extras')}
+          value={stats.extras.active}
+          details={leftOut(stats.extras)}
+          renderLink={(content, className) => (
+            <Link to="/admin/extras" className={className}>
+              {content}
+            </Link>
+          )}
+        />
         <StatTile
           label={t('dashboard.reviews')}
           value={stats.reviews.published}
