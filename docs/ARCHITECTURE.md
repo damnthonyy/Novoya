@@ -92,6 +92,7 @@ The backend is a modular monolith: one application and one database, split by bu
 | `wishes` | The wish, the coverage check, the preference panel |
 | `planning` | The plan built from offers, its status machine, the agent's negotiation |
 | `quoting` | The quote: total, validity, PDF, email, accept or reject |
+| `dashboard` | The admin home's key numbers. No table: each module counts its own rows |
 | `shared` | Domain errors, common value objects, database session, LLM client |
 
 Inside each module, source code dependencies only point inward:
@@ -298,6 +299,7 @@ Admin (role `admin` only; an admin can also use every agent route):
 | GET | `/admin/wishes` | Every client's wishes with their status, searched by client or destination |
 | GET | `/admin/plans`, `/admin/plans/{id}` | Every plan with its client, status and agent; one plan read-only, as its agent sees it |
 | GET | `/admin/quotes` | Every quote with its client, total and status (`sent`, `expired`, `accepted`, `rejected`) |
+| GET | `/admin/stats` | The admin home's counts in one request: partners, offers and extras (active, hidden, inactive), reviews, accounts by role, plans and quotes by status. Counts only |
 
 The three lists live in their own module (wishes, planning, quoting). A search by client goes through `accounts.public.search_user_ids`, called from the module's adapters: a `public.py` never imports accounts, because accounts imports them to erase an account's data.
 
@@ -311,7 +313,7 @@ novoya/
     web/                     React + TanStack (pnpm)
     api/                     FastAPI (uv)
       src/novoya_api/
-        accounts/ catalog/ wishes/ planning/ quoting/
+        accounts/ catalog/ wishes/ planning/ quoting/ dashboard/
           public.py          what other modules may use
           domain/            entities, rules
           application/       use_cases/, ports/
