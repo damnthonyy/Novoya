@@ -54,7 +54,7 @@ agent_quotes_router = APIRouter(prefix="/agent/quotes", tags=["agent"], response
     "/{quote_id}/email",
     operation_id="resendQuoteEmail",
     status_code=status.HTTP_204_NO_CONTENT,
-    responses={503: {"model": ErrorResponse}},
+    responses={429: {"model": ErrorResponse}, 503: {"model": ErrorResponse}},
 )
 async def resend_quote_email(
     quote_id: UUID,
@@ -62,7 +62,8 @@ async def resend_quote_email(
     use_case: Annotated[ResendQuoteEmail, Depends(get_resend_quote_email)],
 ) -> None:
     """Send the client's "your quote is ready" email again. Only the agent who sent the quote,
-    or an admin (403). 503 email_not_sent if the email server did not take it."""
+    or an admin (403). At most 3 times an hour per quote: 429 too_many_requests after that,
+    with Retry-After. 503 email_not_sent if the email server did not take it."""
     await use_case(quote_id, staff.user_id, staff.admin)
 
 

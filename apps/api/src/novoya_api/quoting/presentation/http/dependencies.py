@@ -4,6 +4,7 @@ In each module, this file is the only place outside infrastructure that may impo
 infrastructure. Tests replace these dependencies with fakes.
 """
 
+from functools import lru_cache
 from typing import Annotated, NamedTuple
 from uuid import UUID
 
@@ -21,8 +22,10 @@ from novoya_api.quoting.infrastructure.email.smtp_quote_notifier import SmtpQuot
 from novoya_api.quoting.infrastructure.pdf.renderer import WeasyPrintRenderer
 from novoya_api.quoting.infrastructure.plans import PlanningPlans
 from novoya_api.quoting.infrastructure.users import AccountPeople
+from novoya_api.shared.application.rate_limiter import RateLimiter
 from novoya_api.shared.infrastructure.db.session import get_session
 from novoya_api.shared.infrastructure.db.unit_of_work import SqlAlchemyUnitOfWork
+from novoya_api.shared.infrastructure.in_memory_rate_limiter import InMemoryRateLimiter
 from novoya_api.shared.infrastructure.system_clock import SystemClock
 
 STAFF = frozenset({Role.AGENT, Role.ADMIN})
@@ -67,6 +70,12 @@ def get_notifier() -> QuoteNotifier:
     )
 
 
+# Built once: it holds the counters of the resent emails.
+@lru_cache
+def get_rate_limiter() -> RateLimiter:
+    return InMemoryRateLimiter(SystemClock())
+
+
 def get_send_quote(session: Annotated[AsyncSession, Depends(get_session)]) -> SendQuote:
     return SendQuote(
         plans=PlanningPlans(session),
@@ -86,11 +95,13 @@ def get_get_quote_pdf(session: Annotated[AsyncSession, Depends(get_session)]) ->
 
 def get_resend_quote_email(
     session: Annotated[AsyncSession, Depends(get_session)],
+    rate_limiter: Annotated[RateLimiter, Depends(get_rate_limiter)],
 ) -> ResendQuoteEmail:
     return ResendQuoteEmail(
         quotes=SqlQuoteRepository(session),
         plans=PlanningPlans(session),
         people=AccountPeople(session),
         notifier=get_notifier(),
+        rate_limiter=rate_limiter,
         frontend_url=get_settings().frontend_url,
     )

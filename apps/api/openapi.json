@@ -4511,7 +4511,7 @@
     },
     "/agent/quotes/{quote_id}/email": {
       "post": {
-        "description": "Send the client's \"your quote is ready\" email again. Only the agent who sent the quote,\nor an admin (403). 503 email_not_sent if the email server did not take it.",
+        "description": "Send the client's \"your quote is ready\" email again. Only the agent who sent the quote,\nor an admin (403). At most 3 times an hour per quote: 429 too_many_requests after that,\nwith Retry-After. 503 email_not_sent if the email server did not take it.",
         "operationId": "resendQuoteEmail",
         "parameters": [
           {
@@ -4568,6 +4568,16 @@
               }
             },
             "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Too Many Requests"
           },
           "503": {
             "content": {

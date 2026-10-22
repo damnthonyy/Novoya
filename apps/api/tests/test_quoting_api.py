@@ -23,6 +23,7 @@ from novoya_api.quoting.presentation.http.dependencies import (
 )
 from novoya_api.shared.domain.errors import InvalidTransition, PermissionDenied
 from novoya_api.shared.domain.value_objects import Locale
+from novoya_api.shared.infrastructure.in_memory_rate_limiter import InMemoryRateLimiter
 from tests.quoting_fakes import (
     AGENT,
     AGENT_ID,
@@ -73,8 +74,9 @@ def app_with(
         FRONTEND,
     )
     app.dependency_overrides[get_get_quote_pdf] = lambda: GetQuotePdf(quotes)
+    limiter = InMemoryRateLimiter(FixedClock())  # one per app: tests don't share counters
     app.dependency_overrides[get_resend_quote_email] = lambda: ResendQuoteEmail(
-        quotes, plans, FakePeople(CLIENT_FR, AGENT), FakeNotifier(email_sent), FRONTEND
+        quotes, plans, FakePeople(CLIENT_FR, AGENT), FakeNotifier(email_sent), limiter, FRONTEND
     )
     if role is not None:
         app.dependency_overrides[current_user] = lambda: signed_in_as(role, user_id)
@@ -274,3 +276,15 @@ async def test_an_email_server_that_refuses_returns_503_email_not_sent():
 
     assert response.status_code == 503
     assert response.json()["code"] == "email_not_sent"
+
+
+async def test_a_fourth_resend_in_an_hour_returns_429():
+    app = app_with(FakePlanQuoting(), Role.AGENT, AGENT_ID)
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        for _ in range(3):
+            assert (await client.post(f"/agent/quotes/{QUOTE.id}/email")).status_code == 204
+        response = await client.post(f"/agent/quotes/{QUOTE.id}/email")
+
+    assert response.status_code == 429
+    assert response.json()["code"] == "too_many_requests"
+    assert int(response.headers["Retry-After"]) > 0
