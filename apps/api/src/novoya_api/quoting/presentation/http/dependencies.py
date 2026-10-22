@@ -32,12 +32,12 @@ from novoya_api.shared.infrastructure.db.unit_of_work import SqlAlchemyUnitOfWor
 from novoya_api.shared.infrastructure.in_memory_rate_limiter import InMemoryRateLimiter
 from novoya_api.shared.infrastructure.system_clock import SystemClock
 
-STAFF = frozenset({Role.AGENT, Role.ADMIN})
+STAFF = frozenset({Role.AGENT, Role.ADMIN, Role.SUPER_ADMIN})
 
 
 class Reader(NamedTuple):
     user_id: UUID
-    staff: bool  # an agent or an admin reads every quote
+    staff: bool  # an agent, an admin or a super admin reads every quote
 
 
 class Staff(NamedTuple):
@@ -52,7 +52,7 @@ def get_current_agent_id(user: Annotated[CurrentUserView, Depends(require_agent)
 
 def get_staff(user: Annotated[CurrentUserView, Depends(require_agent)]) -> Staff:
     """The signed-in agent or admin: 401 without a session, 403 for a client."""
-    return Staff(user.user_id.value, user.role is Role.ADMIN)
+    return Staff(user.user_id.value, user.role in (Role.ADMIN, Role.SUPER_ADMIN))
 
 
 def get_reader(user: CurrentUser) -> Reader:
