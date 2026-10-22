@@ -1,7 +1,7 @@
 from datetime import datetime
 from uuid import UUID
 
-from novoya_api.quoting.application.dto import AdminQuoteView, Person, QuotePlanFacts, QuoteTrip
+from novoya_api.quoting.application.dto import AdminQuoteView, Person, QuoteTrip
 from novoya_api.quoting.application.ports.people import People
 from novoya_api.quoting.application.ports.plans import PlanQuoting
 from novoya_api.quoting.application.ports.quote_repository import (
@@ -12,13 +12,6 @@ from novoya_api.quoting.application.ports.quote_repository import (
 from novoya_api.quoting.domain.quote import Quote, QuoteStatus
 from novoya_api.shared.application.clock import Clock
 
-# The plan's status behind each quote status: sent and expired quotes wait on a quoted plan.
-PLAN_STATUSES = {
-    QuoteStatus.SENT: ["quoted"],
-    QuoteStatus.EXPIRED: ["quoted"],
-    QuoteStatus.ACCEPTED: ["accepted"],
-    QuoteStatus.REJECTED: ["rejected"],
-}
 NO_TRIP = QuoteTrip(None, None, None, None)
 
 
@@ -46,47 +39,40 @@ class ListAdminQuotes:
     ) -> list[AdminQuoteView]:
         now = self._clock.now()
         query = query.strip() if query else None
+        # The status is a column of the quote; only the text search goes through the plans.
         plan_ids: list[UUID] | None = None
-        if status is not None or query:
-            user_ids = await self._people.search_ids(query) if query else []
-            plan_ids = await self._plans.find_ids(
-                PLAN_STATUSES[status] if status else [], query, user_ids
-            )
+        if query:
+            plan_ids = await self._plans.find_ids(query, await self._people.search_ids(query))
         if plan_id is not None:
             plan_ids = [plan_id] if plan_ids is None or plan_id in plan_ids else []
         if plan_ids == []:
             return []
-        expired = (
-            {QuoteStatus.EXPIRED: True, QuoteStatus.SENT: False}.get(status) if status else None
-        )
         quotes = await self._quotes.search(
             plan_ids,
-            expired,
+            status,
             now,
             limit=min(max(limit, 1), ADMIN_CAP),
             offset=max(offset, 0),
         )
-        facts = await self._plans.facts([quote.plan_id for quote in quotes])
+        trips = await self._plans.trips([quote.plan_id for quote in quotes])
         people = await self._people.get_many([quote.client_id for quote in quotes])
         return [
-            _view(quote, facts.get(quote.plan_id), people.get(quote.client_id), now)
+            _view(quote, trips.get(quote.plan_id, NO_TRIP), people.get(quote.client_id), now)
             for quote in quotes
         ]
 
 
-def _view(
-    quote: Quote, facts: QuotePlanFacts | None, client: Person | None, now: datetime
-) -> AdminQuoteView:
+def _view(quote: Quote, trip: QuoteTrip, client: Person | None, now: datetime) -> AdminQuoteView:
     return AdminQuoteView(
         id=quote.id,
         number=quote.number,
         plan_id=quote.plan_id,
-        status=quote.status(facts.status if facts else None, now).value,
+        status=quote.status(now).value,
         total=quote.total,
         currency=quote.currency,
         locale=quote.locale.value,
         sent_at=quote.sent_at,
         valid_until=quote.valid_until,
-        trip=facts.trip if facts else NO_TRIP,
+        trip=trip,
         client=client,
     )

@@ -241,7 +241,7 @@
       "rejected": "Refusé"
     },
     "quoteStatus": {
-      "sent": "En attente du client",
+      "open": "En attente du client",
       "expired": "Expiré",
       "accepted": "Accepté",
       "rejected": "Refusé"

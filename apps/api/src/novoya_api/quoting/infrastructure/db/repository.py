@@ -1,12 +1,13 @@
 from collections.abc import Sequence
-from datetime import datetime
+from datetime import datetime, time
 from uuid import UUID
 
-from sqlalchemy import delete, select
+from sqlalchemy import delete, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import defer
 
-from novoya_api.quoting.domain.quote import Quote
+from novoya_api.quoting.domain.errors import QuoteAlreadyAnswered
+from novoya_api.quoting.domain.quote import AGENCY_TIMEZONE, Quote, QuoteStatus, paris_day
 from novoya_api.quoting.infrastructure.db.models import QuoteModel
 from novoya_api.shared.domain.value_objects import Locale
 
@@ -33,20 +34,52 @@ class SqlQuoteRepository:
                 sent_at=quote.sent_at,
                 valid_until=quote.valid_until,
                 pdf=quote.pdf,
+                answer=None if quote.answer is None else quote.answer.value,
+                decided_at=quote.decided_at,
+                client_comment=quote.client_comment,
             )
         )
         await self._session.flush()
 
-    async def get(self, quote_id: UUID) -> Quote | None:
-        row = await self._session.get(QuoteModel, quote_id)
-        if row is None:
-            return None
-        return _to_quote(row, row.pdf)
+    async def get(self, quote_id: UUID, with_pdf: bool = True) -> Quote | None:
+        # populate_existing: a row this session read earlier without its PDF is read again,
+        # so row.pdf never lazy-loads (that fails under asyncio).
+        options = () if with_pdf else (defer(QuoteModel.pdf),)
+        row = await self._session.get(
+            QuoteModel, quote_id, options=options, populate_existing=with_pdf
+        )
+        return None if row is None else self._to_quote(row, with_pdf)
+
+    async def get_for_plan(self, plan_id: UUID) -> Quote | None:
+        """Without the PDF: the agent's page shows the quote, the file downloads apart."""
+        row = await self._session.scalar(
+            select(QuoteModel).where(QuoteModel.plan_id == plan_id).options(defer(QuoteModel.pdf))
+        )
+        return None if row is None else self._to_quote(row, with_pdf=False)
+
+    @staticmethod
+    def _to_quote(row: QuoteModel, with_pdf: bool) -> Quote:
+        return Quote(
+            id=row.id,
+            number=row.number,
+            plan_id=row.plan_id,
+            client_id=row.client_id,
+            agent_id=row.agent_id,
+            total=row.total_price,
+            currency=row.currency,
+            locale=Locale(row.locale),
+            sent_at=row.sent_at,
+            valid_until=row.valid_until,
+            pdf=row.pdf if with_pdf else None,
+            answer=None if row.answer is None else QuoteStatus(row.answer),
+            decided_at=row.decided_at,
+            client_comment=row.client_comment,
+        )
 
     async def search(
         self,
         plan_ids: Sequence[UUID] | None,
-        expired: bool | None,
+        status: QuoteStatus | None,
         now: datetime,
         *,
         limit: int = 50,
@@ -56,14 +89,37 @@ class SqlQuoteRepository:
         statement = select(QuoteModel).options(defer(QuoteModel.pdf))
         if plan_ids is not None:
             statement = statement.where(QuoteModel.plan_id.in_(plan_ids))
-        if expired is True:
-            statement = statement.where(QuoteModel.valid_until < now)
-        elif expired is False:
-            statement = statement.where(QuoteModel.valid_until >= now)
+        if status in (QuoteStatus.ACCEPTED, QuoteStatus.REJECTED):
+            statement = statement.where(QuoteModel.answer == status.value)
+        elif status is not None:
+            # Quote.has_expired in SQL: the whole validity day counts, in Paris.
+            today = datetime.combine(paris_day(now), time.min, tzinfo=AGENCY_TIMEZONE)
+            statement = statement.where(
+                QuoteModel.answer.is_(None),
+                QuoteModel.valid_until < today
+                if status is QuoteStatus.EXPIRED
+                else QuoteModel.valid_until >= today,
+            )
         rows = await self._session.scalars(
             statement.order_by(QuoteModel.sent_at.desc(), QuoteModel.id).limit(limit).offset(offset)
         )
-        return [_to_quote(row, b"") for row in rows]
+        return [self._to_quote(row, with_pdf=False) for row in rows]
+
+    async def save_answer(self, quote: Quote) -> None:
+        """Writes the client's answer, only if the row has none yet: of two answers sent at
+        once, the second fails. The caller commits."""
+        result = await self._session.execute(
+            update(QuoteModel)
+            .where(QuoteModel.id == quote.id, QuoteModel.answer.is_(None))
+            .values(
+                answer=None if quote.answer is None else quote.answer.value,
+                decided_at=quote.decided_at,
+                client_comment=quote.client_comment,
+            )
+            .execution_options(synchronize_session=False)
+        )
+        if result.rowcount != 1:
+            raise QuoteAlreadyAnswered("the quote is already answered")
 
     async def delete_for_client(self, client_id: UUID) -> None:
         """Erase this client's quotes; the PDF is a column, so it goes too. The caller commits."""
@@ -72,19 +128,3 @@ class SqlQuoteRepository:
             .where(QuoteModel.client_id == client_id)
             .execution_options(synchronize_session=False)
         )
-
-
-def _to_quote(row: QuoteModel, pdf: bytes) -> Quote:
-    return Quote(
-        id=row.id,
-        number=row.number,
-        plan_id=row.plan_id,
-        client_id=row.client_id,
-        agent_id=row.agent_id,
-        total=row.total_price,
-        currency=row.currency,
-        locale=Locale(row.locale),
-        sent_at=row.sent_at,
-        valid_until=row.valid_until,
-        pdf=pdf,
-    )

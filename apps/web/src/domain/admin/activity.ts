@@ -5,7 +5,7 @@ import { formatDay, formatDayRange } from '@/lib/format'
 
 export const WISH_STATUSES = ['draft', 'not_covered', 'panel_shown', 'answered', 'planned'] as const
 export const PLAN_STATUSES = ['proposed', 'requested', 'negotiating', 'quoted', 'accepted', 'rejected'] as const
-export const QUOTE_STATUSES = ['sent', 'expired', 'accepted', 'rejected'] as const
+export const QUOTE_STATUSES = ['open', 'expired', 'accepted', 'rejected'] as const
 
 export type WishStatus = (typeof WISH_STATUSES)[number]
 export type PlanStatus = (typeof PLAN_STATUSES)[number]

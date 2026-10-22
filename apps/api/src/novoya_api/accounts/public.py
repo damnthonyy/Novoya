@@ -43,7 +43,8 @@ __all__ = [
     "search_user_ids",
 ]
 
-# Past this many matches, the query is too broad to be a useful filter: the newest win.
+# Past this many matches, the query is too broad to be a useful filter: the newest win, and the
+# rest is dropped without a sign. Fine at the agency's size; a page would say "refine".
 SEARCH_CAP = 500
 
 

@@ -23,7 +23,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from novoya_api.wishes.infrastructure.db.repository import SqlWishRepository
 
-# The wishes a search may match, newest first: past it the query is too broad to filter.
+# The wishes a search may match, newest first: past it the query is too broad to filter, and
+# the rest is dropped without a sign. Fine at the agency's size; a page would say "refine".
 SEARCH_CAP = 1000
 
 

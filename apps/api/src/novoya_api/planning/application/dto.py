@@ -269,12 +269,3 @@ class AdminPlanView:
     plan: AgentPlanView
     client: Person | None
     agent: Person | None
-
-
-@dataclass(frozen=True)
-class PlanFacts:
-    """What quoting shows about a plan in the admin overview: its status and the wish."""
-
-    plan_id: UUID
-    status: str
-    trip: TripBrief | None

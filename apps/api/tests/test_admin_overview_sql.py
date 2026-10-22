@@ -20,7 +20,7 @@ from novoya_api.planning.presentation.http.dependencies import (
     get_get_admin_plan,
     get_list_admin_plans,
 )
-from novoya_api.quoting.domain.quote import Quote, QuoteStatus
+from novoya_api.quoting.domain.quote import AGENCY_TIMEZONE, Quote, QuoteStatus
 from novoya_api.quoting.infrastructure.db.repository import SqlQuoteRepository
 from novoya_api.quoting.presentation.http.dependencies import get_list_admin_quotes
 from novoya_api.shared.domain.value_objects import Locale
@@ -165,7 +165,7 @@ async def test_every_quote_is_listed_with_its_trip_client_and_status(engine, age
         [quote] = await get_list_admin_quotes(session)()
 
     assert (quote.id, quote.number) == (agency.quote.id, agency.quote.number)
-    assert quote.status == QuoteStatus.SENT
+    assert quote.status == QuoteStatus.OPEN
     assert quote.total == Decimal("1234.50")
     assert quote.trip.city == "Chania"
     assert quote.client.email.startswith("alice.")
@@ -182,7 +182,7 @@ async def test_quotes_are_searched_by_client_or_destination(engine, agency, quer
 async def test_quotes_are_filtered_by_status_and_plan(engine, agency):  # noqa: F811
     async with new_session(engine) as session:
         use_case = get_list_admin_quotes(session)
-        assert len(await use_case(QuoteStatus.SENT)) == 1
+        assert len(await use_case(QuoteStatus.OPEN)) == 1
         assert await use_case(QuoteStatus.EXPIRED) == []
         assert await use_case(QuoteStatus.ACCEPTED) == []
         assert len(await use_case(plan_id=agency.plan_id)) == 1
@@ -204,3 +204,42 @@ async def test_a_quote_past_its_validity_is_expired(engine, agency):  # noqa: F8
         [quote] = await get_list_admin_quotes(session)(QuoteStatus.EXPIRED)
 
     assert (quote.id, quote.status) == (old.id, QuoteStatus.EXPIRED)
+
+
+async def test_the_clients_answer_is_the_quotes_status(engine, agency):  # noqa: F811
+    async with new_session(engine) as session:
+        quotes = SqlQuoteRepository(session)
+        quote = await quotes.get(agency.quote.id, with_pdf=False)
+        quote.record_answer(QuoteStatus.REJECTED, None, datetime.now(UTC))
+        await quotes.save_answer(quote)
+        await session.commit()
+
+    async with new_session(engine) as session:
+        use_case = get_list_admin_quotes(session)
+        [rejected] = await use_case(QuoteStatus.REJECTED)
+        assert (rejected.id, rejected.status) == (agency.quote.id, QuoteStatus.REJECTED)
+        assert await use_case(QuoteStatus.OPEN) == []
+        assert await use_case(QuoteStatus.ACCEPTED) == []
+
+
+async def test_the_whole_last_day_counts_in_paris(engine, agency):  # noqa: F811
+    # Valid until 18:00 on 29 October in Paris: open all that day, expired the next.
+    evening = datetime(2026, 10, 29, 20, tzinfo=AGENCY_TIMEZONE)
+    async with new_session(engine) as session:
+        quotes = SqlQuoteRepository(session)
+        await quotes.delete_for_client(agency.client_id)
+        sent = evening - timedelta(days=7, hours=2)
+        late = Quote.issue(
+            agency.plan_id, agency.client_id, agency.agent_id, Decimal("99.00"), Locale.EN, sent
+        )
+        late.pdf = b"%PDF-1.7 late"
+        await quotes.add(late)
+        await session.commit()
+
+    async with new_session(engine) as session:
+        quotes = SqlQuoteRepository(session)
+        assert [q.id for q in await quotes.search(None, QuoteStatus.OPEN, evening)] == [late.id]
+        assert await quotes.search(None, QuoteStatus.EXPIRED, evening) == []
+        next_day = evening + timedelta(hours=5)
+        assert await quotes.search(None, QuoteStatus.OPEN, next_day) == []
+        assert [q.id for q in await quotes.search(None, QuoteStatus.EXPIRED, next_day)] == [late.id]

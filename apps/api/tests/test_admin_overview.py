@@ -1,13 +1,11 @@
 """The admin overview use cases (#130) on fakes: how the search and the filters combine."""
 
-from datetime import UTC, datetime, timedelta
-from decimal import Decimal
+from datetime import UTC, datetime
 from uuid import uuid4
 
 from novoya_api.planning.application.use_cases.list_admin_plans import ListAdminPlans
 from novoya_api.quoting.application.use_cases.list_admin_quotes import ListAdminQuotes
-from novoya_api.quoting.domain.quote import Quote, QuoteStatus
-from novoya_api.shared.domain.value_objects import Locale
+from novoya_api.quoting.domain.quote import QuoteStatus
 
 NOW = datetime(2026, 10, 22, 9, 0, tzinfo=UTC)
 
@@ -89,8 +87,8 @@ class FakeQuotes:
     def __init__(self) -> None:
         self.searches: list[tuple] = []
 
-    async def search(self, plan_ids, expired, now, *, limit, offset):
-        self.searches.append((plan_ids, expired, now))
+    async def search(self, plan_ids, status, now, *, limit, offset):
+        self.searches.append((plan_ids, status, now))
         return []
 
 
@@ -99,11 +97,11 @@ class FakePlanQuoting:
         self.found = found
         self.calls: list[tuple] = []
 
-    async def find_ids(self, statuses, query, user_ids):
-        self.calls.append((list(statuses), query, list(user_ids)))
+    async def find_ids(self, query, user_ids):
+        self.calls.append((query, list(user_ids)))
         return self.found
 
-    async def facts(self, plan_ids):
+    async def trips(self, plan_ids):
         return {}
 
 
@@ -117,24 +115,24 @@ def quotes_use_case(found=()):
     return ListAdminQuotes(quotes, plans, FakePeople(), FixedClock()), quotes, plans
 
 
-async def test_sent_and_expired_quotes_wait_on_a_quoted_plan():
+async def test_the_status_filter_reads_the_quotes_without_searching_the_plans():
+    use_case, quotes, plans = quotes_use_case()
+
+    for status in QuoteStatus:
+        await use_case(status)
+
+    assert plans.calls == []
+    assert quotes.searches == [(None, status, NOW) for status in QuoteStatus]
+
+
+async def test_the_search_goes_through_the_plans():
     plan_id = uuid4()
     use_case, quotes, plans = quotes_use_case([plan_id])
 
-    await use_case(QuoteStatus.SENT)
-    await use_case(QuoteStatus.EXPIRED)
+    await use_case(QuoteStatus.OPEN, query=" crete ")
 
-    assert [call[0] for call in plans.calls] == [["quoted"], ["quoted"]]
-    assert [(s[0], s[1]) for s in quotes.searches] == [([plan_id], False), ([plan_id], True)]
-
-
-async def test_accepted_quotes_follow_the_plans_answer():
-    use_case, quotes, plans = quotes_use_case([uuid4()])
-
-    await use_case(QuoteStatus.ACCEPTED)
-
-    assert plans.calls[0][0] == ["accepted"]
-    assert quotes.searches[0][1] is None
+    assert plans.calls[0][0] == "crete"
+    assert quotes.searches == [([plan_id], QuoteStatus.OPEN, NOW)]
 
 
 async def test_without_a_filter_every_quote_is_read():
@@ -151,21 +149,3 @@ async def test_no_matching_plan_reads_no_quote():
 
     assert await use_case(query="nowhere") == []
     assert quotes.searches == []
-
-
-def a_quote(sent_at: datetime) -> Quote:
-    return Quote.issue(uuid4(), uuid4(), uuid4(), Decimal("10.00"), Locale.EN, sent_at)
-
-
-def test_a_quote_is_sent_until_it_expires_a_week_later():
-    quote = a_quote(NOW)
-
-    assert quote.status("quoted", NOW + timedelta(days=7)) is QuoteStatus.SENT
-    assert quote.status("quoted", NOW + timedelta(days=7, seconds=1)) is QuoteStatus.EXPIRED
-
-
-def test_the_clients_answer_wins_over_the_validity():
-    quote = a_quote(NOW)
-
-    assert quote.status("accepted", NOW + timedelta(days=30)) is QuoteStatus.ACCEPTED
-    assert quote.status("rejected", NOW) is QuoteStatus.REJECTED
