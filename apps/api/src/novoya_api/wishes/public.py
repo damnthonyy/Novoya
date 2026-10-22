@@ -2,10 +2,11 @@
 
 - owner_id(wish_id) -> the user who sent the wish, or None when there is none
 - trips(wish_ids) -> text, destination, dates, travellers, budget and tags for those wishes
+- delete_for_user(user_id) -> erases every wish of this user. Erase their plans first
+  (plans.wish_id has no cascade).
 
 Planned:
 - mark_planned(wish_id)
-- delete_for_user(user_id)
 """
 
 from collections.abc import Sequence
@@ -65,3 +66,8 @@ async def trips(wish_ids: Sequence[UUID], *, session: AsyncSession) -> dict[UUID
             ),
         )
     return found
+
+
+async def delete_for_user(user_id: UUID, *, session: AsyncSession) -> None:
+    """Erase every wish of this user. Plans must be erased first. The caller commits."""
+    await SqlWishRepository(session).delete_for_user(user_id)
