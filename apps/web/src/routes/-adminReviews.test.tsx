@@ -139,9 +139,9 @@ describe('admin reviews', () => {
   it.each([
     ['client', '/admin/reviews'],
     ['agent', '/admin/reviews'],
-  ] as const)('sends someone with the %s role away from the reviews page', async (role) => {
+  ] as const)('sends someone with the %s role away from the reviews page', async (role, url) => {
     me = { ...ADMIN, role }
-    const { router } = renderAt('/admin/reviews')
+    const { router } = renderAt(url)
 
     await waitFor(() => expect(router.state.location.pathname).toBe('/wish'))
     expect(sent('GET', '/admin/reviews')).toHaveLength(0)
