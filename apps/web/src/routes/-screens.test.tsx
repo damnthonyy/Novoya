@@ -83,6 +83,7 @@ function mockApi() {
       return signedIn ? Response.json(me) : Response.json({ code: 'unauthenticated', detail: 'no session' }, { status: 401 })
     }
     if (url.pathname === '/admin/users') return Response.json(users)
+    if (url.pathname === '/me/trips') return Response.json([])
     if (url.pathname.startsWith('/plans/') && request.method === 'GET') return planAnswer(url.pathname)
     const role = url.pathname.match(/^\/admin\/users\/([^/]+)\/role$/)
     if (role && request.method === 'PATCH') {
@@ -490,7 +491,7 @@ describe('back-office and plan screens', () => {
     expect(screen.getByText(/Answering an offer is coming soon/)).toBeInTheDocument()
   })
 
-  it.each(['/trips', '/plans/chania', '/quotes/NV-2026-0182', '/agent'])(
+  it.each(['/plans/chania', '/quotes/NV-2026-0182', '/agent'])(
     'says %s shows demo data',
     async (url) => {
       renderAt(url)
@@ -515,20 +516,13 @@ describe('back-office and plan screens', () => {
     },
   )
 
-  it('does not show a concierge chat on the plan or on trips', async () => {
+  it('does not show a concierge chat on the plan', async () => {
     renderAt('/plans/chania')
 
     expect(await screen.findByRole('note')).toHaveTextContent('Demo data.')
     expect(screen.queryByRole('button', { name: 'Open the conversation' })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Send' })).not.toBeInTheDocument()
     expect(screen.queryByText(/messages can't be sent yet/)).not.toBeInTheDocument()
-
-    renderAt('/trips')
-
-    expect(await screen.findByRole('heading', { name: 'My previews' })).toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: 'Open the conversation' })).not.toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: 'Send' })).not.toBeInTheDocument()
-    expect(screen.queryByText(/\d+ messages?/)).not.toBeInTheDocument()
   })
 
   it('does not let an agent take a demo request', async () => {
@@ -537,22 +531,5 @@ describe('back-office and plan screens', () => {
 
     const buttons = await screen.findAllByRole('button', { name: 'Take the plan' })
     for (const button of buttons) expect(button).toBeDisabled()
-  })
-
-  it('names the preview version once in the trip panel', async () => {
-    renderAt('/trips')
-
-    const panel = await screen.findByRole('region', { name: /^Trip: Chania/ })
-
-    expect(within(panel).getAllByText(/^Preview v\d+$/)).toHaveLength(1)
-  })
-
-  it('shows the chosen trip', async () => {
-    renderAt('/trips')
-
-    fireEvent.click(await screen.findByRole('button', { name: /Marrakech, derrière les portes/ }))
-
-    expect(await screen.findByRole('region', { name: 'Trip: Marrakech, derrière les portes' })).toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: 'Send' })).not.toBeInTheDocument()
   })
 })
