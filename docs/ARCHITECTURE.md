@@ -135,7 +135,7 @@ client = AsyncOpenAI(base_url="https://openrouter.ai/api/v1", api_key=settings.o
 - The model is a setting, `NOVOYA_LLM_MODEL`, so we can switch models without changing code. It must support tool calling (OpenRouter lists this as `tools` in the model's supported parameters).
 - The API key is `NOVOYA_OPENROUTER_API_KEY`. It stays on the server and never reaches the browser.
 - Not every model follows a JSON schema reliably, so the backend validates every answer with Pydantic, retries once, then falls back (see section 3).
-- The key is shared by every client. When OpenRouter answers `429`, model calls pause for its `Retry-After` (5 minutes without one, an hour at most), in memory for the whole process. During the pause each step goes straight to its fallback instead of waiting for every model to fail. Other errors still try the next model. The SDK does not retry: the orchestrator falls back itself.
+- The key is shared by every client. When OpenRouter answers `429`, model calls pause for its `Retry-After` (1 minute without one, an hour at most), in memory for the whole process. During the pause each step goes straight to its fallback instead of waiting for every model to fail. Other errors still try the next model. The SDK does not retry: the orchestrator falls back itself.
 - Tests use a fake client. CI makes no live LLM calls.
 
 ## 3. The dynamic panel

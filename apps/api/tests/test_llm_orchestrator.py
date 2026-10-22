@@ -643,13 +643,15 @@ async def test_the_model_is_called_again_after_the_pause():
     assert pause.remaining() == 0
 
 
-async def test_a_429_without_retry_after_pauses_five_minutes():
+async def test_a_429_without_retry_after_pauses_one_minute():
+    # Any 429 pauses every client, even one a single burst of wishes caused, and the free
+    # limits count per minute: without Retry-After the pause stays short.
     pause = ModelPause(ManualClock())
 
     with pytest.raises(LLMError):
         await Orchestrator(FakeClient(rate_limited()), MODELS, pause=pause).run(USER_MESSAGES)
 
-    assert pause.remaining() == 300
+    assert pause.remaining() == 60
 
 
 async def test_a_retry_after_date_pauses_until_that_date():
@@ -662,7 +664,7 @@ async def test_a_retry_after_date_pauses_until_that_date():
     assert 110 <= pause.remaining() <= 120
 
 
-@pytest.mark.parametrize("retry_after", ["86400", "-5", "soon"])
+@pytest.mark.parametrize("retry_after", ["86400", "-5", "soon", "nan"])
 async def test_an_odd_retry_after_stays_within_bounds(retry_after):
     pause = ModelPause(ManualClock())
 
@@ -671,7 +673,19 @@ async def test_an_odd_retry_after_stays_within_bounds(retry_after):
         await Orchestrator(client, MODELS, pause=pause).run(USER_MESSAGES)
 
     # Over an hour is capped; a negative or unreadable value takes the default.
-    assert pause.remaining() == {"86400": 3600, "-5": 300, "soon": 300}[retry_after]
+    assert pause.remaining() == {"86400": 3600, "-5": 60, "soon": 60, "nan": 60}[retry_after]
+
+
+async def test_a_retry_after_date_without_a_zone_is_read_as_gmt():
+    # HTTP dates are GMT; Python leaves one written with "-0000" (or no zone) naive.
+    pause = ModelPause(ManualClock())
+    when = format_datetime(datetime.now(UTC).replace(tzinfo=None) + timedelta(seconds=120))
+    assert when.endswith("-0000")
+
+    with pytest.raises(LLMError):
+        await Orchestrator(FakeClient(rate_limited(when)), MODELS, pause=pause).run(USER_MESSAGES)
+
+    assert 110 <= pause.remaining() <= 120
 
 
 @pytest.mark.parametrize("error", [connection_error, server_error], ids=["outage", "503"])

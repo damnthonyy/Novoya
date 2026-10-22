@@ -3,9 +3,11 @@ from collections.abc import Callable
 from datetime import UTC, datetime
 from email.utils import parsedate_to_datetime
 
-# Without a Retry-After, or with one we can't read. Over MAX_SECONDS is taken as a mistake:
-# the model is tried again within the hour, and a new 429 pauses it again.
-DEFAULT_SECONDS = 300
+# Without a Retry-After, or with one we can't read. Short: any 429 pauses every client, even
+# one a single burst of wishes caused, and the free limits count per minute. Over
+# MAX_SECONDS is taken as a mistake: the model is tried again within the hour, and a new
+# 429 pauses it again.
+DEFAULT_SECONDS = 60
 MAX_SECONDS = 3600
 
 
@@ -41,9 +43,13 @@ def pause_seconds(retry_after: str | None) -> float:
         seconds = float(value)
     except ValueError:
         try:
-            seconds = (parsedate_to_datetime(value) - datetime.now(UTC)).total_seconds()
+            when = parsedate_to_datetime(value)
         except (TypeError, ValueError):
             return DEFAULT_SECONDS
-    if seconds <= 0:
+        # HTTP dates are GMT: Python leaves one written with "-0000" (or no zone) naive.
+        if when.tzinfo is None:
+            when = when.replace(tzinfo=UTC)
+        seconds = (when - datetime.now(UTC)).total_seconds()
+    if not seconds > 0:  # also NaN, which float() accepts and every comparison refuses
         return DEFAULT_SECONDS
     return min(seconds, MAX_SECONDS)
