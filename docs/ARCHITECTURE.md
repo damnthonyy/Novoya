@@ -36,7 +36,7 @@ This document is the starting proposal. Change it by pull request, like code.
 5. The agent generates the quote: Novoya computes the total, renders the PDF, makes it visible to the client and emails them.
 6. The agent sees when the client accepts or rejects.
 
-Agents also manage partners and offers in the admin pages.
+Admins manage partners, offers, extras and reviews in the admin pages.
 
 ### Admin
 
@@ -74,7 +74,7 @@ flowchart LR
 
 | Part | Tech | Job |
 |---|---|---|
-| `apps/web` | React, TypeScript, Vite, TanStack Router, TanStack Query, TanStack Form | Client pages (wish, panel, plan, quote) and agent pages (quote queue, pricing, partners and offers) |
+| `apps/web` | React, TypeScript, Vite, TanStack Router, TanStack Query, TanStack Form | Client pages (wish, panel, plan, quote) and agent pages (quote queue, pricing) and admin pages (users, partners and offers, extras, reviews, activity) |
 | `apps/api` | Python 3.12, FastAPI, Pydantic v2, SQLAlchemy 2, Alembic | Modular monolith with Clean Architecture: accounts, catalog, wishes, planning and quoting modules, each with domain, use cases, adapters and REST endpoints |
 | Database | PostgreSQL | Users, partners and offers, wishes, plans, quotes |
 | LLM | OpenRouter, called with the OpenAI Python SDK | Check coverage, build the panel, write the plan |
@@ -163,7 +163,7 @@ The backend validates this JSON. If validation fails, it retries once, then fall
 
 ## 4. Partners, coverage and the no-preference case
 
-Novoya works with a limited list of partners. The `partners` and `offers` tables are the catalog, and the travel tools are the AI's only way to read it. The catalog comes from the client's DÉTOUR export, imported with `python -m novoya_api.catalog.infrastructure.detour --source detour.sqlite` ([ADR 0014](adr/0014-indicative-prices-and-detour-import.md)): partners, offers, publishable reviews and extras. DÉTOUR owns what it exports: an agent changes it there, and in Novoya only hides a row or features an offer. Countries are stored in English; a wish may name them in English or French.
+Novoya works with a limited list of partners. The `partners` and `offers` tables are the catalog, and the travel tools are the AI's only way to read it. The catalog comes from the client's DÉTOUR export, imported with `python -m novoya_api.catalog.infrastructure.detour --source detour.sqlite` ([ADR 0014](adr/0014-indicative-prices-and-detour-import.md)): partners, offers, publishable reviews and extras. DÉTOUR owns what it exports: the agency changes it there, and in Novoya an admin only hides a row or features an offer. Countries are stored in English; a wish may name them in English or French.
 
 | Case | What happens |
 |---|---|
@@ -285,8 +285,6 @@ Agent (roles `agent` and `admin`):
 | PATCH | `/agent/plans/{id}/extras/{extra_id}` | Price an `on_quote` extra, or adjust or confirm a supplement |
 | POST | `/agent/plans/{id}/quote` | Compute the total, render the PDF, status `quoted`, email the client |
 | POST | `/agent/quotes/{id}/email` | Send the client's quote email again (the agent who sent the quote, or an admin) |
-| GET, POST, PATCH | `/admin/partners`, `/admin/offers` | Manage partners and their offers (`GET /admin/offers?partner_id=` lists one partner's). Imported rows only change `hidden` (and `featured` for offers): 409 `imported_row` |
-| GET, PATCH | `/admin/extras` | List extras, hide or show one |
 
 Admin (role `admin` only; an admin can also use every agent route):
 
@@ -297,7 +295,9 @@ Admin (role `admin` only; an admin can also use every agent route):
 | GET, PATCH | `/admin/reviews` | List published reviews, hide or show one |
 | GET | `/admin/wishes` | Every client's wishes with their status, searched by client or destination |
 | GET | `/admin/plans`, `/admin/plans/{id}` | Every plan with its client, status and agent; one plan read-only, as its agent sees it |
-| GET | `/admin/quotes` | Every quote with its client, total and status (`sent`, `expired`, `accepted`, `rejected`) |
+| GET | `/admin/quotes` | Every quote with its client, total and status (`open`, `expired`, `accepted`, `rejected`, as `GET /quotes/{id}` gives it) |
+| GET, POST, PATCH | `/admin/partners`, `/admin/offers` | Manage partners and their offers (`GET /admin/offers?partner_id=` lists one partner's). Imported rows only change `hidden` (and `featured` for offers): 409 `imported_row` |
+| GET, PATCH | `/admin/extras` | List extras, hide or show one |
 
 The three lists live in their own module (wishes, planning, quoting). A search by client goes through `accounts.public.search_user_ids`, called from the module's adapters: a `public.py` never imports accounts, because accounts imports them to erase an account's data.
 
