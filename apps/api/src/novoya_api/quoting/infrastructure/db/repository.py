@@ -1,6 +1,6 @@
 from uuid import UUID
 
-from sqlalchemy import delete, update
+from sqlalchemy import delete, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import defer
 
@@ -46,8 +46,17 @@ class SqlQuoteRepository:
         row = await self._session.get(
             QuoteModel, quote_id, options=options, populate_existing=with_pdf
         )
-        if row is None:
-            return None
+        return None if row is None else self._to_quote(row, with_pdf)
+
+    async def get_for_plan(self, plan_id: UUID) -> Quote | None:
+        """Without the PDF: the agent's page shows the quote, the file downloads apart."""
+        row = await self._session.scalar(
+            select(QuoteModel).where(QuoteModel.plan_id == plan_id).options(defer(QuoteModel.pdf))
+        )
+        return None if row is None else self._to_quote(row, with_pdf=False)
+
+    @staticmethod
+    def _to_quote(row: QuoteModel, with_pdf: bool) -> Quote:
         return Quote(
             id=row.id,
             number=row.number,
