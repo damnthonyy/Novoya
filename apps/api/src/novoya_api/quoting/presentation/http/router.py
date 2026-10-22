@@ -108,9 +108,9 @@ async def get_quote(
     response: Response,
 ) -> QuoteDetail:
     """The quote and where it stands (open, expired after its validity date, accepted or
-    rejected), for its client or staff (agents, admins). 404 for anyone else, so the id
-    stays hidden."""
-    detail = QuoteDetail.of(await use_case(quote_id, reader.user_id, reader.staff))
+    rejected), for its client, the agent who sent it or an admin. 404 for anyone else
+    (another agent too), so the id stays hidden."""
+    detail = QuoteDetail.of(await use_case(quote_id, reader.user_id, reader.admin))
     # The client's negotiated price: no shared or browser cache keeps it, as for the PDF.
     response.headers["Cache-Control"] = "private, no-store"
     return detail
@@ -130,9 +130,9 @@ async def accept_quote(
 ) -> None:
     """The client accepts their quote, with an optional comment for the agent. The plan
     becomes accepted. 409 quote_expired after the validity day, 409 quote_answered when it
-    is answered already; 403 for staff, 404 for anyone else."""
+    is answered already; 403 for its agent and admins, 404 for anyone else."""
     comment = body.comment if body else None
-    await use_case(quote_id, reader.user_id, reader.staff, QuoteStatus.ACCEPTED, comment)
+    await use_case(quote_id, reader.user_id, reader.admin, QuoteStatus.ACCEPTED, comment)
 
 
 @router.post(
@@ -150,7 +150,7 @@ async def reject_quote(
     """The client rejects their quote, with an optional comment for the agent. The plan
     becomes rejected, and the client can start a new wish. Same errors as accept."""
     comment = body.comment if body else None
-    await use_case(quote_id, reader.user_id, reader.staff, QuoteStatus.REJECTED, comment)
+    await use_case(quote_id, reader.user_id, reader.admin, QuoteStatus.REJECTED, comment)
 
 
 @router.get(
@@ -164,9 +164,9 @@ async def get_quote_pdf(
     reader: Annotated[Reader, Depends(get_reader)],
     use_case: Annotated[GetQuotePdf, Depends(get_get_quote_pdf)],
 ) -> Response:
-    """The quote as a PDF, for its client or an agent. 404 for anyone else, so the id stays
-    hidden."""
-    pdf = await use_case(quote_id, reader.user_id, reader.staff)
+    """The quote as a PDF, for its client, the agent who sent it or an admin. 404 for anyone
+    else (another agent too), so the id stays hidden."""
+    pdf = await use_case(quote_id, reader.user_id, reader.admin)
     return Response(
         content=pdf.content,
         media_type="application/pdf",

@@ -2210,7 +2210,7 @@
         "type": "object"
       },
       "PlanQuote": {
-        "description": "The quote of a plan, for the agent who sent it: where it stands (open, expired,\naccepted, rejected), and when the client answered with their comment (null until then).",
+        "description": "The quote of a plan, for the agent who sent it: where it stands (open, expired,\naccepted, rejected), and when the client answered with their comment (null until then).\nNo email_sent: that only matters on the answer to sending.",
         "properties": {
           "client_comment": {
             "anyOf": [
@@ -2238,10 +2238,6 @@
               }
             ],
             "title": "Decided At"
-          },
-          "email_sent": {
-            "title": "Email Sent",
-            "type": "boolean"
           },
           "id": {
             "format": "uuid",
@@ -2292,7 +2288,6 @@
           "locale",
           "sent_at",
           "valid_until",
-          "email_sent",
           "status",
           "decided_at",
           "client_comment"
@@ -7970,7 +7965,7 @@
     },
     "/quotes/{quote_id}": {
       "get": {
-        "description": "The quote and where it stands (open, expired after its validity date, accepted or\nrejected), for its client or staff (agents, admins). 404 for anyone else, so the id\nstays hidden.",
+        "description": "The quote and where it stands (open, expired after its validity date, accepted or\nrejected), for its client, the agent who sent it or an admin. 404 for anyone else\n(another agent too), so the id stays hidden.",
         "operationId": "getQuote",
         "parameters": [
           {
@@ -8044,7 +8039,7 @@
     },
     "/quotes/{quote_id}/accept": {
       "post": {
-        "description": "The client accepts their quote, with an optional comment for the agent. The plan\nbecomes accepted. 409 quote_expired after the validity day, 409 quote_answered when it\nis answered already; 403 for staff, 404 for anyone else.",
+        "description": "The client accepts their quote, with an optional comment for the agent. The plan\nbecomes accepted. 409 quote_expired after the validity day, 409 quote_answered when it\nis answered already; 403 for its agent and admins, 404 for anyone else.",
         "operationId": "acceptQuote",
         "parameters": [
           {
@@ -8138,7 +8133,7 @@
     },
     "/quotes/{quote_id}/pdf": {
       "get": {
-        "description": "The quote as a PDF, for its client or an agent. 404 for anyone else, so the id stays\nhidden.",
+        "description": "The quote as a PDF, for its client, the agent who sent it or an admin. 404 for anyone\nelse (another agent too), so the id stays hidden.",
         "operationId": "getQuotePdf",
         "parameters": [
           {

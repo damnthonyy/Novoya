@@ -28,7 +28,7 @@ export const Route = createFileRoute('/_authenticated/agent/plans/$planId')({
   component: AgentPlanRoute,
 })
 
-const QUOTE_VALID_DAYS = 7 // as the API's quote (quoting/domain/quote.py): sent_at + 7 days, UTC
+const QUOTE_VALID_DAYS = 7 // as the API's quote (quoting/domain/quote.py): sent_at + 7 days, its Paris day
 const DAY_MS = 24 * 60 * 60 * 1000
 
 function AgentPlanRoute() {
@@ -298,7 +298,8 @@ function QuoteSection({ plan }: { plan: AgentPlan }) {
     ...sendQuoteMutation(),
     onSuccess: (sent) => {
       // Just sent: open, with no answer yet.
-      const fresh: PlanQuote = { ...sent, status: 'open', decided_at: null, client_comment: null }
+      const { email_sent: _emailSent, ...fields } = sent
+      const fresh: PlanQuote = { ...fields, status: 'open', decided_at: null, client_comment: null }
       queryClient.setQueryData(quoteKey, fresh)
       queryClient.setQueryData(planKey, { ...plan, status: 'quoted' as const })
       void queryClient.invalidateQueries({ queryKey: planKey })
@@ -384,7 +385,7 @@ function QuoteSection({ plan }: { plan: AgentPlan }) {
         size="lg"
         className="w-full md:w-fit"
         disabled={!plan.ready_to_quote || missing.length > 0 || send.isPending}
-        onClick={() => setAsking(new Date(Date.now() + QUOTE_VALID_DAYS * DAY_MS).toISOString().slice(0, 10))}
+        onClick={() => setAsking(new Date(Date.now() + QUOTE_VALID_DAYS * DAY_MS).toISOString())}
       >
         {t('quote.send')}
       </Button>
@@ -413,7 +414,9 @@ function ClientAnswer({ quote }: { quote: PlanQuote }) {
             ? t('quote.answer.rejected', { date: day(quote.decided_at) })
             : quote.status === 'expired'
               ? t('quote.answer.expired', { date: day(quote.valid_until) })
-              : t('quote.answer.open')}
+              : quote.status === 'open'
+                ? t('quote.answer.open')
+                : null}
       </p>
       {answered && (
         <p className="m-0">

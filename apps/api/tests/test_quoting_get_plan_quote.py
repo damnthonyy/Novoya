@@ -41,6 +41,15 @@ async def test_the_agent_sees_the_clients_answer_and_comment():
     assert view.client_comment == "Too expensive for us"
 
 
+async def test_an_answer_stays_after_the_validity_ends():
+    quote = stored_quote(QuoteStatus.ACCEPTED)
+    later = FixedClock(quote.valid_until + timedelta(days=2))
+
+    view = await GetPlanQuote(FakeQuotes(quote), later)(PLAN_ID, AGENT_ID)
+
+    assert view.status is QuoteStatus.ACCEPTED
+
+
 async def test_the_agent_sees_when_the_quote_expired_unanswered():
     quote = stored_quote()
     later = FixedClock(quote.valid_until + timedelta(days=2))

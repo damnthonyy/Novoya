@@ -1,3 +1,4 @@
+from dataclasses import asdict
 from datetime import date, datetime
 from decimal import Decimal
 from typing import Literal
@@ -45,9 +46,10 @@ class Quote(QuoteFields):
         return cls.model_validate(view, from_attributes=True)
 
 
-class PlanQuote(Quote):
+class PlanQuote(QuoteFields):
     """The quote of a plan, for the agent who sent it: where it stands (open, expired,
-    accepted, rejected), and when the client answered with their comment (null until then)."""
+    accepted, rejected), and when the client answered with their comment (null until then).
+    No email_sent: that only matters on the answer to sending."""
 
     status: QuoteStatus
     decided_at: datetime | None
@@ -55,11 +57,13 @@ class PlanQuote(Quote):
 
     @classmethod
     def of_plan(cls, view: PlanQuoteView) -> "PlanQuote":
-        return cls(
-            **Quote.of(view.quote).model_dump(),
-            status=view.status,
-            decided_at=view.decided_at,
-            client_comment=view.client_comment,
+        return cls.model_validate(
+            {
+                **asdict(view.quote),
+                "status": view.status,
+                "decided_at": view.decided_at,
+                "client_comment": view.client_comment,
+            }
         )
 
 

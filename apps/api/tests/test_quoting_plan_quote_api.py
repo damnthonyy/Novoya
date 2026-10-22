@@ -68,6 +68,17 @@ async def test_the_assigned_agent_reads_the_quote_of_the_plan():
     assert datetime.fromisoformat(body["sent_at"]) == NOW
     assert datetime.fromisoformat(body["valid_until"]) == NOW + timedelta(days=7)
     assert (body["status"], body["decided_at"], body["client_comment"]) == ("open", None, None)
+    assert "email_sent" not in body
+
+
+async def test_the_agent_sees_that_the_quote_expired_unanswered():
+    later = FixedClock(QUOTE.valid_until + timedelta(days=2))
+    app = app_with(Role.AGENT)
+    app.dependency_overrides[get_get_plan_quote] = lambda: GetPlanQuote(FakeQuotes(QUOTE), later)
+
+    response = await call(app, "GET", f"/agent/plans/{PLAN_ID}/quote")
+
+    assert response.json()["status"] == "expired"
 
 
 async def test_the_agent_reads_the_clients_answer_and_comment():

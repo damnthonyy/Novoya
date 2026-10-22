@@ -4,6 +4,7 @@ import { fireEvent, render, screen, waitFor, within } from '@testing-library/rea
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import '../api/client'
+import { getPlanQuoteQueryKey } from '../api/generated/@tanstack/react-query.gen'
 import { client } from '../api/generated/client.gen'
 import type { AgentPlan, AgentPlanExtra, AgentPlanItem, MeResponse, PlanQuote, Quote } from '../api/generated/types.gen'
 import { createAppRouter } from '../router'
@@ -108,7 +109,8 @@ const QUOTE: Quote = {
 }
 
 // What GET /agent/plans/{id}/quote answers: the sent quote and where it stands.
-const OPEN_QUOTE: PlanQuote = { ...QUOTE, status: 'open', decided_at: null, client_comment: null }
+const { email_sent: _emailSent, ...QUOTE_FIELDS } = QUOTE
+const OPEN_QUOTE: PlanQuote = { ...QUOTE_FIELDS, status: 'open', decided_at: null, client_comment: null }
 
 type Answer = (body: unknown) => Response | Promise<Response>
 
@@ -350,6 +352,17 @@ describe('agent plan page', () => {
       expect(dialog).toHaveTextContent(/Valid until (29 October 2026|October 29, 2026)/)
     })
 
+    it("shows the validity as the agency's day in Paris, like the PDF", async () => {
+      // 23:30 UTC on 22 October is already 23 October in Paris: valid until 30 October.
+      vi.setSystemTime(new Date('2026-10-22T23:30:00Z'))
+      renderAt(`/agent/plans/${PLAN_ID}`)
+
+      fireEvent.click(await screen.findByRole('button', { name: 'Send the quote' }))
+
+      const dialog = await screen.findByRole('alertdialog', { name: 'Send the quote?' })
+      expect(dialog).toHaveTextContent('Valid until October 30, 2026')
+    })
+
     it('says in the dialog when the client gave no budget', async () => {
       plan = { ...READY, budget_max: null }
       renderAt(`/agent/plans/${PLAN_ID}`)
@@ -392,7 +405,7 @@ describe('agent plan page', () => {
     })
 
     it('shows the quote as sent, with its number and its PDF', async () => {
-      renderAt(`/agent/plans/${PLAN_ID}`)
+      const { queryClient } = renderAt(`/agent/plans/${PLAN_ID}`)
       fireEvent.click(await screen.findByRole('button', { name: 'Send the quote' }))
       const dialog = await screen.findByRole('alertdialog', { name: 'Send the quote?' })
 
@@ -406,6 +419,23 @@ describe('agent plan page', () => {
       )
       expect(screen.queryByRole('button', { name: 'Send the quote' })).not.toBeInTheDocument()
       expect(screen.getByText("Waiting for the client's answer.")).toBeInTheDocument()
+      // The page reads the quote from what sending answered: open, no answer, no email_sent.
+      const cached = queryClient.getQueryData(getPlanQuoteQueryKey({ path: { plan_id: PLAN_ID } }))
+      expect(cached).toMatchObject({ status: 'open', decided_at: null, client_comment: null })
+      expect(cached).not.toHaveProperty('email_sent')
+    })
+
+    it('shows the answer once the client gives it while the page is open', async () => {
+      plan = { ...READY, status: 'quoted' }
+      const { queryClient } = renderAt(`/agent/plans/${PLAN_ID}`)
+      expect(await screen.findByText("Waiting for the client's answer.")).toBeInTheDocument()
+
+      plan = { ...READY, status: 'rejected' }
+      planQuote = { ...OPEN_QUOTE, status: 'rejected', decided_at: '2026-10-24T08:30:00Z', client_comment: 'Too far' }
+      await queryClient.invalidateQueries()
+
+      expect(await screen.findByText('The client declined the quote on October 24, 2026.')).toBeInTheDocument()
+      expect(screen.getByText('Too far')).toBeInTheDocument()
     })
 
     it("shows the client's answer and comment", async () => {
