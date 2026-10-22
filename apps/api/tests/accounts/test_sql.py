@@ -373,6 +373,40 @@ async def test_one_time_tokens_are_invalidated(session):
     assert (await tokens.get("c" * 64, TokenPurpose.PASSWORD_RESET)).used_at == NOW
 
 
+async def test_sessions_past_their_absolute_expiry_are_deleted(session):
+    users, sessions = SqlUserRepository(session), SqlSessionRepository(session)
+    user = make_user()
+    await users.add(user)
+    ttl = timedelta(days=7), timedelta(days=30)
+    old = AuthSession.open(user.id, "d" * 64, NOW - timedelta(days=30), *ttl, user_agent="old")
+    recent = AuthSession.open(user.id, "e" * 64, NOW - timedelta(days=29), *ttl, user_agent=None)
+    await sessions.add(old)
+    await sessions.add(recent)
+    await session.commit()
+
+    await sessions.delete_expired(NOW)
+    await session.commit()
+
+    assert await sessions.get("d" * 64) is None
+    assert await sessions.get("e" * 64) is not None
+
+
+async def test_expired_one_time_tokens_are_deleted(session):
+    users, tokens = SqlUserRepository(session), SqlOneTimeTokenRepository(session)
+    user = make_user()
+    await users.add(user)
+    purpose = TokenPurpose.EMAIL_VERIFICATION
+    await tokens.add(OneTimeToken.issue(user.id, purpose, "f" * 64, NOW - timedelta(hours=24)))
+    await tokens.add(OneTimeToken.issue(user.id, purpose, "g" * 64, NOW - timedelta(hours=23)))
+    await session.commit()
+
+    await tokens.delete_expired(NOW)
+    await session.commit()
+
+    assert await tokens.get("f" * 64, purpose) is None
+    assert await tokens.get("g" * 64, purpose) is not None
+
+
 def test_grant_role_command(database_url, capsys):
     async def add_user() -> None:
         engine = create_async_engine(database_url, poolclass=NullPool)
