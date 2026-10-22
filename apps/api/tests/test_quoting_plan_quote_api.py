@@ -1,8 +1,10 @@
-"""Quote HTTP: GET /agent/plans/{id}/quote, the quote the assigned agent sent, on fakes."""
+"""Quote HTTP: GET /agent/plans/{id}/quote, the quote the assigned agent sent, for them or
+an admin, on fakes."""
 
 from datetime import datetime, timedelta
 from uuid import UUID, uuid4
 
+import pytest
 from httpx import ASGITransport, AsyncClient
 
 from novoya_api.accounts.application.dto import CurrentUserView
@@ -120,6 +122,17 @@ async def test_another_agent_reading_the_quote_of_the_plan_returns_403():
 
     assert response.status_code == 403
     assert response.json()["code"] == "forbidden"
+
+
+@pytest.mark.parametrize("role", [Role.ADMIN, Role.SUPER_ADMIN])
+async def test_an_admin_reads_the_quote_another_agent_sent(role):
+    # The agent page is open to admins: they read every quote, as on GET /quotes/{id}.
+    app = app_with(role, uuid4())
+
+    response = await call(app, "GET", f"/agent/plans/{PLAN_ID}/quote")
+
+    assert response.status_code == 200
+    assert response.json()["id"] == str(QUOTE.id)
 
 
 async def test_a_client_cannot_read_the_quote_of_a_plan_as_an_agent():

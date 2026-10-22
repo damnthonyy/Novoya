@@ -6451,7 +6451,7 @@
     },
     "/agent/plans/{plan_id}/quote": {
       "get": {
-        "description": "The quote sent for this plan, with the id of its PDF, where it stands and the\nclient's answer and comment. Only the agent who sent it (403). 404 before the quote is\nsent.",
+        "description": "The quote sent for this plan, with the id of its PDF, where it stands and the\nclient's answer and comment. Only the agent who sent it or an admin (403). 404 before\nthe quote is sent.",
         "operationId": "getPlanQuote",
         "parameters": [
           {

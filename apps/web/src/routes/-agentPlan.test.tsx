@@ -426,16 +426,35 @@ describe('agent plan page', () => {
     })
 
     it('shows the answer once the client gives it while the page is open', async () => {
+      vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'setInterval', 'clearInterval'], shouldAdvanceTime: true })
       plan = { ...READY, status: 'quoted' }
-      const { queryClient } = renderAt(`/agent/plans/${PLAN_ID}`)
+      renderAt(`/agent/plans/${PLAN_ID}`)
       expect(await screen.findByText("Waiting for the client's answer.")).toBeInTheDocument()
 
       plan = { ...READY, status: 'rejected' }
       planQuote = { ...OPEN_QUOTE, status: 'rejected', decided_at: '2026-10-24T08:30:00Z', client_comment: 'Too far' }
-      await queryClient.invalidateQueries()
+      const before = planReads()
+      // No focus, no reload: the open quote is read again every minute.
+      await vi.advanceTimersByTimeAsync(60_000)
 
       expect(await screen.findByText('The client declined the quote on October 24, 2026.')).toBeInTheDocument()
       expect(screen.getByText('Too far')).toBeInTheDocument()
+      // The plan follows the answer: read again, its status is now declined.
+      await waitFor(() => expect(planReads()).toBeGreaterThan(before))
+      expect(await screen.findByText('Declined')).toBeInTheDocument()
+    })
+
+    it('stops reading the quote again once the client answered', async () => {
+      vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'setInterval', 'clearInterval'], shouldAdvanceTime: true })
+      plan = { ...READY, status: 'accepted' }
+      planQuote = { ...OPEN_QUOTE, status: 'accepted', decided_at: '2026-10-24T08:30:00Z' }
+      renderAt(`/agent/plans/${PLAN_ID}`)
+      await screen.findByText('The client accepted the quote on October 24, 2026.')
+      const reads = sent('GET', `/agent/plans/${PLAN_ID}/quote`).length
+
+      await vi.advanceTimersByTimeAsync(5 * 60_000)
+
+      expect(sent('GET', `/agent/plans/${PLAN_ID}/quote`)).toHaveLength(reads)
     })
 
     it("shows the client's answer and comment", async () => {

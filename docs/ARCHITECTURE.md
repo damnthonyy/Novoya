@@ -286,7 +286,7 @@ Agent (roles `agent` and `admin`):
 | PATCH | `/agent/plans/{id}/items/{item_id}` | Set the negotiated price, or remove the item |
 | PATCH | `/agent/plans/{id}/extras/{extra_id}` | Price an `on_quote` extra, or adjust or confirm a supplement |
 | POST | `/agent/plans/{id}/quote` | Compute the total, render the PDF, status `quoted`, email the client |
-| GET | `/agent/plans/{id}/quote` | The sent quote, for the agent who sent it: its number, PDF and status (`open`, `expired`, `accepted`, `rejected`), with the client's answer date and comment |
+| GET | `/agent/plans/{id}/quote` | The sent quote, for the agent who sent it or an admin: its number, PDF and status (`open`, `expired`, `accepted`, `rejected`), with the client's answer date and comment |
 | POST | `/agent/quotes/{id}/email` | Send the client's quote email again (the agent who sent the quote, or an admin) |
 
 Admin (role `admin` only; an admin can also use every agent route):

@@ -288,7 +288,7 @@ function QuoteSection({ plan }: { plan: AgentPlan }) {
   const planKey = getAgentPlanQueryKey({ path: { plan_id: plan.id } })
   const quoteKey = getPlanQuoteQueryKey({ path: { plan_id: plan.id } })
   const negotiating = plan.status === 'negotiating'
-  const quote = usePlanQuote(plan.id, !negotiating && plan.status !== 'requested')
+  const quote = usePlanQuote(plan.id, !negotiating && plan.status !== 'requested', plan.status)
   // The validity shown in the dialog, set when it opens; null while it is closed.
   const [asking, setAsking] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)

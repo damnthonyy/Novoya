@@ -68,13 +68,13 @@ async def send_quote(
 @agent_router.get("/{plan_id}/quote", operation_id="getPlanQuote")
 async def get_plan_quote(
     plan_id: UUID,
-    agent_id: Annotated[UUID, Depends(get_current_agent_id)],
+    staff: Annotated[Staff, Depends(get_staff)],
     use_case: Annotated[GetPlanQuote, Depends(get_get_plan_quote)],
 ) -> PlanQuote:
     """The quote sent for this plan, with the id of its PDF, where it stands and the
-    client's answer and comment. Only the agent who sent it (403). 404 before the quote is
-    sent."""
-    return PlanQuote.of_plan(await use_case(plan_id, agent_id))
+    client's answer and comment. Only the agent who sent it or an admin (403). 404 before
+    the quote is sent."""
+    return PlanQuote.of_plan(await use_case(plan_id, staff.user_id, staff.admin))
 
 
 agent_quotes_router = APIRouter(prefix="/agent/quotes", tags=["agent"], responses=ERRORS)
