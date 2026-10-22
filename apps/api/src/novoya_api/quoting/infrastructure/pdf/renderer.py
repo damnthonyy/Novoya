@@ -10,6 +10,7 @@ from babel import Locale as BabelLocale
 from babel.dates import format_date
 from babel.numbers import format_currency
 from jinja2 import Environment, FileSystemLoader, StrictUndefined, select_autoescape
+from markupsafe import Markup
 from weasyprint import HTML
 from weasyprint.urls import URLFetcher
 
@@ -30,6 +31,28 @@ AGENCY = {
 }
 LOGO = (
     "data:image/svg+xml;base64," + base64.b64encode((TEMPLATES / "logo.svg").read_bytes()).decode()
+)
+
+
+def _font_face(weight: str, style: str, file: str) -> str:
+    data = base64.b64encode((TEMPLATES / "fonts" / file).read_bytes()).decode()
+    return (
+        f'@font-face {{ font-family: "Liberation Sans"; font-weight: {weight}; '
+        f'font-style: {style}; src: url("data:font/ttf;base64,{data}"); }}'
+    )
+
+
+# The font travels with the template (SIL OFL, fonts/LICENSE): the PDF looks the same on a
+# laptop, in CI and on the server, whatever fonts the host has. Only the glyphs used are
+# embedded in the PDF.
+FONTS_CSS = Markup(
+    "\n".join(
+        (
+            _font_face("normal", "normal", "LiberationSans-Regular.ttf"),
+            _font_face("bold", "normal", "LiberationSans-Bold.ttf"),
+            _font_face("normal", "italic", "LiberationSans-Italic.ttf"),
+        )
+    )
 )
 
 LABELS: dict[Locale, dict[str, str]] = {
@@ -116,6 +139,7 @@ class WeasyPrintRenderer:
             t=LABELS[locale],
             agency=AGENCY,
             logo=LOGO,
+            fonts_css=FONTS_CSS,
             quote=document.quote,
             plan=plan,
             items=[

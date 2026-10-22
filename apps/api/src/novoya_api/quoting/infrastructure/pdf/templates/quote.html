@@ -4,10 +4,11 @@
 <meta charset="utf-8">
 <title>{{ t.quote }} {{ quote.number }}</title>
 <style>
+{{ fonts_css }}
   @page { size: A4; margin: 14mm 16mm 18mm;
     @bottom-center { content: element(footer); }
     @bottom-right { content: counter(page) " / " counter(pages); font-size: 8pt; color: #6b6b6b; } }
-  body { font-family: "DejaVu Sans", sans-serif; font-size: 9.5pt; color: #1d1d1b; line-height: 1.45; }
+  body { font-family: "Liberation Sans", sans-serif; font-size: 9.5pt; color: #1d1d1b; line-height: 1.45; }
   h1 { font-size: 20pt; margin: 0; letter-spacing: 0.02em; }
   h2 { font-size: 11pt; margin: 13pt 0 5pt; padding-bottom: 3pt; border-bottom: 1px solid #d9d4c7; }
   .head { display: flex; justify-content: space-between; align-items: flex-start; }
