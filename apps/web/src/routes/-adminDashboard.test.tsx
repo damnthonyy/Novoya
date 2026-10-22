@@ -48,7 +48,8 @@ function mockApi() {
 }
 
 function renderAt(url: string) {
-  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+  // The app's 30 seconds of freshness (router.tsx), so that a stale count would show.
+  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false, staleTime: 30_000 } } })
   const router = createAppRouter(queryClient, createMemoryHistory({ initialEntries: [url] }))
   render(
     <QueryClientProvider client={queryClient}>
@@ -114,6 +115,18 @@ describe('admin dashboard', () => {
     await waitFor(() => expect(router.state.location.pathname).toBe('/admin/users'))
   })
 
+  it('reads the numbers again when the admin comes back', async () => {
+    const { router } = renderAt('/admin')
+    await screen.findByRole('link', { name: /Active partners/ }, { timeout: 3000 })
+    await router.navigate({ to: '/admin/users' })
+    statsAnswer = () => Response.json({ ...STATS, partners: { active: 7, hidden: 2, inactive: 2 } })
+
+    await router.navigate({ to: '/admin' })
+
+    await waitFor(() => expect(tile(/Active partners/)).toHaveTextContent(/^7/))
+    expect(requests.filter((path) => path === '/admin/stats')).toHaveLength(2)
+  })
+
   it('offers a retry when the numbers cannot be loaded', async () => {
     statsAnswer = () => Response.json({ code: 'unknown', detail: 'boom' }, { status: 500 })
     renderAt('/admin')
@@ -132,6 +145,8 @@ describe('admin dashboard', () => {
     expect(await screen.findByRole('heading', { level: 1, name: "Vue d'ensemble" }, { timeout: 3000 })).toBeInTheDocument()
     const partners = await screen.findByRole('link', { name: /Partenaires actifs/ })
     expect(within(partners).getByText('1 masqué')).toBeInTheDocument()
+    expect(within(tile(/Offres actives/)).getByText('3 masquées')).toBeInTheDocument()
+    expect(within(partners).getByText(/^2 retirés de /)).toBeInTheDocument()
     expect(within(tile(/Devis acceptés/)).getByText('4 refusés')).toBeInTheDocument()
   })
 })

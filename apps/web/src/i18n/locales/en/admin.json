@@ -387,8 +387,11 @@
     "hidden_other": "{{count}} hidden",
     "inactive_one": "{{count}} no longer in {{agency}}",
     "inactive_other": "{{count}} no longer in {{agency}}",
+    "offersHidden_one": "{{count}} hidden",
+    "offersHidden_other": "{{count}} hidden",
+    "offersInactive_one": "{{count}} no longer in {{agency}}",
+    "offersInactive_other": "{{count}} no longer in {{agency}}",
     "users": "Accounts",
-    "byRole": "{{client}} clients · {{agent}} agents · {{admin}} admins",
-    "open": "Open: {{label}}"
+    "byRole": "{{client}} clients · {{agent}} agents · {{admin}} admins"
   }
 }

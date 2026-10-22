@@ -17,7 +17,9 @@ export const Route = createFileRoute('/_authenticated/admin/')({
 /** The admin home: the agency's key numbers, each one opening its page. Counts only. */
 function DashboardPage() {
   const { t } = useTranslation('admin')
-  const stats = useQuery(getAdminStatsOptions())
+  // Read again on every visit: the numbers must show what the admin just changed on the
+  // other pages, and the router keeps a query fresh for 30 seconds by default.
+  const stats = useQuery({ ...getAdminStatsOptions(), staleTime: 0 })
 
   return (
     <>
@@ -39,9 +41,16 @@ function Numbers({ stats }: { stats: AdminStatsResponse }) {
   const { t } = useTranslation('admin')
   const { plans, quotes, users } = stats
   // What a catalog number leaves out: the rows an admin hid, and those DÉTOUR no longer exports.
-  const leftOut = (rows: StatsRows) => [
-    t('dashboard.hidden', { count: rows.hidden }),
-    ...(rows.inactive > 0 ? [t('dashboard.inactive', { count: rows.inactive })] : []),
+  // Offers have their own texts: in French, the words agree with "offre".
+  const leftOut = (rows: StatsRows, offers = false) => [
+    offers ? t('dashboard.offersHidden', { count: rows.hidden }) : t('dashboard.hidden', { count: rows.hidden }),
+    ...(rows.inactive === 0
+      ? []
+      : [
+          offers
+            ? t('dashboard.offersInactive', { count: rows.inactive })
+            : t('dashboard.inactive', { count: rows.inactive }),
+        ]),
   ]
   const toPlans = (content: ReactNode, className: string) => (
     <Link to="/admin/activity" search={{ tab: 'plans' }} className={className}>
@@ -87,7 +96,7 @@ function Numbers({ stats }: { stats: AdminStatsResponse }) {
         <StatTile
           label={t('dashboard.offers')}
           value={stats.offers.active}
-          details={leftOut(stats.offers)}
+          details={leftOut(stats.offers, true)}
           renderLink={toPartners}
         />
         <StatTile

@@ -385,10 +385,13 @@
     "reviews": "Avis publiés",
     "hidden_one": "{{count}} masqué",
     "hidden_other": "{{count}} masqués",
-    "inactive_one": "{{count}} plus dans {{agency}}",
-    "inactive_other": "{{count}} plus dans {{agency}}",
+    "inactive_one": "{{count}} retiré de {{agency}}",
+    "inactive_other": "{{count}} retirés de {{agency}}",
+    "offersHidden_one": "{{count}} masquée",
+    "offersHidden_other": "{{count}} masquées",
+    "offersInactive_one": "{{count}} retirée de {{agency}}",
+    "offersInactive_other": "{{count}} retirées de {{agency}}",
     "users": "Comptes",
-    "byRole": "{{client}} clients · {{agent}} agents · {{admin}} admins",
-    "open": "Ouvrir : {{label}}"
+    "byRole": "{{client}} clients · {{agent}} agents · {{admin}} admins"
   }
 }
