@@ -295,7 +295,8 @@ async def update_extra(
 async def list_all_reviews(
     use_case: Annotated[ListAllReviews, Depends(get_list_all_reviews)],
 ) -> list[AdminReviewResponse]:
-    """All published reviews, hidden ones too. Admins only."""
+    """All published reviews, hidden ones too, newest first. No paging: there are few
+    enough. Admins only."""
     return [AdminReviewResponse.of(review) for review in await use_case()]
 
 
