@@ -6,6 +6,7 @@ import { useTranslation } from 'react-i18next'
 import {
   listAllReviewsOptions,
   listAllReviewsQueryKey,
+  listReviewsQueryKey,
   updateReviewMutation,
 } from '../../../../api/generated/@tanstack/react-query.gen'
 import type { AdminReviewResponse } from '../../../../api/generated/types.gen'
@@ -35,7 +36,10 @@ function ReviewsPage() {
       queryClient.setQueryData(listAllReviewsQueryKey(), (rows: AdminReviewResponse[] | undefined) =>
         rows?.map((row) => (row.id === saved.id ? saved : row)),
       )
-      return queryClient.invalidateQueries({ queryKey: listAllReviewsQueryKey() })
+      return Promise.all([
+        queryClient.invalidateQueries({ queryKey: listAllReviewsQueryKey() }),
+        queryClient.invalidateQueries({ queryKey: listReviewsQueryKey() }),
+      ])
     },
     onSettled: (_data, _error, { path }) => setSavingIds((ids) => withoutId(ids, path.review_id)),
   })

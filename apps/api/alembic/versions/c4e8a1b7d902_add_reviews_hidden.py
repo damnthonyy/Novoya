@@ -4,7 +4,7 @@ The admin's switch to take a published review down at once (#129). The DÉTOUR i
 never writes this column (ADR 0014): it still deletes a review that left avis_diffusables.
 
 Revision ID: c4e8a1b7d902
-Revises: 0b6e3d9a5c71
+Revises: c4e8a2f61d93
 Create Date: 2026-10-22
 
 """
@@ -16,7 +16,7 @@ import sqlalchemy as sa
 from alembic import op
 
 revision: str = "c4e8a1b7d902"
-down_revision: str | Sequence[str] | None = "0b6e3d9a5c71"
+down_revision: str | Sequence[str] | None = "c4e8a2f61d93"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 
