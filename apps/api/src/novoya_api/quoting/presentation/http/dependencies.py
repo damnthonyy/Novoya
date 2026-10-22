@@ -112,7 +112,7 @@ def get_resend_quote_email(
 
 
 def get_get_plan_quote(session: Annotated[AsyncSession, Depends(get_session)]) -> GetPlanQuote:
-    return GetPlanQuote(quotes=SqlQuoteRepository(session))
+    return GetPlanQuote(quotes=SqlQuoteRepository(session), clock=SystemClock())
 
 
 def get_get_quote(session: Annotated[AsyncSession, Depends(get_session)]) -> GetQuote:

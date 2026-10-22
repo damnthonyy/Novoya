@@ -30,6 +30,7 @@ from novoya_api.quoting.presentation.http.dependencies import (
 from novoya_api.quoting.presentation.http.schemas import (
     AdminQuote,
     AnswerQuoteRequest,
+    PlanQuote,
     Quote,
     QuoteDetail,
     SendQuoteRequest,
@@ -69,10 +70,11 @@ async def get_plan_quote(
     plan_id: UUID,
     agent_id: Annotated[UUID, Depends(get_current_agent_id)],
     use_case: Annotated[GetPlanQuote, Depends(get_get_plan_quote)],
-) -> Quote:
-    """The quote sent for this plan, with the id of its PDF. Only the agent who sent it
-    (403). 404 before the quote is sent."""
-    return Quote.of(await use_case(plan_id, agent_id))
+) -> PlanQuote:
+    """The quote sent for this plan, with the id of its PDF, where it stands and the
+    client's answer and comment. Only the agent who sent it (403). 404 before the quote is
+    sent."""
+    return PlanQuote.of_plan(await use_case(plan_id, agent_id))
 
 
 agent_quotes_router = APIRouter(prefix="/agent/quotes", tags=["agent"], responses=ERRORS)

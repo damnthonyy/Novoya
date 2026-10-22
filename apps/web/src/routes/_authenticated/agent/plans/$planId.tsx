@@ -13,7 +13,7 @@ import {
   setPlanExtraMutation,
   setPlanItemMutation,
 } from '../../../../api/generated/@tanstack/react-query.gen'
-import type { AgentPlan, AgentPlanExtra, AgentPlanItem } from '../../../../api/generated/types.gen'
+import type { AgentPlan, AgentPlanExtra, AgentPlanItem, PlanQuote } from '../../../../api/generated/types.gen'
 import { Button } from '../../../../components/atoms/Button'
 import { Eyebrow } from '../../../../components/atoms/Eyebrow'
 import { StatusPill } from '../../../../components/atoms/StatusPill'
@@ -22,7 +22,7 @@ import { PriceField } from '../../../../components/molecules/PriceField'
 import { SendQuoteDialog } from '../../../../components/organisms/SendQuoteDialog'
 import { groupByDay } from '../../../../domain/plan/days'
 import { missingPrices } from '../../../../domain/plan/quoteReadiness'
-import { formatDay, formatDayRange, formatEuros } from '../../../../lib/format'
+import { formatAgencyDay, formatDayRange, formatEuros } from '../../../../lib/format'
 
 export const Route = createFileRoute('/_authenticated/agent/plans/$planId')({
   component: AgentPlanRoute,
@@ -297,7 +297,9 @@ function QuoteSection({ plan }: { plan: AgentPlan }) {
   const send = useMutation({
     ...sendQuoteMutation(),
     onSuccess: (sent) => {
-      queryClient.setQueryData(quoteKey, sent)
+      // Just sent: open, with no answer yet.
+      const fresh: PlanQuote = { ...sent, status: 'open', decided_at: null, client_comment: null }
+      queryClient.setQueryData(quoteKey, fresh)
       queryClient.setQueryData(planKey, { ...plan, status: 'quoted' as const })
       void queryClient.invalidateQueries({ queryKey: planKey })
       void queryClient.invalidateQueries({ queryKey: queueOptions('in_progress').queryKey })
@@ -345,9 +347,10 @@ function QuoteSection({ plan }: { plan: AgentPlan }) {
               <dd className="m-0 font-semibold">{quote.data.number}</dd>
             </dl>
             <p className="m-0 text-sm text-muted">
-              {t('quote.sentOn', { date: formatDay(locale, quote.data.sent_at) })} ·{' '}
-              {t('quote.validUntil', { date: formatDay(locale, quote.data.valid_until) })}
+              {t('quote.sentOn', { date: formatAgencyDay(locale, quote.data.sent_at) })} ·{' '}
+              {t('quote.validUntil', { date: formatAgencyDay(locale, quote.data.valid_until) })}
             </p>
+            <ClientAnswer quote={quote.data} />
             <Button asChild variant="coral" className="w-full md:w-fit">
               <a href={`${client.getConfig().baseUrl}/quotes/${quote.data.id}/pdf`} download>
                 {t('quote.download')}
@@ -393,5 +396,31 @@ function QuoteSection({ plan }: { plan: AgentPlan }) {
         onCancel={() => setAsking(null)}
       />
     </section>
+  )
+}
+
+/** Where the sent quote stands: waiting, expired, or the client's answer with their comment. */
+function ClientAnswer({ quote }: { quote: PlanQuote }) {
+  const { t, i18n } = useTranslation('agent')
+  const day = (iso: string | null) => (iso ? formatAgencyDay(i18n.language, iso) : '')
+  const answered = quote.status === 'accepted' || quote.status === 'rejected'
+  return (
+    <div role="status" className="grid gap-2 border-s-2 border-line ps-4 text-sm">
+      <p className="m-0 font-semibold">
+        {quote.status === 'accepted'
+          ? t('quote.answer.accepted', { date: day(quote.decided_at) })
+          : quote.status === 'rejected'
+            ? t('quote.answer.rejected', { date: day(quote.decided_at) })
+            : quote.status === 'expired'
+              ? t('quote.answer.expired', { date: day(quote.valid_until) })
+              : t('quote.answer.open')}
+      </p>
+      {answered && (
+        <p className="m-0">
+          <span className="text-muted">{t('quote.answer.comment')}</span>{' '}
+          {quote.client_comment ? <q>{quote.client_comment}</q> : t('quote.answer.noComment')}
+        </p>
+      )}
+    </div>
   )
 }

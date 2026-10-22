@@ -2209,6 +2209,97 @@
         "title": "PlanItemResponse",
         "type": "object"
       },
+      "PlanQuote": {
+        "description": "The quote of a plan, for the agent who sent it: where it stands (open, expired,\naccepted, rejected), and when the client answered with their comment (null until then).",
+        "properties": {
+          "client_comment": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Client Comment"
+          },
+          "currency": {
+            "title": "Currency",
+            "type": "string"
+          },
+          "decided_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Decided At"
+          },
+          "email_sent": {
+            "title": "Email Sent",
+            "type": "boolean"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "locale": {
+            "enum": [
+              "en",
+              "fr"
+            ],
+            "title": "Locale",
+            "type": "string"
+          },
+          "number": {
+            "title": "Number",
+            "type": "string"
+          },
+          "plan_id": {
+            "format": "uuid",
+            "title": "Plan Id",
+            "type": "string"
+          },
+          "sent_at": {
+            "format": "date-time",
+            "title": "Sent At",
+            "type": "string"
+          },
+          "status": {
+            "$ref": "#/components/schemas/QuoteStatus"
+          },
+          "total": {
+            "title": "Total",
+            "type": "string"
+          },
+          "valid_until": {
+            "format": "date-time",
+            "title": "Valid Until",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "number",
+          "plan_id",
+          "total",
+          "currency",
+          "locale",
+          "sent_at",
+          "valid_until",
+          "email_sent",
+          "status",
+          "decided_at",
+          "client_comment"
+        ],
+        "title": "PlanQuote",
+        "type": "object"
+      },
       "PlanResponse": {
         "description": "The proposed plan, day by day. No price until it is quoted and no partner name.\nbased_on_preferences is false when the client picked no tag.",
         "properties": {
@@ -5911,7 +6002,7 @@
     },
     "/agent/plans/{plan_id}/quote": {
       "get": {
-        "description": "The quote sent for this plan, with the id of its PDF. Only the agent who sent it\n(403). 404 before the quote is sent.",
+        "description": "The quote sent for this plan, with the id of its PDF, where it stands and the\nclient's answer and comment. Only the agent who sent it (403). 404 before the quote is\nsent.",
         "operationId": "getPlanQuote",
         "parameters": [
           {
@@ -5930,7 +6021,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Quote"
+                  "$ref": "#/components/schemas/PlanQuote"
                 }
               }
             },

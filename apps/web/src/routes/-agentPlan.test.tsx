@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import '../api/client'
 import { client } from '../api/generated/client.gen'
-import type { AgentPlan, AgentPlanExtra, AgentPlanItem, MeResponse, Quote } from '../api/generated/types.gen'
+import type { AgentPlan, AgentPlanExtra, AgentPlanItem, MeResponse, PlanQuote, Quote } from '../api/generated/types.gen'
 import { createAppRouter } from '../router'
 
 const AGENT: MeResponse = {
@@ -107,6 +107,9 @@ const QUOTE: Quote = {
   email_sent: true,
 }
 
+// What GET /agent/plans/{id}/quote answers: the sent quote and where it stands.
+const OPEN_QUOTE: PlanQuote = { ...QUOTE, status: 'open', decided_at: null, client_comment: null }
+
 type Answer = (body: unknown) => Response | Promise<Response>
 
 let me: MeResponse
@@ -115,6 +118,7 @@ let planAnswer: () => Response
 let itemAnswer: Answer
 let extraAnswer: Answer
 let quoteAnswer: () => Response | Promise<Response>
+let planQuote: PlanQuote
 let requests: { method: string; path: string; search: string; body?: unknown }[]
 
 function mockApi() {
@@ -129,8 +133,8 @@ function mockApi() {
     if (url.pathname.startsWith(`/agent/plans/${PLAN_ID}/extras/`) && request.method === 'PATCH') return extraAnswer(body)
     if (url.pathname === `/agent/plans/${PLAN_ID}/quote` && request.method === 'POST') return quoteAnswer()
     if (url.pathname === `/agent/plans/${PLAN_ID}/quote` && request.method === 'GET') {
-      return plan.status === 'quoted'
-        ? Response.json(QUOTE)
+      return ['quoted', 'accepted', 'rejected'].includes(plan.status)
+        ? Response.json(planQuote)
         : Response.json({ code: 'not_found', detail: 'no quote' }, { status: 404 })
     }
     return Response.json({ code: 'not_found', detail: 'no route' }, { status: 404 })
@@ -169,6 +173,7 @@ describe('agent plan page', () => {
       plan = { ...plan, status: 'quoted' }
       return Response.json(QUOTE, { status: 201 })
     }
+    planQuote = OPEN_QUOTE
     requests = []
     mockApi()
   })
@@ -400,6 +405,33 @@ describe('agent plan page', () => {
         `http://api.test/quotes/${QUOTE.id}/pdf`,
       )
       expect(screen.queryByRole('button', { name: 'Send the quote' })).not.toBeInTheDocument()
+      expect(screen.getByText("Waiting for the client's answer.")).toBeInTheDocument()
+    })
+
+    it("shows the client's answer and comment", async () => {
+      plan = { ...READY, status: 'accepted' }
+      planQuote = { ...OPEN_QUOTE, status: 'accepted', decided_at: '2026-10-24T08:30:00Z', client_comment: 'See you in May!' }
+      renderAt(`/agent/plans/${PLAN_ID}`)
+
+      expect(await screen.findByText('The client accepted the quote on October 24, 2026.')).toBeInTheDocument()
+      expect(screen.getByText('See you in May!')).toBeInTheDocument()
+    })
+
+    it('says when the client declined without a comment', async () => {
+      plan = { ...READY, status: 'rejected' }
+      planQuote = { ...OPEN_QUOTE, status: 'rejected', decided_at: '2026-10-24T08:30:00Z' }
+      renderAt(`/agent/plans/${PLAN_ID}`)
+
+      expect(await screen.findByText('The client declined the quote on October 24, 2026.')).toBeInTheDocument()
+      expect(screen.getByRole('status')).toHaveTextContent("Client's comment: none.")
+    })
+
+    it('says when the quote expired without an answer', async () => {
+      plan = { ...READY, status: 'quoted' }
+      planQuote = { ...OPEN_QUOTE, status: 'expired' }
+      renderAt(`/agent/plans/${PLAN_ID}`)
+
+      expect(await screen.findByText('The quote expired on October 29, 2026 without an answer.')).toBeInTheDocument()
     })
 
     it('explains when the plan is not ready after all, reads it again and keeps the prices', async () => {
