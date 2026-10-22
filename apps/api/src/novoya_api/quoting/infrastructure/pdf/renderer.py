@@ -3,8 +3,10 @@
 import base64
 from datetime import date, datetime, timedelta
 from decimal import Decimal
+from functools import cache
 from pathlib import Path
 
+from babel import Locale as BabelLocale
 from babel.dates import format_date
 from babel.numbers import format_currency
 from jinja2 import Environment, FileSystemLoader, StrictUndefined, select_autoescape
@@ -16,8 +18,10 @@ from novoya_api.quoting.domain.quote import AGENCY_TIMEZONE
 from novoya_api.shared.domain.value_objects import Locale
 
 TEMPLATES = Path(__file__).parent / "templates"
-# Novoya is the project; the quote comes from the agency. Confirmed values of
-# apps/web/brand/agency.json; logo.svg is the agency's final logo.
+# Novoya is the project; the quote comes from the agency. Its name, website and email are the
+# confirmed values of apps/web/brand/agency.json; the phone and logo.svg were given by the
+# agency on 2026-10-22 (agency.json still marks the phone to_check until #109). The API image
+# cannot read apps/web, so they are copied here: change both places together.
 AGENCY = {
     "name": "DÉTOUR Voyages",
     "website": "www.detour-voyages.fr",
@@ -44,7 +48,7 @@ LABELS: dict[Locale, dict[str, str]] = {
         "day": "Day",
         "item": "What is booked",
         "quantity": "Qty",
-        "price": "Price",
+        "price": "Amount",
         "extra": "Extra",
         "included": "Included",
         "unavailable": "No longer listed",
@@ -73,7 +77,7 @@ LABELS: dict[Locale, dict[str, str]] = {
         "day": "Jour",
         "item": "Prestation réservée",
         "quantity": "Qté",
-        "price": "Prix",
+        "price": "Montant",
         "extra": "Option",
         "included": "Inclus",
         "unavailable": "Plus au catalogue",
@@ -127,7 +131,10 @@ class WeasyPrintRenderer:
             ],
             client=document.client,
             agent=document.agent,
-            destination=", ".join(part for part in (plan.city, plan.country) if part) or "–",
+            destination=", ".join(
+                part for part in (plan.city, _country(plan.country, locale)) if part
+            )
+            or "–",
             tags=[_tag_label(tag) for tag in plan.tags],
             answer_url=document.answer_url,
         )
@@ -148,6 +155,20 @@ def _money(amount: Decimal, locale: Locale) -> str:
 def _day(value: date | datetime, locale: Locale) -> str:
     plain = value.astimezone(AGENCY_TIMEZONE).date() if isinstance(value, datetime) else value
     return format_date(plain, format="long", locale=locale.value)
+
+
+@cache
+def _territory_codes() -> dict[str, str]:
+    """English country name -> CLDR code. Novoya stores countries by their English name."""
+    return {name: code for code, name in BabelLocale("en").territories.items()}
+
+
+def _country(name: str | None, locale: Locale) -> str | None:
+    """The country in the quote's language: "Greece" -> "Grèce". An unknown name as stored."""
+    code = _territory_codes().get(name) if name else None
+    if code is None:
+        return name
+    return BabelLocale(locale.value).territories.get(code, name)
 
 
 def _date_of_day(start: date | None, day: int) -> date | None:

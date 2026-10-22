@@ -53,3 +53,8 @@ jobs:
             echo "::error::apps/api/openapi.json is out of date. Run: uv run python -m novoya_api.openapi > openapi.json"
             exit 1
           }
+      - name: Docker image builds and renders a PDF
+        # The Dockerfile's apt packages are what WeasyPrint needs in the deployed API (#52).
+        run: |
+          docker build -t novoya-api .
+          docker run --rm novoya-api python -c "import weasyprint; assert weasyprint.HTML(string='<p>ok</p>').write_pdf().startswith(b'%PDF')"

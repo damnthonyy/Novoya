@@ -2,6 +2,7 @@
 
 from dataclasses import fields, replace
 from datetime import UTC, datetime
+from decimal import Decimal
 
 import pytest
 from babel.dates import format_date
@@ -187,3 +188,40 @@ def test_the_pdf_never_fetches_a_file(tmp_path, monkeypatch):
 @pytest.mark.parametrize("locale", [Locale.EN, Locale.FR])
 def test_the_quote_gives_the_agencys_phone_number(locale):
     assert "+33 2 40 00 00 00" in html_of(locale)
+
+
+def pages_of(doc) -> int:
+    from weasyprint import HTML
+
+    return len(HTML(string=WeasyPrintRenderer().html(doc)).render().pages)
+
+
+@pytest.mark.parametrize("locale", [Locale.EN, Locale.FR])
+def test_a_three_item_trip_fits_on_one_page(locale):
+    doc = document(locale)
+    items = tuple(
+        QuotedItem(day, "hotel", f"Item {day}", "A short description", 2, Decimal("100"))
+        for day in (1, 2, 3)
+    )
+
+    assert pages_of(replace(doc, plan=replace(doc.plan, items=items))) == 1
+
+
+def test_the_price_column_says_it_is_the_line_amount(english, french):
+    assert "Amount" in english
+    assert "Montant" in french
+
+
+def test_the_french_quote_names_the_country_in_french(french):
+    assert "Chania, Grèce" in french
+
+
+def test_the_english_quote_names_the_country_in_english(english):
+    assert "Chania, Greece" in english
+
+
+def test_an_unknown_country_is_shown_as_stored():
+    doc = document(Locale.FR)
+    doc = replace(doc, plan=replace(doc.plan, country="Atlantis"))
+
+    assert "Chania, Atlantis" in WeasyPrintRenderer().html(doc)
