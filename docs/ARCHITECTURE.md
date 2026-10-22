@@ -333,8 +333,10 @@ novoya/
 ## 9. Privacy (GDPR)
 
 - We store only the account (email, name, first name, last name, role, language), a hash of the password if the user has one, the sessions (with the browser's user agent, never the IP address, kept 30 days at most), what the client types (wishes, panel answers, budget, travellers, dates), the plans and the quotes. No mailbox, document or social media data, no avatar and no Google token.
-- Published reviews come from DÉTOUR's `avis_diffusables` only: the traveller agreed to publication, and the author is already pseudonymised ("First name I." or "Voyageur anonyme", kept as given). Raw reviews and consents are never imported, and a review whose consent is withdrawn is deleted at the next import ([ADR 0014](adr/0014-indicative-prices-and-detour-import.md)). An admin can hide a review at once (`PATCH /admin/reviews/{id}`); the import never shows it again. The privacy page (#45) must say so.
-- A privacy page says what we store, why, and for how long.
+- Published reviews come from DÉTOUR's `avis_diffusables` only: the traveller agreed to publication, and the author is already pseudonymised ("First name I." or "Voyageur anonyme", kept as given). Raw reviews and consents are never imported, and a review whose consent is withdrawn is deleted at the next import ([ADR 0014](adr/0014-indicative-prices-and-detour-import.md)). An admin can hide a review at once (`PATCH /admin/reviews/{id}`); the import never shows it again. The privacy page says so.
+- The privacy page (`/privacy`, public, English and French) says what we store, why, who else handles it, and for how long. It is linked from every account page (sign-in, sign-up...), from the footer and from the Google consent screen.
+- Sessions and one-time links are deleted once expired: each sign-in deletes the sessions past their absolute expiry (30 days), each new link deletes the expired links (24 hours at most), and the API's startup deletes both, which covers a quiet spell. No worker is needed; `sessions.absolute_expires_at` and `one_time_tokens.expires_at` are indexed for it.
+- The privacy page describes production, where the AI model is Mistral AI, hosted in France. Development and the demo use OpenRouter instead, which can route the wish text to providers outside the EU: never put real client data in them.
 - The client can delete their account and everything linked to it (`DELETE /me`).
 - Agents see client data only for the plans in their queue.
 
