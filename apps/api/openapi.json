@@ -1941,11 +1941,15 @@
         "type": "object"
       },
       "Quote": {
-        "description": "A sent quote. total is in currency (always EUR); the PDF is at GET /quotes/{id}/pdf.",
+        "description": "A sent quote. total is in currency (always EUR); the PDF is at GET /quotes/{id}/pdf.\nemail_sent is false when the client's email did not go out: POST\n/agent/quotes/{id}/email sends it again.",
         "properties": {
           "currency": {
             "title": "Currency",
             "type": "string"
+          },
+          "email_sent": {
+            "title": "Email Sent",
+            "type": "boolean"
           },
           "id": {
             "format": "uuid",
@@ -1992,7 +1996,8 @@
           "currency",
           "locale",
           "sent_at",
-          "valid_until"
+          "valid_until",
+          "email_sent"
         ],
         "title": "Quote",
         "type": "object"
@@ -4602,7 +4607,7 @@
     },
     "/agent/plans/{plan_id}/quote": {
       "post": {
-        "description": "Send the quote: the total of the priced items and extras, valid 7 days, rendered as a\nPDF in the language the agent chose (en or fr; the client's language without a body).\nThe plan becomes quoted. Only the assigned agent (403).\n409 if the plan is not negotiating (a second click too). 422 plan_not_ready while a kept\nitem or an on_quote extra has no price, or a supplement is not confirmed.",
+        "description": "Send the quote: the total of the priced items and extras, valid 7 days, rendered as a\nPDF in the language the agent chose (en or fr; the client's language without a body).\nThe plan becomes quoted and the client gets an email that leads to the quote; email_sent\nis false if it did not go out (the quote is saved anyway). Only the assigned agent (403).\n409 if the plan is not negotiating (a second click too). 422 plan_not_ready while a kept\nitem or an on_quote extra has no price, or a supplement is not confirmed.",
         "operationId": "sendQuote",
         "parameters": [
           {
@@ -4780,6 +4785,93 @@
           }
         },
         "summary": "Take Plan",
+        "tags": [
+          "agent"
+        ]
+      }
+    },
+    "/agent/quotes/{quote_id}/email": {
+      "post": {
+        "description": "Send the client's \"your quote is ready\" email again. Only the agent who sent the quote,\nor an admin (403). At most 3 times an hour per quote: 429 too_many_requests after that,\nwith Retry-After. 503 email_not_sent if the email server did not take it.",
+        "operationId": "resendQuoteEmail",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "quote_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Quote Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Too Many Requests"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "summary": "Resend Quote Email",
         "tags": [
           "agent"
         ]

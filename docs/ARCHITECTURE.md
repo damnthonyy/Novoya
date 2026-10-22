@@ -201,7 +201,7 @@ stateDiagram-v2
 
 The PDF is an HTML template (Jinja2) rendered with WeasyPrint. The client reads it in their account.
 
-When the quote is sent, the client gets an email in their language (English or French). It says their offer is available in their account and has one button, "Log in to see my quote", that opens the quote after sign-in. The email holds no PDF, prices or partner names. It is sent over SMTP (`NOVOYA_SMTP_*` settings); locally, Mailpit in docker-compose catches it.
+When the quote is sent, the client gets an email in the quote's language (English or French), after the quote is saved. It says their offer is available in their account and has one button, "Log in to see my quote", that opens the quote after sign-in. The email holds no PDF, prices or partner names. It is sent over SMTP (`NOVOYA_SMTP_*` settings); locally, Mailpit in docker-compose catches it. If it does not go out, the quote stays sent, the response says `email_sent: false`, and the agent who sent it (or an admin) can send it again.
 
 | Shown on the PDF | Not shown |
 |---|---|
@@ -282,7 +282,8 @@ Agent (roles `agent` and `admin`):
 | POST | `/agent/plans/{id}/take` | Assign the plan to me, status `negotiating` |
 | PATCH | `/agent/plans/{id}/items/{item_id}` | Set the negotiated price, or remove the item |
 | PATCH | `/agent/plans/{id}/extras/{extra_id}` | Price an `on_quote` extra, or adjust or confirm a supplement |
-| POST | `/agent/plans/{id}/quote` | Compute the total, render the PDF, status `quoted` |
+| POST | `/agent/plans/{id}/quote` | Compute the total, render the PDF, status `quoted`, email the client |
+| POST | `/agent/quotes/{id}/email` | Send the client's quote email again (the agent who sent the quote, or an admin) |
 | GET, POST, PATCH | `/admin/partners`, `/admin/offers` | Manage partners and their offers (`GET /admin/offers?partner_id=` lists one partner's). Imported rows only change `hidden` (and `featured` for offers): 409 `imported_row` |
 | GET, PATCH | `/admin/extras` | List extras, hide or show one |
 

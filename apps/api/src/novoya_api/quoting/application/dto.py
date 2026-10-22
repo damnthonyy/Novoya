@@ -74,8 +74,31 @@ class QuoteDocument:
 
 
 @dataclass(frozen=True)
+class QuoteTrip:
+    """Where and when the quoted trip goes, as the quote email says it."""
+
+    country: str | None
+    city: str | None
+    start_date: date | None
+    end_date: date | None
+
+
+@dataclass(frozen=True)
+class QuoteEmail:
+    """The email telling the client their quote is in their account. It holds no PDF, no price
+    and no partner: the client reads those after signing in."""
+
+    to: str
+    name: str | None
+    locale: Locale
+    trip: QuoteTrip
+    quote_url: str
+
+
+@dataclass(frozen=True)
 class QuoteView:
-    """A sent quote, without its PDF."""
+    """A sent quote, without its PDF. email_sent is False when the client's email did not go
+    out: the quote is saved anyway and the agent can send the email again."""
 
     id: UUID
     number: str
@@ -85,9 +108,10 @@ class QuoteView:
     locale: str
     sent_at: datetime
     valid_until: datetime
+    email_sent: bool = False
 
     @classmethod
-    def of(cls, quote: Quote) -> "QuoteView":
+    def of(cls, quote: Quote, email_sent: bool = False) -> "QuoteView":
         return cls(
             quote.id,
             quote.number,
@@ -97,6 +121,7 @@ class QuoteView:
             quote.locale.value,
             quote.sent_at,
             quote.valid_until,
+            email_sent,
         )
 
 
