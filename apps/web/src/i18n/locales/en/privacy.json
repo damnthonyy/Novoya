@@ -44,7 +44,7 @@
   },
   "reviews": {
     "title": "Travellers' reviews",
-    "body": "The reviews shown on the destinations come from travellers of {{name}} who agreed to their publication. They are signed with a first name and an initial, or shown as anonymous. If a traveller withdraws their consent, their review is removed at the next update of the catalogue."
+    "body": "The reviews shown on the destinations come from travellers of {{name}} who agreed to their publication. They are signed with a first name and an initial, or shown as anonymous. If a traveller withdraws their consent, their review is removed at the next update of the catalogue, and the agency can take a review down at once on request."
   },
   "cookies": {
     "title": "Cookies and browser storage",

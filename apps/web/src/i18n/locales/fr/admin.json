@@ -3,6 +3,7 @@
   "nav": {
     "users": "Utilisateurs",
     "partners": "Partenaires",
+    "reviews": "Avis",
     "activity": "Activité"
   },
   "eyebrow": "Administration",
@@ -317,6 +318,23 @@
       "sentOn": "Envoyé le {{date}}",
       "validUntil": "Valable jusqu’au {{date}}",
       "pdf": "Télécharger le PDF"
+    }
+  },
+  "reviews": {
+    "title": "Avis",
+    "loading": "Chargement des avis…",
+    "loadFailed": "Les avis n’ont pas pu être chargés.",
+    "empty": "Aucun avis publié pour l’instant.",
+    "switchFailed": "La modification n’a pas pu être enregistrée. Veuillez réessayer.",
+    "table": {
+      "caption": "Avis publiés",
+      "review": "Avis",
+      "rating": "Note",
+      "date": "Date",
+      "text": "Texte",
+      "hidden": "Masqué",
+      "hiddenOf": "Masqué : {{author}}",
+      "ratingOf": "{{rating}} / 5"
     }
   }
 }

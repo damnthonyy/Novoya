@@ -44,7 +44,7 @@
   },
   "reviews": {
     "title": "Les avis des voyageurs",
-    "body": "Les avis affichés sur les destinations viennent de voyageurs de {{name}} qui ont accepté leur publication. Ils sont signés d’un prénom et d’une initiale, ou affichés de façon anonyme. Si un voyageur retire son accord, son avis est retiré à la prochaine mise à jour du catalogue."
+    "body": "Les avis affichés sur les destinations viennent de voyageurs de {{name}} qui ont accepté leur publication. Ils sont signés d’un prénom et d’une initiale, ou affichés de façon anonyme. Si un voyageur retire son accord, son avis est retiré à la prochaine mise à jour du catalogue, et l’agence peut retirer un avis immédiatement sur demande."
   },
   "cookies": {
     "title": "Cookies et stockage du navigateur",
