@@ -3,8 +3,10 @@ import { createFileRoute } from '@tanstack/react-router'
 import { useDeferredValue, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
+import { ApiError } from '../../../api/errors'
 import {
   changeUserRoleMutation,
+  changeUserStatusMutation,
   listUsersOptions,
   listUsersQueryKey,
 } from '../../../api/generated/@tanstack/react-query.gen'
@@ -13,6 +15,7 @@ import { Input } from '../../../components/atoms/Input'
 import { ErrorNote } from '../../../components/molecules/ErrorNote'
 import { RoleChangeDialog, type RoleChange } from '../../../components/organisms/RoleChangeDialog'
 import { type Role, ROLES } from '../../../components/organisms/roles'
+import { StatusChangeDialog, type StatusChange } from '../../../components/organisms/StatusChangeDialog'
 import { UsersTable } from '../../../components/organisms/UsersTable'
 
 // The guard is in route.tsx: admins only.
@@ -28,14 +31,25 @@ function AdminPage() {
   const [role, setRole] = useState<Role | ''>('')
   // A role change waits here until the admin confirms it.
   const [pendingChange, setPendingChange] = useState<RoleChange | null>(null)
+  const [pendingStatus, setPendingStatus] = useState<StatusChange | null>(null)
   const q = useDeferredValue(search.trim())
 
   const query = { q: q || undefined, role: role || undefined, limit: 50 }
   const users = useQuery({ ...listUsersOptions({ query }), placeholderData: keepPreviousData })
+  // Refetch after a failure too: the row may have changed in another tab.
   const changeRole = useMutation({
     ...changeUserRoleMutation(),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: listUsersQueryKey() }),
+    onSettled: () => queryClient.invalidateQueries({ queryKey: listUsersQueryKey() }),
   })
+  const changeStatus = useMutation({
+    ...changeUserStatusMutation(),
+    onSettled: () => queryClient.invalidateQueries({ queryKey: listUsersQueryKey() }),
+  })
+  const savingIds = new Set(
+    [changeRole, changeStatus].flatMap((mutation) =>
+      mutation.isPending && mutation.variables ? [mutation.variables.path.user_id] : [],
+    ),
+  )
 
   return (
     <>
@@ -74,7 +88,12 @@ function AdminPage() {
 
       {changeRole.isError && (
         <p role="alert" className="mb-4 text-danger">
-          {t('changeFailed')}
+          {t(roleErrorKey(changeRole.error))}
+        </p>
+      )}
+      {changeStatus.isError && (
+        <p role="alert" className="mb-4 text-danger">
+          {t(statusErrorKey(changeStatus.error))}
         </p>
       )}
 
@@ -88,11 +107,16 @@ function AdminPage() {
         <UsersTable
           users={users.data}
           meId={me.id}
-          savingId={changeRole.isPending ? changeRole.variables?.path.user_id : undefined}
+          savingIds={savingIds}
           onChangeRole={(userId, next) => {
             const user = users.data.find((row) => row.id === userId)
             if (!user || user.role === next) return
             setPendingChange({ userId, name: user.name ?? user.email, from: user.role, to: next })
+          }}
+          onChangeStatus={(userId, next) => {
+            const user = users.data.find((row) => row.id === userId)
+            if (!user || user.status === next) return
+            setPendingStatus({ userId, name: user.name ?? user.email, to: next })
           }}
         />
       )}
@@ -107,6 +131,28 @@ function AdminPage() {
           changeRole.mutate({ path: { user_id: change.userId }, body: { role: change.to } })
         }}
       />
+      <StatusChangeDialog
+        change={pendingStatus}
+        onCancel={() => setPendingStatus(null)}
+        onConfirm={(change) => {
+          setPendingStatus(null)
+          changeStatus.mutate({ path: { user_id: change.userId }, body: { status: change.to } })
+        }}
+      />
     </>
   )
+}
+
+// Texts in admin.json. A refusal that a retry cannot fix gets its own message.
+function roleErrorKey(error: unknown) {
+  const code = error instanceof ApiError ? error.code : undefined
+  if (code === 'cannot_change_admin_role') return 'changeRefused.adminRole'
+  if (code === 'cannot_promote_disabled') return 'changeRefused.disabledAccount'
+  return 'changeFailed'
+}
+
+function statusErrorKey(error: unknown) {
+  const code = error instanceof ApiError ? error.code : undefined
+  if (code === 'cannot_change_admin_status') return 'changeRefused.adminStatus'
+  return 'statusChangeFailed'
 }

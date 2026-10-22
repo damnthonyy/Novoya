@@ -36,7 +36,7 @@ from novoya_api.accounts.domain.errors import (
 from novoya_api.accounts.domain.oauth_identity import OAuthIdentity
 from novoya_api.accounts.domain.one_time_token import OneTimeToken, TokenPurpose
 from novoya_api.accounts.domain.role import Role
-from novoya_api.accounts.domain.user import User
+from novoya_api.accounts.domain.user import User, UserStatus
 from novoya_api.accounts.domain.value_objects import Email, PasswordHash
 from novoya_api.accounts.infrastructure.db.repositories import (
     SqlOAuthIdentityRepository,
@@ -306,6 +306,28 @@ async def test_role_changes_are_logged_with_their_source(session):
     assert tuple(row) == ("cmd_grant_role", None)
 
 
+async def test_status_change_is_kept_and_survives_the_admin(session):
+    users = SqlUserRepository(session)
+    admin = make_user("admin@x.io", role=Role.ADMIN, now=NOW)
+    client = make_user("client@x.io", now=NOW)
+    await users.add(admin)
+    await users.add(client)
+    client.change_status(UserStatus.DISABLED, changed_by=admin.id, now=NOW)
+    await users.save(client)
+    await session.commit()
+
+    stored = await SqlUserRepository(session).get(client.id)
+    assert not stored.is_active
+    assert (stored.status_changed_by, stored.status_changed_at) == (admin.id, NOW)
+
+    # Deleting the admin keeps the change, without its author.
+    await session.execute(text("DELETE FROM users WHERE id = :id"), {"id": admin.id.value})
+    await session.commit()
+    session.expire_all()
+    stored = await SqlUserRepository(session).get(client.id)
+    assert (stored.status_changed_by, stored.status_changed_at) == (None, NOW)
+
+
 async def test_password_credentials_are_upserted(session):
     users, credentials = SqlUserRepository(session), SqlPasswordCredentialRepository(session)
     user = make_user()
@@ -481,7 +503,7 @@ async def blocked(task: asyncio.Task) -> bool:
     return not task.done()
 
 
-async def test_two_admins_demoting_each_other_at_once_keep_one_admin(sessions):
+async def test_two_demotions_at_once_keep_one_admin(sessions):
     a = make_user("a@x.io", role=Role.ADMIN)
     b = make_user("b@x.io", role=Role.ADMIN)
     async with sessions() as setup:
@@ -496,12 +518,12 @@ async def test_two_admins_demoting_each_other_at_once_keep_one_admin(sessions):
         store = build_store(second)
         demote_a = ChangeUserRole(store.users, store.role_changes, store.uow, FrozenClock())
         b_demotes_a = asyncio.create_task(
-            demote_a(ChangeUserRoleCommand(a.id, Role.CLIENT, changed_by=b.id))
+            demote_a(ChangeUserRoleCommand(a.id, Role.CLIENT, changed_by=None))
         )
         assert await blocked(b_demotes_a)
 
         target = await users.get(b.id)
-        target.change_role(Role.CLIENT, changed_by=a.id, now=NOW)
+        target.change_role(Role.CLIENT, changed_by=None, now=NOW)
         await users.save(target)
         await first.commit()
 
@@ -562,7 +584,6 @@ async def test_a_failed_google_sign_in_changes_nothing_but_the_used_state(sessio
     )
     from novoya_api.accounts.application.use_cases.sign_in import SignIn, SignInCommand
     from novoya_api.accounts.domain.errors import AccountDisabled
-    from novoya_api.accounts.domain.user import UserStatus
     from novoya_api.accounts.infrastructure.identity_providers import DictIdentityProviders
     from tests.accounts.fakes import FakeIdentityProvider
 

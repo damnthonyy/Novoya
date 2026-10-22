@@ -93,6 +93,28 @@ class CannotChangeOwnRole(Conflict):
     code = "cannot_change_own_role"
 
 
+class CannotChangeOwnStatus(Conflict):
+    code = "cannot_change_own_status"
+
+
+class CannotChangeAdminStatus(PermissionDenied):
+    """Only a super admin will act on admins (its own issue): until then, nobody does."""
+
+    code = "cannot_change_admin_status"
+
+
+class CannotChangeAdminRole(PermissionDenied):
+    """Same rule for the role: only the grant-role command demotes an admin for now."""
+
+    code = "cannot_change_admin_role"
+
+
+class CannotPromoteDisabled(Conflict):
+    """A disabled account stays a client: enable it before giving it the agent or admin role."""
+
+    code = "cannot_promote_disabled"
+
+
 class LastAdminRequired(Conflict):
     """The last admin cannot lose the admin role: nobody could manage roles any more."""
 

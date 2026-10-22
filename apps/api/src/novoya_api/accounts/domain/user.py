@@ -5,7 +5,11 @@ from enum import StrEnum
 
 from novoya_api.accounts.domain.errors import (
     AccountDisabled,
+    CannotChangeAdminRole,
+    CannotChangeAdminStatus,
     CannotChangeOwnRole,
+    CannotChangeOwnStatus,
+    CannotPromoteDisabled,
     EmailNotVerified,
 )
 from novoya_api.accounts.domain.role import Role
@@ -59,6 +63,9 @@ class User:
     status: UserStatus
     email_verified_at: datetime | None
     created_at: datetime
+    # The last status change: the admin who made it (None once that admin is deleted) and when.
+    status_changed_by: UserId | None = None
+    status_changed_at: datetime | None = None
 
     @classmethod
     def register(
@@ -142,9 +149,17 @@ class User:
 
         changed_by: the admin making the change, or None for the grant-role command.
         Whether the caller may change roles is checked before (require_admin, or server access).
+        An admin never takes the role of another admin: otherwise demoting them would open
+        their account to change_status. Only the grant-role command does it, until a super
+        admin exists.
         """
         if changed_by == self.id:
             raise CannotChangeOwnRole("an admin cannot change their own role")
+        if changed_by is not None and self.role is Role.ADMIN and new_role is not Role.ADMIN:
+            raise CannotChangeAdminRole("an admin cannot change another admin's role")
+        if new_role is not Role.CLIENT and not self.is_active:
+            # Nobody could enable a disabled admin again, nor demote them.
+            raise CannotPromoteDisabled("a disabled account cannot get the agent or admin role")
         if new_role is not Role.CLIENT and not self.is_email_verified:
             raise EmailNotVerified("only a verified email address can get the agent or admin role")
         if new_role is self.role:
@@ -152,3 +167,21 @@ class User:
         change = RoleChange.record(self.id, self.role, new_role, changed_by, now)
         self.role = new_role
         return change
+
+    def change_status(self, new_status: UserStatus, *, changed_by: UserId, now: datetime) -> bool:
+        """Disable or enable the account and remember who did it and when. False if the
+        status is the same. A disabled account cannot sign in and its sessions stop working.
+
+        Whether the caller is an admin is checked before (require_admin). An admin never
+        changes their own status nor another admin's.
+        """
+        if changed_by == self.id:
+            raise CannotChangeOwnStatus("an admin cannot disable or enable their own account")
+        if self.role is Role.ADMIN:
+            raise CannotChangeAdminStatus("an admin cannot disable or enable another admin")
+        if new_status is self.status:
+            return False
+        self.status = new_status
+        self.status_changed_by = changed_by
+        self.status_changed_at = now
+        return True

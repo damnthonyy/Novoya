@@ -31,6 +31,8 @@ const NEW_USER: UserResponse = {
   role: 'client',
   locale: 'en',
   status: 'active',
+  status_changed_by: null,
+  status_changed_at: null,
   email_verified: false,
   created_at: '2026-10-20T10:00:00Z',
 }

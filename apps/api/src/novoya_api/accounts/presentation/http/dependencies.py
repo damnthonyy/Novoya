@@ -35,6 +35,7 @@ from novoya_api.accounts.application.use_cases.authenticate_session import Authe
 from novoya_api.accounts.application.use_cases.change_locale import ChangeLocale
 from novoya_api.accounts.application.use_cases.change_password import ChangePassword
 from novoya_api.accounts.application.use_cases.change_user_role import ChangeUserRole
+from novoya_api.accounts.application.use_cases.change_user_status import ChangeUserStatus
 from novoya_api.accounts.application.use_cases.delete_account import DeleteAccount
 from novoya_api.accounts.application.use_cases.get_account import GetAccount
 from novoya_api.accounts.application.use_cases.list_users import ListUsers
@@ -396,6 +397,10 @@ def get_list_users(store: StoreDep) -> ListUsers:
 
 def get_change_user_role(store: StoreDep, clock: ClockDep) -> ChangeUserRole:
     return ChangeUserRole(store.users, store.role_changes, store.uow, clock)
+
+
+def get_change_user_status(store: StoreDep, clock: ClockDep) -> ChangeUserStatus:
+    return ChangeUserStatus(store.users, store.sessions, store.uow, clock)
 
 
 def get_authenticate_session(
