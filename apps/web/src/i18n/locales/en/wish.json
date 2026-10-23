@@ -2,6 +2,11 @@
   "placeholder": "A quiet week by the sea in May, with good breakfasts…",
   "send": "Send",
   "sending": "Sending",
+  "progress": {
+    "read": "Reading your wish",
+    "destinations": "Finding destinations",
+    "preferences": "Preparing your preferences"
+  },
   "composerLabel": "Your travel wish",
   "shortcut": "<0>{{key}}</0> + <1>Enter</1> to send",
   "greeting": "Hello {{name}}",

@@ -1,6 +1,6 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { createMemoryHistory, RouterProvider } from '@tanstack/react-router'
-import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import '../api/client'
@@ -83,7 +83,7 @@ type Call = { method: string; path: string; body: unknown }
 
 let signedIn: MeResponse | null
 let calls: Call[]
-let wishAnswer: () => Response
+let wishAnswer: () => Response | Promise<Response>
 let loginAnswer: () => Response
 let answersAnswer: () => Response | Promise<Response>
 
@@ -272,7 +272,7 @@ describe('sending a wish', () => {
 
     await writeAndSend('Quelque part au calme')
 
-    expect(await screen.findByRole('status')).toHaveTextContent('Where would you like to go?')
+    expect(await screen.findByText(/Where would you like to go\?/)).toHaveAttribute('role', 'status')
   })
 
   it('explains a failure and lets the client try again', async () => {
@@ -283,6 +283,70 @@ describe('sending a wish', () => {
 
     expect(await screen.findByRole('alert')).toHaveTextContent('couldn\'t be sent')
     expect(screen.getByLabelText('Your travel wish')).toHaveValue('La Crète en mai')
+  })
+
+  describe('while the wish is read', () => {
+    let finish!: (response: Response) => void
+    beforeEach(() => {
+      vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'], shouldAdvanceTime: true })
+      wishAnswer = () => new Promise<Response>((resolve) => (finish = resolve))
+    })
+    afterEach(() => {
+      vi.useRealTimers()
+    })
+
+    it('shows the steps at once, and locks the box and the button', async () => {
+      renderAt('/wish')
+
+      await writeAndSend('La Crète en mai')
+
+      expect(await screen.findByRole('status')).toHaveTextContent('Reading your wish')
+      expect(screen.getByLabelText('Your travel wish')).toBeDisabled()
+      expect(screen.getByRole('button', { name: 'Sending' })).toBeDisabled()
+
+      await act(() => vi.advanceTimersByTimeAsync(3000))
+      expect(screen.getByRole('status')).toHaveTextContent('Finding destinations')
+      await act(() => vi.advanceTimersByTimeAsync(3000))
+      expect(screen.getByRole('status')).toHaveTextContent('Preparing your preferences')
+      expect(posts('/wishes')).toHaveLength(1)
+    })
+
+    it('goes away as soon as the answer arrives, whatever the step', async () => {
+      const { router } = renderAt('/wish')
+      await writeAndSend('Une semaine calme à Chania')
+      expect(await screen.findByRole('status')).toHaveTextContent('Reading your wish')
+
+      finish(Response.json(PANEL_WISH, { status: 201 }))
+
+      expect(await screen.findByRole('heading', { name: /What matters/ })).toBeInTheDocument()
+      expect(router.state.location.pathname).toBe(`/wish/${WISH_ID}/preferences`)
+      expect(screen.queryByText('Reading your wish')).not.toBeInTheDocument()
+    })
+
+    it('gives the box back with a message and a way to try again when it fails', async () => {
+      renderAt('/wish')
+      await writeAndSend('La Crète en mai')
+      expect(await screen.findByRole('status')).toHaveTextContent('Reading your wish')
+
+      finish(Response.json({ code: 'internal_error', detail: 'boom' }, { status: 500 }))
+
+      expect(await screen.findByRole('alert')).toHaveTextContent("couldn't be sent")
+      expect(screen.queryByText('Reading your wish')).not.toBeInTheDocument()
+      expect(screen.getByLabelText('Your travel wish')).toBeEnabled()
+
+      fireEvent.click(screen.getByRole('button', { name: 'Try again' }))
+      await waitFor(() => expect(posts('/wishes')).toHaveLength(2))
+      expect(posts('/wishes')[1]!.body).toEqual({ text: 'La Crète en mai' })
+    })
+
+    it('shows the steps in French', async () => {
+      signedIn = { ...CAMILLE, locale: 'fr' }
+      renderAt('/wish')
+      fireEvent.change(await screen.findByLabelText('Votre envie de voyage'), { target: { value: 'La Crète' } })
+      fireEvent.click(screen.getByRole('button', { name: 'Envoyer' }))
+
+      expect(await screen.findByRole('status')).toHaveTextContent('Nous lisons votre envie')
+    })
   })
 
   it('says how long to wait when the wish is rate limited', async () => {
@@ -374,12 +438,39 @@ describe('the preferences panel', () => {
     fireEvent.click(send)
 
     expect(await screen.findByRole('heading', { name: /Setting the evenings/ })).toHaveFocus()
-    expect(screen.getByRole('status')).toHaveTextContent('up to a minute')
+    expect(screen.getByText(/up to a minute/)).toBeInTheDocument()
+    expect(screen.getByRole('status')).toHaveTextContent('Reading your answers')
     expect(screen.queryByRole('button', { name: /Compose my preview/ })).not.toBeInTheDocument()
     expect(posts(`/wishes/${WISH_ID}/answers`)).toHaveLength(1)
 
     finish(Response.json(PLAN, { status: 201 }))
     await waitFor(() => expect(router.state.location.pathname).toBe(`/plans/${PLAN_ID}`))
+  })
+
+  it('shows the steps while the plan is built, and waits on the last one', async () => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'], shouldAdvanceTime: true })
+    try {
+      let finish!: (response: Response) => void
+      answersAnswer = () => new Promise((resolve) => (finish = resolve))
+      const { router } = renderAt(`/wish/${WISH_ID}/preferences`, withWish)
+      await screen.findByRole('heading', { name: /What matters/ })
+      fillConstraints()
+
+      fireEvent.click(screen.getByRole('button', { name: /Compose my preview/ }))
+
+      expect(await screen.findByRole('status')).toHaveTextContent('Reading your answers')
+      await act(() => vi.advanceTimersByTimeAsync(8000))
+      expect(screen.getByRole('status')).toHaveTextContent('Choosing among our partners')
+      await act(() => vi.advanceTimersByTimeAsync(8000))
+      expect(screen.getByRole('status')).toHaveTextContent('Setting your days')
+      await act(() => vi.advanceTimersByTimeAsync(60_000))
+      expect(screen.getByRole('status')).toHaveTextContent('Setting your days')
+
+      finish(Response.json(PLAN, { status: 201 }))
+      await waitFor(() => expect(router.state.location.pathname).toBe(`/plans/${PLAN_ID}`))
+    } finally {
+      vi.useRealTimers()
+    }
   })
 
   it('keeps the answers when the plan could not be built, and lets the client try again', async () => {

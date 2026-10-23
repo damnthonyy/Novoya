@@ -117,6 +117,7 @@ function WishPage() {
           onSubmit={submit}
           pending={send.isPending}
           error={textError ?? sendError}
+          onRetry={!textError && sendError ? submit : undefined}
           textareaRef={textarea}
         />
         <div className="mt-[22px] flex w-full items-center justify-start gap-2.5 overflow-x-auto md:w-auto md:justify-center">
