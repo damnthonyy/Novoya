@@ -2,6 +2,11 @@
   "placeholder": "Une semaine calme au bord de la mer en mai, avec de bons petits-déjeuners…",
   "send": "Envoyer",
   "sending": "Envoi en cours",
+  "progress": {
+    "read": "Nous lisons votre envie",
+    "destinations": "Nous cherchons les destinations",
+    "preferences": "Nous préparons vos préférences"
+  },
   "composerLabel": "Votre envie de voyage",
   "shortcut": "<0>{{key}}</0> + <1>Entrée</1> pour envoyer",
   "greeting": "Bonjour {{name}}",

@@ -30,5 +30,16 @@
     "title": "Reprenons depuis votre envie.",
     "text": "Nous ne retrouvons pas le panneau de cette envie sur cette page. Décrivez-la à nouveau : cela ne prend qu’un instant.",
     "cta": "Décrire mon voyage"
+  },
+  "saved": {
+    "label": "Vos préférences",
+    "intro": "Ce que vous avez choisi sur le panneau de préférences de vos envies. L’agence voit ces étiquettes ; retirez celles qui ne vous correspondent plus.",
+    "remove": "Retirer {{tag}}",
+    "removeFailed": "Nous n’avons pas pu retirer cette préférence. Réessayez.",
+    "loading": "Chargement de vos préférences…",
+    "loadFailed": "Nous n’avons pas pu charger vos préférences. Rechargez la page pour réessayer.",
+    "empty": "Pas encore de préférences. Elles viennent du panneau de préférences que vous remplissez après avoir décrit un voyage.",
+    "emptyCta": "Décrire un voyage",
+    "locked": "Fait partie d’un voyage envoyé à l’agence"
   }
 }

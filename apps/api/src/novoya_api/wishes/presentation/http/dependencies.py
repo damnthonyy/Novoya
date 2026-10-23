@@ -24,6 +24,7 @@ from novoya_api.wishes.application.ports.destination_reader import DestinationRe
 from novoya_api.wishes.application.ports.panel_builder import PanelBuilder
 from novoya_api.wishes.application.use_cases.answer_panel import AnswerPanel
 from novoya_api.wishes.application.use_cases.list_admin_wishes import ListAdminWishes
+from novoya_api.wishes.application.use_cases.preferences import ListPreferences, RemovePreference
 from novoya_api.wishes.application.use_cases.send_wish import SendWish
 from novoya_api.wishes.infrastructure.answers_in_progress import InMemoryAnswersInProgress
 from novoya_api.wishes.infrastructure.catalog import PartnerCatalog
@@ -37,6 +38,7 @@ from novoya_api.wishes.infrastructure.llm.panel_builder import (
     LlmPanelBuilder,
     TagsFromOffersBuilder,
 )
+from novoya_api.wishes.infrastructure.plan_statuses import PlanningPlanStatuses
 from novoya_api.wishes.infrastructure.planner import PartnerPlanner
 
 # One for the process: every request must see the answers the others are building.
@@ -116,3 +118,20 @@ def get_list_admin_wishes(
     session: Annotated[AsyncSession, Depends(get_session)],
 ) -> ListAdminWishes:
     return ListAdminWishes(SqlWishRepository(session), AccountClients(session))
+
+
+def get_list_preferences(
+    session: Annotated[AsyncSession, Depends(get_session)],
+) -> ListPreferences:
+    return ListPreferences(SqlWishRepository(session), PlanningPlanStatuses(session))
+
+
+def get_remove_preference(
+    session: Annotated[AsyncSession, Depends(get_session)],
+) -> RemovePreference:
+    return RemovePreference(
+        SqlWishRepository(session),
+        PlanningPlanStatuses(session),
+        SqlAlchemyUnitOfWork(session),
+        SystemClock(),
+    )

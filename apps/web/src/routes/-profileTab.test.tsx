@@ -44,6 +44,7 @@ function mockApi() {
       me.name = [me.first_name, me.last_name].filter(Boolean).join(' ')
       return Response.json(me)
     }
+    if (path === '/me/trips' || path === '/me/preferences') return Response.json([])
     if (path === '/me') return Response.json(me)
     if (path.startsWith('/plans') || path.startsWith('/wishes')) return Response.json([])
     return new Response(null, { status: 204 })
@@ -246,7 +247,7 @@ describe('the personal information tab on My trips', () => {
     expect(patches()).toHaveLength(1)
 
     answer()
-    expect(await screen.findByRole('heading', { name: 'Mes aperçus' })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: 'Mes voyages' })).toBeInTheDocument()
     // The submit made while the header saved has settled by now, and sent nothing.
     expect(patches()).toHaveLength(1)
     const french = screen.getByRole('form', { name: 'Informations personnelles' })
@@ -371,7 +372,7 @@ describe('the personal information tab on My trips', () => {
 
     fireEvent.change(within(form).getByLabelText('First name'), { target: { value: 'Camille-Anne' } })
     fireEvent.click(screen.getAllByRole('button', { name: 'FR, Français' })[0]!)
-    expect(await screen.findByRole('heading', { name: 'Mes aperçus' })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: 'Mes voyages' })).toBeInTheDocument()
 
     const french = screen.getByRole('form', { name: 'Informations personnelles' })
     expect(within(french).getByLabelText('Langue')).toHaveValue('fr')
@@ -448,7 +449,7 @@ describe('the personal information tab on My trips', () => {
     fireEvent.change(within(form).getByLabelText('Language'), { target: { value: 'fr' } })
     fireEvent.click(within(form).getByRole('button', { name: 'Save' }))
 
-    expect(await screen.findByRole('heading', { name: 'Mes aperçus' })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: 'Mes voyages' })).toBeInTheDocument()
     expect(patches()[0]?.body).toEqual({ locale: 'fr' })
     expect(await screen.findByRole('status')).toHaveTextContent('Vos informations sont enregistrées.')
     expect(screen.getByRole('form', { name: 'Informations personnelles' })).toBeInTheDocument()

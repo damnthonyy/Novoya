@@ -1,9 +1,10 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { createMemoryHistory, RouterProvider } from '@tanstack/react-router'
-import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import '../api/client'
+import { getMeQueryKey } from '../api/generated/@tanstack/react-query.gen'
 import { client } from '../api/generated/client.gen'
 import type { MeResponse, PlanResponse, WishResponse } from '../api/generated/types.gen'
 import { type CachedWish, wishQueryKey } from '../api/wishes'
@@ -83,9 +84,11 @@ type Call = { method: string; path: string; body: unknown }
 
 let signedIn: MeResponse | null
 let calls: Call[]
-let wishAnswer: () => Response
+let wishAnswer: () => Response | Promise<Response>
 let loginAnswer: () => Response
 let answersAnswer: () => Response | Promise<Response>
+// When set, GET /me waits for it: a guarded page then stays loading.
+let meGate: Promise<void> | undefined
 
 function mockApi() {
   vi.spyOn(globalThis, 'fetch').mockImplementation(async (input) => {
@@ -94,6 +97,7 @@ function mockApi() {
     const text = request.method === 'POST' ? await request.text() : ''
     calls.push({ method: request.method, path, body: text ? JSON.parse(text) : undefined })
     if (path === '/me') {
+      if (meGate) await meGate
       return signedIn
         ? Response.json(signedIn)
         : Response.json({ code: 'unauthenticated', detail: 'not signed in' }, { status: 401 })
@@ -126,6 +130,7 @@ beforeEach(() => {
   wishAnswer = () => Response.json(PANEL_WISH, { status: 201 })
   loginAnswer = () => new Response(null, { status: 204 })
   answersAnswer = () => Response.json(PLAN, { status: 201 })
+  meGate = undefined
   mockApi()
 })
 afterEach(() => {
@@ -272,7 +277,7 @@ describe('sending a wish', () => {
 
     await writeAndSend('Quelque part au calme')
 
-    expect(await screen.findByRole('status')).toHaveTextContent('Where would you like to go?')
+    expect(await screen.findByText(/Where would you like to go\?/)).toHaveAttribute('role', 'status')
   })
 
   it('explains a failure and lets the client try again', async () => {
@@ -283,6 +288,317 @@ describe('sending a wish', () => {
 
     expect(await screen.findByRole('alert')).toHaveTextContent('couldn\'t be sent')
     expect(screen.getByLabelText('Your travel wish')).toHaveValue('La Crète en mai')
+  })
+
+  describe('while the wish is read', () => {
+    let finish!: (response: Response) => void
+    beforeEach(() => {
+      vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'], shouldAdvanceTime: true })
+      wishAnswer = () => new Promise<Response>((resolve) => (finish = resolve))
+    })
+    afterEach(() => {
+      vi.useRealTimers()
+    })
+
+    const progress = () =>
+      screen.getAllByRole('status').find((element) => element.textContent?.includes('…')) ?? null
+    const showsStep = (step: string) => waitFor(() => expect(progress()).toHaveTextContent(step))
+
+    it('shows the steps at once, and locks the box and the button', async () => {
+      renderAt('/wish')
+
+      await writeAndSend('La Crète en mai')
+
+      await showsStep('Reading your wish')
+      expect(screen.getByLabelText('Your travel wish')).toBeDisabled()
+      expect(screen.getByRole('button', { name: 'Sending' })).toBeDisabled()
+      // One spinner, the loader's: the send button does not turn as well.
+      expect(screen.getByRole('button', { name: 'Sending' }).querySelector('[class*="animate-"]')).toBeNull()
+
+      await act(() => vi.advanceTimersByTimeAsync(3000))
+      expect(progress()).toHaveTextContent('Finding destinations')
+      await act(() => vi.advanceTimersByTimeAsync(3000))
+      expect(progress()).toHaveTextContent('Preparing your preferences')
+      expect(posts('/wishes')).toHaveLength(1)
+    })
+
+    it('keeps the status region in place before the wish is sent, empty', async () => {
+      renderAt('/wish')
+      await screen.findByLabelText('Your travel wish')
+
+      expect(screen.getByRole('status')).toBeEmptyDOMElement()
+    })
+
+    it('sends only once when the client sends twice before the page redraws', async () => {
+      renderAt('/wish')
+      const box = await screen.findByLabelText('Your travel wish')
+      fireEvent.change(box, { target: { value: 'La Crète en mai' } })
+
+      act(() => {
+        fireEvent.keyDown(box, { key: 'Enter', ctrlKey: true })
+        fireEvent.keyDown(box, { key: 'Enter', ctrlKey: true })
+      })
+
+      await showsStep('Reading your wish')
+      expect(posts('/wishes')).toHaveLength(1)
+    })
+
+    it('goes away as soon as the answer arrives, whatever the step', async () => {
+      const { router } = renderAt('/wish')
+      await writeAndSend('Une semaine calme à Chania')
+      await showsStep('Reading your wish')
+      await act(() => vi.advanceTimersByTimeAsync(3000))
+      expect(progress()).toHaveTextContent('Finding destinations')
+
+      finish(Response.json(PANEL_WISH, { status: 201 }))
+
+      expect(await screen.findByRole('heading', { name: /What matters/ })).toBeInTheDocument()
+      expect(router.state.location.pathname).toBe(`/wish/${WISH_ID}/preferences`)
+      expect(screen.queryByText(/Finding destinations/)).not.toBeInTheDocument()
+    })
+
+    it('gives the box back with a message and a way to try again when it fails', async () => {
+      renderAt('/wish')
+      await writeAndSend('La Crète en mai')
+      await showsStep('Reading your wish')
+
+      finish(Response.json({ code: 'internal_error', detail: 'boom' }, { status: 500 }))
+
+      expect(await screen.findByRole('alert')).toHaveTextContent("couldn't be sent")
+      expect(screen.queryByText(/Reading your wish/)).not.toBeInTheDocument()
+      const box = screen.getByLabelText('Your travel wish')
+      expect(box).toBeEnabled()
+      await waitFor(() => expect(box).toHaveFocus())
+
+      fireEvent.click(screen.getByRole('button', { name: 'Try again' }))
+      await showsStep('Reading your wish')
+      finish(Response.json({ code: 'internal_error', detail: 'boom' }, { status: 500 }))
+      expect(await screen.findByRole('alert')).toHaveTextContent("couldn't be sent")
+      expect(posts('/wishes')).toHaveLength(2)
+      expect(posts('/wishes')[1]!.body).toEqual({ text: 'La Crète en mai' })
+    })
+
+    it('gives the focus back to the box after asking where, and shows one status on the next send', async () => {
+      renderAt('/wish')
+      await writeAndSend('Quelque part au calme')
+      await showsStep('Reading your wish')
+
+      finish(Response.json({ id: 'x', status: 'draft', destination: null, suggestions: [], panel: null }, { status: 201 }))
+
+      expect(await screen.findByText(/Where would you like to go\?/)).toBeInTheDocument()
+      const box = screen.getByLabelText('Your travel wish')
+      await waitFor(() => expect(box).toHaveFocus())
+
+      fireEvent.change(box, { target: { value: 'Quelque part au calme, en Crète' } })
+      fireEvent.click(screen.getByRole('button', { name: 'Send' }))
+
+      await showsStep('Reading your wish')
+      expect(screen.queryByText(/Where would you like to go\?/)).not.toBeInTheDocument()
+      expect(screen.getAllByRole('status').filter((element) => element.textContent !== '')).toHaveLength(1)
+    })
+
+    it('locks the sparks while sending, and sends again once the answer is in', async () => {
+      const { router } = renderAt('/wish')
+      await writeAndSend('Quelque part au calme')
+      await showsStep('Reading your wish')
+
+      const spark = screen.getByRole('button', { name: 'Culture & calm' })
+      expect(spark).toBeDisabled()
+      fireEvent.click(spark)
+      expect(screen.getByLabelText('Your travel wish')).toHaveValue('Quelque part au calme')
+
+      finish(Response.json({ id: 'x', status: 'draft', destination: null, suggestions: [], panel: null }, { status: 201 }))
+      expect(await screen.findByText(/Where would you like to go\?/)).toBeInTheDocument()
+      expect(router.state.location.pathname).toBe('/wish')
+
+      fireEvent.click(screen.getByRole('button', { name: 'Culture & calm' }))
+      fireEvent.click(screen.getByRole('button', { name: 'Send' }))
+      await showsStep('Reading your wish')
+      expect(posts('/wishes')).toHaveLength(2)
+      expect(posts('/wishes')[1]!.body).toEqual({ text: 'A few days in the sun, between culture and calm' })
+    })
+
+    it('can send again after starting over from a suggestion', async () => {
+      renderAt('/wish')
+      await writeAndSend('Le Japon au printemps')
+      await showsStep('Reading your wish')
+      finish(Response.json(NOT_COVERED, { status: 201 }))
+
+      fireEvent.click(await screen.findByRole('button', { name: /Marrakech · Morocco/ }))
+      fireEvent.change(await screen.findByLabelText('Your travel wish'), { target: { value: 'Marrakech en mai' } })
+      fireEvent.click(screen.getByRole('button', { name: 'Send' }))
+
+      await showsStep('Reading your wish')
+      expect(posts('/wishes')).toHaveLength(2)
+    })
+
+    it('gives the focus back to the box when it stayed on the send button', async () => {
+      renderAt('/wish')
+      fireEvent.change(await screen.findByLabelText('Your travel wish'), { target: { value: 'La Crète en mai' } })
+      const button = screen.getByRole('button', { name: 'Send' })
+      button.focus()
+      fireEvent.click(button)
+      await showsStep('Reading your wish')
+
+      finish(Response.json({ code: 'internal_error', detail: 'boom' }, { status: 500 }))
+
+      expect(await screen.findByRole('alert')).toBeInTheDocument()
+      await waitFor(() => expect(screen.getByLabelText('Your travel wish')).toHaveFocus())
+    })
+
+    it.each([
+      ['a plan is ready', () => Response.json(PANEL_WISH, { status: 201 })],
+      ['the session ended', () => Response.json({ code: 'unauthenticated', detail: 'expired' }, { status: 401 })],
+    ])('leaves the client where they went when the answer comes after they left (%s)', async (_, answer) => {
+      const { router } = renderAt('/wish')
+      await writeAndSend('Une semaine calme à Chania')
+      await showsStep('Reading your wish')
+
+      fireEvent.click(screen.getByRole('link', { name: 'My trips' }))
+      await waitFor(() => expect(router.state.location.pathname).toBe('/trips'))
+
+      finish(answer())
+      await act(() => vi.advanceTimersByTimeAsync(100))
+      await waitFor(() => expect(router.state.status).toBe('idle'))
+      expect(router.state.location.pathname).toBe('/trips')
+    })
+
+    it('forgets the session when it ended after the client left, so the next page asks to sign in', async () => {
+      const { router } = renderAt('/wish')
+      await writeAndSend('Une semaine calme à Chania')
+      await showsStep('Reading your wish')
+      fireEvent.click(screen.getByRole('link', { name: 'My trips' }))
+      await waitFor(() => expect(router.state.location.pathname).toBe('/trips'))
+      signedIn = null
+
+      finish(Response.json({ code: 'unauthenticated', detail: 'expired' }, { status: 401 }))
+      await act(() => vi.advanceTimersByTimeAsync(100))
+      expect(router.state.location.pathname).toBe('/trips')
+
+      fireEvent.click(screen.getByRole('link', { name: 'Compose' }))
+      await waitFor(() => expect(router.state.location.pathname).toBe('/login'))
+      expect(router.state.location.search).toEqual({ redirect: '/wish' })
+    })
+
+    it('does not pull the client back while the page they went to is still loading', async () => {
+      const { router, queryClient } = renderAt('/wish')
+      await writeAndSend('Une semaine calme à Chania')
+      await showsStep('Reading your wish')
+      let openMe!: () => void
+      meGate = new Promise((resolve) => (openMe = resolve))
+      queryClient.removeQueries({ queryKey: getMeQueryKey() })
+
+      void router.navigate({ to: '/trips' })
+      await waitFor(() => expect(router.latestLocation.pathname).toBe('/trips'))
+      // Still on screen: the next page waits for its guard.
+      expect(screen.getByLabelText('Your travel wish')).toBeInTheDocument()
+
+      finish(Response.json(PANEL_WISH, { status: 201 }))
+      await act(() => vi.advanceTimersByTimeAsync(100))
+      openMe()
+
+      await waitFor(() => expect(router.state.status).toBe('idle'))
+      await act(() => vi.advanceTimersByTimeAsync(100))
+      expect(router.state.location.pathname).toBe('/trips')
+    })
+
+    it('lets the next page find the ended session itself when it is still asking for it', async () => {
+      const { router, queryClient } = renderAt('/wish')
+      await writeAndSend('Une semaine calme à Chania')
+      await showsStep('Reading your wish')
+      let openMe!: () => void
+      meGate = new Promise((resolve) => (openMe = resolve))
+      queryClient.removeQueries({ queryKey: getMeQueryKey() })
+
+      void router.navigate({ to: '/trips' })
+      await waitFor(() => expect(router.latestLocation.pathname).toBe('/trips'))
+      signedIn = null
+
+      finish(Response.json({ code: 'unauthenticated', detail: 'expired' }, { status: 401 }))
+      await act(() => vi.advanceTimersByTimeAsync(100))
+      openMe()
+
+      await waitFor(() => expect(router.state.location.pathname).toBe('/login'))
+      expect(router.state.location.search).toEqual({ redirect: '/trips' })
+    })
+
+    it('leaves the focus where the client put it during the sending', async () => {
+      renderAt('/wish')
+      await writeAndSend('La Crète en mai')
+      await showsStep('Reading your wish')
+      const link = screen.getByRole('link', { name: 'My trips' })
+      link.focus()
+
+      finish(Response.json({ code: 'internal_error', detail: 'boom' }, { status: 500 }))
+
+      expect(await screen.findByRole('alert')).toBeInTheDocument()
+      await act(() => vi.advanceTimersByTimeAsync(50))
+      expect(link).toHaveFocus()
+    })
+
+    it('shows the steps in French', async () => {
+      signedIn = { ...CAMILLE, locale: 'fr' }
+      renderAt('/wish')
+      fireEvent.change(await screen.findByLabelText('Votre envie de voyage'), { target: { value: 'La Crète' } })
+      fireEvent.click(screen.getByRole('button', { name: 'Envoyer' }))
+
+      await showsStep('Nous lisons votre envie')
+    })
+  })
+
+  it('offers to try again when the server is unavailable', async () => {
+    wishAnswer = () => Response.json({ code: 'unavailable', detail: 'down' }, { status: 503 })
+    renderAt('/wish')
+
+    await writeAndSend('La Crète en mai')
+
+    expect(await screen.findByRole('alert')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Try again' })).toBeInTheDocument()
+  })
+
+  it('offers to try again when the network fails', async () => {
+    wishAnswer = () => {
+      throw new TypeError('Failed to fetch')
+    }
+    renderAt('/wish')
+
+    await writeAndSend('La Crète en mai')
+
+    expect(await screen.findByRole('alert')).toHaveTextContent("couldn't be sent")
+    expect(screen.getByRole('button', { name: 'Try again' })).toBeInTheDocument()
+  })
+
+  it('does not offer to try again when the API refuses the input', async () => {
+    wishAnswer = () => Response.json({ code: 'invalid_input', detail: 'no' }, { status: 422 })
+    renderAt('/wish')
+
+    await writeAndSend('La Crète en mai')
+
+    expect(await screen.findByRole('alert')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Try again' })).not.toBeInTheDocument()
+  })
+
+  it('sends the client to sign in again when the session ended during the sending', async () => {
+    wishAnswer = () => Response.json({ code: 'unauthenticated', detail: 'expired' }, { status: 401 })
+    const { router } = renderAt('/wish')
+    await screen.findByLabelText('Your travel wish')
+    signedIn = null
+
+    await writeAndSend('La Crète en mai')
+
+    await waitFor(() => expect(router.state.location.pathname).toBe('/login'))
+    expect(router.state.location.search).toEqual({ redirect: '/wish' })
+    expect(screen.queryByRole('button', { name: 'Try again' })).not.toBeInTheDocument()
+  })
+
+  it('does not offer to try again when the wish itself is refused', async () => {
+    wishAnswer = () => Response.json({ code: 'invalid_wish', detail: 'no' }, { status: 422 })
+    renderAt('/wish')
+
+    await writeAndSend('La Crète en mai')
+
+    expect(await screen.findByRole('alert')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Try again' })).not.toBeInTheDocument()
   })
 
   it('says how long to wait when the wish is rate limited', async () => {
@@ -297,6 +613,7 @@ describe('sending a wish', () => {
 
     expect(await screen.findByRole('alert')).toHaveTextContent('Try again in 12 minutes')
     expect(screen.getByLabelText('Your travel wish')).toHaveValue('La Crète en mai')
+    expect(screen.queryByRole('button', { name: 'Try again' })).not.toBeInTheDocument()
   })
 
   it('keeps the usual wait message when Retry-After is missing', async () => {
@@ -374,12 +691,39 @@ describe('the preferences panel', () => {
     fireEvent.click(send)
 
     expect(await screen.findByRole('heading', { name: /Setting the evenings/ })).toHaveFocus()
+    await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent('Reading your answers'))
     expect(screen.getByRole('status')).toHaveTextContent('up to a minute')
     expect(screen.queryByRole('button', { name: /Compose my preview/ })).not.toBeInTheDocument()
     expect(posts(`/wishes/${WISH_ID}/answers`)).toHaveLength(1)
 
     finish(Response.json(PLAN, { status: 201 }))
     await waitFor(() => expect(router.state.location.pathname).toBe(`/plans/${PLAN_ID}`))
+  })
+
+  it('shows the steps while the plan is built, and waits on the last one', async () => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'], shouldAdvanceTime: true })
+    try {
+      let finish!: (response: Response) => void
+      answersAnswer = () => new Promise((resolve) => (finish = resolve))
+      const { router } = renderAt(`/wish/${WISH_ID}/preferences`, withWish)
+      await screen.findByRole('heading', { name: /What matters/ })
+      fillConstraints()
+
+      fireEvent.click(screen.getByRole('button', { name: /Compose my preview/ }))
+
+      await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent('Reading your answers'))
+      await act(() => vi.advanceTimersByTimeAsync(8000))
+      expect(screen.getByRole('status')).toHaveTextContent('Choosing among our partners')
+      await act(() => vi.advanceTimersByTimeAsync(8000))
+      expect(screen.getByRole('status')).toHaveTextContent('Setting your days')
+      await act(() => vi.advanceTimersByTimeAsync(60_000))
+      expect(screen.getByRole('status')).toHaveTextContent('Setting your days')
+
+      finish(Response.json(PLAN, { status: 201 }))
+      await waitFor(() => expect(router.state.location.pathname).toBe(`/plans/${PLAN_ID}`))
+    } finally {
+      vi.useRealTimers()
+    }
   })
 
   it('keeps the answers when the plan could not be built, and lets the client try again', async () => {

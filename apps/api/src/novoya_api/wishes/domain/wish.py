@@ -1,11 +1,11 @@
 from collections.abc import Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import datetime
 from enum import StrEnum
 from uuid import UUID, uuid4
 
 from novoya_api.shared.domain.errors import InvalidTransition
-from novoya_api.wishes.domain.answers import Answers
+from novoya_api.wishes.domain.answers import Answers, SelectedTag
 from novoya_api.wishes.domain.errors import InvalidWish
 from novoya_api.wishes.domain.panel import Panel
 
@@ -83,6 +83,20 @@ class Wish:
         answers.check_against(self.panel)
         self.status = WishStatus.ANSWERED
         self.answers = answers
+        self.updated_at = now
+
+    def remove_tag(self, section: str, tag: str, now: datetime) -> None:
+        """The client withdraws one preference they picked (#165). This is not a new answer:
+        the wish keeps its status, budget, travellers and dates, the plan already built stays
+        as it is, and answer() still happens once. Only a wish with answers has tags to
+        withdraw."""
+        if self.answers is None or self.status not in (WishStatus.ANSWERED, WishStatus.PLANNED):
+            raise InvalidTransition(f"a {self.status} wish has no answers to change")
+        removed = SelectedTag(section, tag)
+        self.answers = replace(
+            self.answers,
+            selected_tags=tuple(t for t in self.answers.selected_tags if t != removed),
+        )
         self.updated_at = now
 
     def mark_planned(self, now: datetime) -> None:

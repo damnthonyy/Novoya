@@ -7,6 +7,7 @@ from pydantic import BaseModel, Field, StringConstraints
 
 from novoya_api.wishes.application.dto import AdminWishView
 from novoya_api.wishes.application.ports.planner import ProposedPlan
+from novoya_api.wishes.application.use_cases.preferences import PreferenceSection
 from novoya_api.wishes.application.use_cases.send_wish import SendWishResult
 from novoya_api.wishes.domain.answers import Answers, SelectedTag
 from novoya_api.wishes.domain.panel import Panel
@@ -192,4 +193,31 @@ class AdminWish(BaseModel):
             client=WishClient(id=client.user_id, name=client.name, email=client.email)
             if client
             else None,
+        )
+
+
+class PreferenceTagOut(BaseModel):
+    id: str
+    label: str
+    # False when every wish carrying it is with the agency (a plan requested,
+    # negotiating, quoted, accepted or rejected).
+    removable: bool
+
+
+class PreferenceSectionOut(BaseModel):
+    """A panel section and the tags the client picked in it, across their wishes."""
+
+    id: str
+    title: str
+    tags: list[PreferenceTagOut]
+
+    @classmethod
+    def of(cls, section: PreferenceSection) -> "PreferenceSectionOut":
+        return cls(
+            id=section.id,
+            title=section.title,
+            tags=[
+                PreferenceTagOut(id=tag.id, label=tag.label, removable=tag.removable)
+                for tag in section.tags
+            ],
         )
