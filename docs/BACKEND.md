@@ -165,6 +165,18 @@ Every module also uses the shared `UnitOfWork` port: one use case is one transac
 
 ORM models are not entities. A repository maps rows to entities and back, so no SQLAlchemy object leaves a module's `infrastructure/`.
 
+### Database timeouts
+
+The app's engine (`shared/infrastructure/db/session.py`) sets three PostgreSQL timeouts on every connection, so a lock held too long or a transaction left open never makes the requests behind it wait forever and use up the pool:
+
+| Setting | Default | Bounds | PostgreSQL |
+|---|---|---|---|
+| `NOVOYA_DB_LOCK_TIMEOUT_MS` | 5 000 | 100 to 60 000 | `lock_timeout` |
+| `NOVOYA_DB_STATEMENT_TIMEOUT_MS` | 30 000 | 1 000 to 600 000 | `statement_timeout` |
+| `NOVOYA_DB_IDLE_IN_TRANSACTION_TIMEOUT_MS` | 60 000 | 1 000 to 3 600 000 | `idle_in_transaction_session_timeout` |
+
+They cannot be 0 (off). The CLI commands (DÉTOUR import, seed, `grant-role`) use the same engine; a one-off run that needs more raises a setting in its environment. Alembic builds its own engine and runs without them, so a migration is never cancelled halfway. A request that hits a lock or statement timeout, or loses a deadlock, gets 503 `database_busy` with `Retry-After`; only the error's type and SQLSTATE are logged. Never wait on the LLM or other slow work inside a transaction: the use cases end their read (`uow.rollback()`) before calling the model.
+
 ### The LLM proposes, the use case decides
 
 The LLM is an adapter behind `PanelBuilder` (wishes) and `PlanGenerator` (planning):
@@ -185,6 +197,7 @@ Errors are defined once in `shared/domain/errors.py` and turned into HTTP codes 
 | `InvalidTransition`, `Conflict` | 409 |
 | `InvalidInput`, invalid input (Pydantic) | 422 |
 | `TooManyRequests` | 429, with `Retry-After` |
+| A database timeout or deadlock (SQLSTATE `55P03`, `57014`, `40P01`) | 503 `database_busy`, with `Retry-After` |
 
 Every error has a `code`, and the API answers `{code, detail}`, so the frontend can translate the message. Module errors extend these classes (for example `InvalidCredentials` extends `Unauthenticated`), so the one handler is enough.
 

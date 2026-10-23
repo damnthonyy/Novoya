@@ -2,7 +2,7 @@ import json
 from functools import lru_cache
 from typing import Annotated
 
-from pydantic import SecretStr, field_validator
+from pydantic import Field, SecretStr, field_validator
 from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 
 
@@ -14,6 +14,15 @@ class Settings(BaseSettings):
     env: str = "development"
     database_url: str = "postgresql+asyncpg://novoya:novoya@localhost:5432/novoya"
     cors_origins: list[str] = ["http://localhost:5173"]
+
+    # PostgreSQL timeouts, set on every connection of the app's engine (API and CLI commands).
+    # A lock held too long or a transaction left open fails the request behind it (503) instead
+    # of making it wait forever and use up the pool. They cannot be turned off (0); a one-off
+    # CLI run that needs more raises them through the environment. Alembic has its own engine
+    # without them (alembic/env.py).
+    db_lock_timeout_ms: int = Field(default=5_000, ge=100, le=60_000)
+    db_statement_timeout_ms: int = Field(default=30_000, ge=1_000, le=600_000)
+    db_idle_in_transaction_timeout_ms: int = Field(default=60_000, ge=1_000, le=3_600_000)
 
     # Accounts: sessions, passwords, emails, Google
     frontend_url: str = "http://localhost:5173"  # links in emails point to the web app

@@ -77,6 +77,10 @@ async def run_async_migrations() -> None:
 
     """
 
+    # Not the app's engine (shared/infrastructure/db/session.py): migrations run without its
+    # lock, statement and idle timeouts, so a long index build or backfill is not cancelled
+    # halfway through a deploy. The app's own timeouts keep its transactions short, so a
+    # migration waiting for a lock is not kept waiting long either.
     connectable = async_engine_from_config(
         config.get_section(config.config_ini_section, {}),
         prefix="sqlalchemy.",
