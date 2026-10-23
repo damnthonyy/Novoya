@@ -50,12 +50,7 @@ async def lifespan(_: FastAPI) -> AsyncIterator[None]:
 
 def create_app() -> FastAPI:
     settings = get_settings()
-    app = FastAPI(
-        title="Novoya API",
-        version="0.1.0",
-        lifespan=lifespan,
-        responses={503: DATABASE_BUSY_RESPONSE},
-    )
+    app = FastAPI(title="Novoya API", version="0.1.0", lifespan=lifespan)
     app.add_middleware(OriginCheckMiddleware, allowed_origins=settings.cors_origins)
     app.add_middleware(
         CORSMiddleware,
@@ -65,19 +60,25 @@ def create_app() -> FastAPI:
         allow_headers=["*"],
     )
     register_error_handlers(app)
+    # health never answers database_busy: /health does not touch the database, and /health/db
+    # answers its own 503. Every other router does, so its routes list 503 database_busy.
+    # A route that declares its own 503 replaces this one: it must name database_busy too.
     app.include_router(health_router)
-    app.include_router(accounts_router)
-    app.include_router(catalog_router)
-    app.include_router(wishes_router)
-    app.include_router(admin_wishes_router)
-    app.include_router(planning_router)
-    app.include_router(planning_agent_router)
-    app.include_router(admin_plans_router)
-    app.include_router(quoting_router)
-    app.include_router(quoting_agent_router)
-    app.include_router(agent_quotes_router)
-    app.include_router(admin_quotes_router)
-    app.include_router(dashboard_router)
+    for router in (
+        accounts_router,
+        catalog_router,
+        wishes_router,
+        admin_wishes_router,
+        planning_router,
+        planning_agent_router,
+        admin_plans_router,
+        quoting_router,
+        quoting_agent_router,
+        agent_quotes_router,
+        admin_quotes_router,
+        dashboard_router,
+    ):
+        app.include_router(router, responses={503: DATABASE_BUSY_RESPONSE})
     return app
 
 

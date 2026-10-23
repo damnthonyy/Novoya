@@ -160,20 +160,42 @@ async def test_a_database_timeout_logs_its_type_and_sqlstate_only(caplog, monkey
     assert "SELECT" not in caplog.text
 
 
-def test_the_openapi_schema_lists_503_database_busy_on_every_route():
-    paths = create_app().openapi()["paths"]
-    operations = [
-        (path, method, operation)
-        for path, methods in paths.items()
-        for method, operation in methods.items()
-    ]
+# Routes that never return database_busy: /health never touches the database, and
+# /health/db answers its own 503 (the Health body) when the database does not answer.
+NO_DATABASE_BUSY = {"/health", "/health/db"}
 
-    for path, method, operation in operations:
-        busy = operation["responses"].get("503")
-        assert busy is not None, f"{method.upper()} {path} has no 503"
-    wishes = paths["/wishes"]["post"]["responses"]["503"]
-    assert wishes["content"]["application/json"]["schema"] == {
-        "$ref": "#/components/schemas/ErrorResponse"
+
+def test_the_openapi_schema_lists_503_database_busy_on_every_database_route():
+    paths = create_app().openapi()["paths"]
+
+    for path, methods in paths.items():
+        if path in NO_DATABASE_BUSY:
+            continue
+        for method, operation in methods.items():
+            busy = operation["responses"].get("503")
+            where = f"{method.upper()} {path}"
+            assert busy is not None, f"{where} has no 503"
+            assert "database_busy" in busy["description"], f"{where}: {busy['description']}"
+            assert "Retry-After" in busy.get("headers", {}), f"{where} has no Retry-After"
+            assert busy["content"]["application/json"]["schema"] == {
+                "$ref": "#/components/schemas/ErrorResponse"
+            }, where
+
+
+def test_the_quote_email_resend_documents_both_of_its_503s():
+    resend = create_app().openapi()["paths"]["/agent/quotes/{quote_id}/email"]["post"]
+
+    description = resend["responses"]["503"]["description"]
+    assert "email_not_sent" in description
+    assert "database_busy" in description
+
+
+def test_the_health_routes_do_not_list_database_busy():
+    paths = create_app().openapi()["paths"]
+
+    assert "503" not in paths["/health"]["get"]["responses"]
+    db_health = paths["/health/db"]["get"]["responses"]["503"]
+    assert db_health["content"]["application/json"]["schema"] == {
+        "$ref": "#/components/schemas/Health"
     }
-    assert "Retry-After" in wishes["headers"]
-    assert "database_busy" in wishes["description"]
+    assert "database_busy" not in db_health["description"]

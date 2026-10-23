@@ -76,7 +76,8 @@ async def handle_validation_error(request: Request, error: Exception) -> JSONRes
 
 DATABASE_BUSY_RETRY_AFTER_SECONDS = 2
 
-# Listed on every route (main.py passes it to FastAPI), since any route may hit a timeout.
+# Listed on every route that uses the database (main.py adds it to those routers), since
+# any of them may hit a timeout.
 DATABASE_BUSY_RESPONSE = {
     "model": ErrorResponse,
     "description": "database_busy: a lock or statement timeout, or a deadlock. Try again.",
