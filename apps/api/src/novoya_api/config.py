@@ -33,6 +33,10 @@ class Settings(BaseSettings):
     argon2_time_cost: int = 3
     argon2_memory_cost_kib: int = 65536
 
+    # Planning: the answer time promised to the client once their trip is sent (#168).
+    # A promise of the agency: shown on My trips and in the confirmation email.
+    quote_answer_days: int = 4
+
     # LLM through OpenRouter (#22). Free models; the fallbacks are tried in order.
     openrouter_api_key: SecretStr | None = None
     llm_model: str = "nvidia/nemotron-3-ultra-550b-a55b:free"

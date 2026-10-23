@@ -1596,6 +1596,11 @@
       "Plan": {
         "description": "The plan day by day. Never a price: the quote has it. Never a partner name.",
         "properties": {
+          "answer_within_days": {
+            "description": "Days within which the agency answers once the trip is sent (a setting).",
+            "title": "Answer Within Days",
+            "type": "integer"
+          },
           "based_on_preferences": {
             "title": "Based On Preferences",
             "type": "boolean"
@@ -1631,7 +1636,8 @@
           "status",
           "based_on_preferences",
           "summary",
-          "items"
+          "items",
+          "answer_within_days"
         ],
         "title": "Plan",
         "type": "object"
@@ -2621,6 +2627,11 @@
       "Trip": {
         "description": "A wish of the client and how far it has got.",
         "properties": {
+          "answer_within_days": {
+            "description": "Days within which the agency answers once the trip is sent (a setting).",
+            "title": "Answer Within Days",
+            "type": "integer"
+          },
           "city": {
             "anyOf": [
               {
@@ -2759,7 +2770,8 @@
           "created_at",
           "plan_id",
           "plan_status",
-          "quote_id"
+          "quote_id",
+          "answer_within_days"
         ],
         "title": "Trip",
         "type": "object"
@@ -6719,7 +6731,7 @@
     },
     "/me/trips": {
       "get": {
-        "description": "The signed-in client's wishes, newest first, each with its status and the ids of its\nplan and its quote when they exist. Only their own wishes. 401 without a session, 403 for\nan agent.",
+        "description": "The signed-in client's wishes, newest first, each with its status and the ids of its\nplan and its quote when they exist. Only their own wishes. 401 without a session, 403 for\nan agent. answer_within_days is the answer time promised once the trip is sent.",
         "operationId": "listMyTrips",
         "responses": {
           "200": {
@@ -6903,7 +6915,7 @@
     },
     "/plans/{plan_id}/request-quote": {
       "post": {
-        "description": "Ask an agent to price this plan, with optional extras. proposed becomes requested.\nNever a price here. 404 if it is missing or not the caller's. 409 if it is not proposed\n(a second click too). 422 if an extra is unknown or no longer offered.",
+        "description": "Send this plan to the agency, with optional extras: proposed becomes requested, and the\nclient gets one email saying the agency will answer within answer_within_days days. Never\na price here. 404 if it is missing or not the caller's. 409 if it is not proposed (a second\nclick too: no second request, no second email). 422 if an extra is unknown or no longer\noffered. A failed email does not fail the request.",
         "operationId": "requestQuote",
         "parameters": [
           {

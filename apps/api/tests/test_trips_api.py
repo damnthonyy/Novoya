@@ -85,6 +85,7 @@ async def test_a_client_reads_only_their_own_trips(app, client, wishes, plans, q
     assert trip["plan_id"] == str(plan.plan_id)
     assert trip["plan_status"] == "quoted"
     assert trip["quote_id"] == str(quote_id)
+    assert trip["answer_within_days"] == 4  # the setting, so the page never hard-codes it
     assert set(trip) == {
         "wish_id",
         "text",
@@ -98,6 +99,7 @@ async def test_a_client_reads_only_their_own_trips(app, client, wishes, plans, q
         "plan_id",
         "plan_status",
         "quote_id",
+        "answer_within_days",
     }
 
 

@@ -6,11 +6,17 @@ from uuid import UUID
 
 import pytest
 
-from novoya_api.planning.application.dto import ExtraSummary, OfferSummary
+from novoya_api.planning.application.dto import (
+    ClientContact,
+    ExtraSummary,
+    OfferSummary,
+    RequestReceivedEmail,
+)
 from novoya_api.planning.application.use_cases.request_quote import RequestQuote
 from novoya_api.planning.domain.errors import PlanNotFound
 from novoya_api.planning.domain.plan import DraftItem, Plan, PlanExtra, PlanStatus
 from novoya_api.shared.domain.errors import InvalidInput, InvalidTransition
+from novoya_api.shared.domain.value_objects import Locale
 
 WISH_ID = UUID("00000000-0000-0000-0000-0000000000a1")
 OWNER_ID = UUID("00000000-0000-0000-0000-000000000001")
@@ -91,8 +97,31 @@ class FixedClock:
         return LATER
 
 
+class FakeClients:
+    def __init__(self, locale: Locale = Locale.FR) -> None:
+        self.locale = locale
+
+    async def contact(self, user_id: UUID) -> ClientContact | None:
+        if user_id != OWNER_ID:
+            return None
+        return ClientContact("camille@example.fr", "Camille", self.locale)
+
+
+class FakeNotifier:
+    def __init__(self, works: bool = True) -> None:
+        self.works = works
+        self.sent: list[RequestReceivedEmail] = []
+
+    async def send_request_received(self, email: RequestReceivedEmail) -> bool:
+        self.sent.append(email)
+        return self.works
+
+
 def request_quote(
-    plan: Plan | None, wishes: FakeWishes | None = None
+    plan: Plan | None,
+    wishes: FakeWishes | None = None,
+    notifier: FakeNotifier | None = None,
+    clients: FakeClients | None = None,
 ) -> tuple[RequestQuote, FakeUow]:
     uow = FakeUow()
     return (
@@ -102,6 +131,10 @@ def request_quote(
             wishes=wishes or FakeWishes(),
             uow=uow,
             clock=FixedClock(),
+            clients=clients or FakeClients(),
+            notifier=notifier or FakeNotifier(),
+            frontend_url="https://novoya.test/",
+            answer_days=4,
         ),
         uow,
     )
@@ -213,8 +246,68 @@ async def test_the_snapshot_keeps_the_label_and_unit_for_the_agent():
         wishes=FakeWishes(),
         uow=FakeUow(),
         clock=FixedClock(),
+        clients=FakeClients(),
+        notifier=FakeNotifier(),
+        frontend_url="https://novoya.test",
+        answer_days=4,
     )
 
     await use_case(plan.id, OWNER_ID, extra_ids=[BAG.id])
 
     assert [(extra.label, extra.unit) for extra in plan.extras] == [("Extra bag", "per bag")]
+
+
+# The confirmation email (#168)
+
+
+async def test_the_client_gets_one_email_in_their_language_with_a_link_to_the_plan():
+    plan = stored_plan()
+    notifier = FakeNotifier()
+    use_case, _uow = request_quote(plan, notifier=notifier)
+
+    await use_case(plan.id, OWNER_ID)
+
+    assert notifier.sent == [
+        RequestReceivedEmail(
+            to="camille@example.fr",
+            name="Camille",
+            locale=Locale.FR,
+            plan_url=f"https://novoya.test/plans/{plan.id}",
+            answer_days=4,
+        )
+    ]
+
+
+async def test_sending_twice_makes_no_second_request_and_no_second_email():
+    plan = stored_plan()
+    notifier = FakeNotifier()
+    use_case, uow = request_quote(plan, notifier=notifier)
+
+    await use_case(plan.id, OWNER_ID)
+    with pytest.raises(InvalidTransition):
+        await use_case(plan.id, OWNER_ID)
+
+    assert len(notifier.sent) == 1
+    assert uow.commits == 1
+
+
+async def test_a_failed_email_keeps_the_request():
+    plan = stored_plan()
+    use_case, uow = request_quote(plan, notifier=FakeNotifier(works=False))
+
+    view = await use_case(plan.id, OWNER_ID)
+
+    assert view.status == "requested"
+    assert plan.status is PlanStatus.REQUESTED
+    assert uow.commits == 1
+
+
+async def test_no_email_when_the_request_fails():
+    plan = stored_plan()
+    notifier = FakeNotifier()
+    use_case, _uow = request_quote(plan, notifier=notifier)
+
+    with pytest.raises(PlanNotFound):
+        await use_case(plan.id, OTHER_ID)
+
+    assert notifier.sent == []
