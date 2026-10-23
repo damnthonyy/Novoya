@@ -4,6 +4,7 @@ import { act, fireEvent, render, screen, waitFor, within } from '@testing-librar
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import '../api/client'
+import { getMeQueryKey } from '../api/generated/@tanstack/react-query.gen'
 import { client } from '../api/generated/client.gen'
 import type { MeResponse, PlanResponse, WishResponse } from '../api/generated/types.gen'
 import { type CachedWish, wishQueryKey } from '../api/wishes'
@@ -86,6 +87,8 @@ let calls: Call[]
 let wishAnswer: () => Response | Promise<Response>
 let loginAnswer: () => Response
 let answersAnswer: () => Response | Promise<Response>
+// When set, GET /me waits for it: a guarded page then stays loading.
+let meGate: Promise<void> | undefined
 
 function mockApi() {
   vi.spyOn(globalThis, 'fetch').mockImplementation(async (input) => {
@@ -94,6 +97,7 @@ function mockApi() {
     const text = request.method === 'POST' ? await request.text() : ''
     calls.push({ method: request.method, path, body: text ? JSON.parse(text) : undefined })
     if (path === '/me') {
+      if (meGate) await meGate
       return signedIn
         ? Response.json(signedIn)
         : Response.json({ code: 'unauthenticated', detail: 'not signed in' }, { status: 401 })
@@ -126,6 +130,7 @@ beforeEach(() => {
   wishAnswer = () => Response.json(PANEL_WISH, { status: 201 })
   loginAnswer = () => new Response(null, { status: 204 })
   answersAnswer = () => Response.json(PLAN, { status: 201 })
+  meGate = undefined
   mockApi()
 })
 afterEach(() => {
@@ -453,6 +458,45 @@ describe('sending a wish', () => {
       finish(answer())
       await act(() => vi.advanceTimersByTimeAsync(100))
       await waitFor(() => expect(router.state.status).toBe('idle'))
+      expect(router.state.location.pathname).toBe('/trips')
+    })
+
+    it('forgets the session when it ended after the client left, so the next page asks to sign in', async () => {
+      const { router } = renderAt('/wish')
+      await writeAndSend('Une semaine calme à Chania')
+      await showsStep('Reading your wish')
+      fireEvent.click(screen.getByRole('link', { name: 'My trips' }))
+      await waitFor(() => expect(router.state.location.pathname).toBe('/trips'))
+      signedIn = null
+
+      finish(Response.json({ code: 'unauthenticated', detail: 'expired' }, { status: 401 }))
+      await act(() => vi.advanceTimersByTimeAsync(100))
+      expect(router.state.location.pathname).toBe('/trips')
+
+      fireEvent.click(screen.getByRole('link', { name: 'Compose' }))
+      await waitFor(() => expect(router.state.location.pathname).toBe('/login'))
+      expect(router.state.location.search).toEqual({ redirect: '/wish' })
+    })
+
+    it('does not pull the client back while the page they went to is still loading', async () => {
+      const { router, queryClient } = renderAt('/wish')
+      await writeAndSend('Une semaine calme à Chania')
+      await showsStep('Reading your wish')
+      let openMe!: () => void
+      meGate = new Promise((resolve) => (openMe = resolve))
+      queryClient.removeQueries({ queryKey: getMeQueryKey() })
+
+      void router.navigate({ to: '/trips' })
+      await waitFor(() => expect(router.latestLocation.pathname).toBe('/trips'))
+      // Still on screen: the next page waits for its guard.
+      expect(screen.getByLabelText('Your travel wish')).toBeInTheDocument()
+
+      finish(Response.json(PANEL_WISH, { status: 201 }))
+      await act(() => vi.advanceTimersByTimeAsync(100))
+      openMe()
+
+      await waitFor(() => expect(router.state.status).toBe('idle'))
+      await act(() => vi.advanceTimersByTimeAsync(100))
       expect(router.state.location.pathname).toBe('/trips')
     })
 

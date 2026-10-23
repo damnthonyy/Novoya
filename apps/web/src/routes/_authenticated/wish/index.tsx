@@ -54,11 +54,13 @@ function WishPage() {
     onSettled: () => {
       sending.current = false
     },
-    // The session ended: sign in again and come back here. The cached /me goes first, or the
-    // sign-in page would see a session and send the client straight back.
+    // The session ended: the cached /me goes in every case, or the sign-in page (or the next
+    // guarded page, if the client left) would still see a session. Sign in again and come back
+    // here only from this page.
     onError: async (error) => {
-      if (!isUnauthenticated(error) || !stillHere()) return
+      if (!isUnauthenticated(error)) return
       queryClient.removeQueries({ queryKey: getMeQueryKey() })
+      if (!stillHere()) return
       await navigate({ to: '/login', search: { redirect: '/wish' }, replace: true })
     },
     onSuccess: async (wish) => {
