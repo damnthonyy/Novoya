@@ -5,6 +5,7 @@ import { useMyTrips } from '../../api/trips'
 import { Button } from '../../components/atoms/Button'
 import { Eyebrow } from '../../components/atoms/Eyebrow'
 import { lineTabList, lineTabPanel, lineTabTrigger } from '../../components/molecules/lineTabs'
+import { PreferencesTab } from '../../components/organisms/PreferencesTab'
 import { TripList } from '../../components/organisms/TripList'
 import { AppShell } from '../../components/templates/AppShell'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui/tabs'
@@ -69,8 +70,8 @@ function TripsPage() {
           <TabsContent value="profile" className={`${lineTabPanel} px-5 py-9 text-muted md:px-[8vw]`}>
             {t('soon.profile')}
           </TabsContent>
-          <TabsContent value="preferences" className={`${lineTabPanel} px-5 py-9 text-muted md:px-[8vw]`}>
-            {t('soon.preferences')}
+          <TabsContent value="preferences" className={`${lineTabPanel} px-5 py-9 md:px-[8vw]`}>
+            <PreferencesTab />
           </TabsContent>
         </Tabs>
       </main>

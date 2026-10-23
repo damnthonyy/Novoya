@@ -2538,6 +2538,56 @@
         "title": "PostMessageRequest",
         "type": "object"
       },
+      "PreferenceSectionOut": {
+        "description": "A panel section and the tags the client picked in it, across their wishes.",
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "tags": {
+            "items": {
+              "$ref": "#/components/schemas/PreferenceTagOut"
+            },
+            "title": "Tags",
+            "type": "array"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "tags"
+        ],
+        "title": "PreferenceSectionOut",
+        "type": "object"
+      },
+      "PreferenceTagOut": {
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "removable": {
+            "title": "Removable",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "id",
+          "label",
+          "removable"
+        ],
+        "title": "PreferenceTagOut",
+        "type": "object"
+      },
       "QueueEntry": {
         "description": "A plan waiting for a quote. Wish text, place, dates, travellers and budget. No prices.",
         "properties": {
@@ -8576,6 +8626,139 @@
           }
         },
         "summary": "Update Me",
+        "tags": [
+          "me"
+        ]
+      }
+    },
+    "/me/preferences": {
+      "get": {
+        "description": "The tags the client picked on the panels of their own wishes, grouped by panel\nsection, each tag once, with whether it can still be removed. Empty when no wish is\nanswered yet.",
+        "operationId": "listMyPreferences",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/PreferenceSectionOut"
+                  },
+                  "title": "Response Listmypreferences",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "summary": "List My Preferences",
+        "tags": [
+          "me"
+        ]
+      }
+    },
+    "/me/preferences/{section}/{tag}": {
+      "delete": {
+        "description": "Withdraw a preference from the client's wishes that can still change: those with no\nplan requested, negotiating, quoted, accepted or rejected. Wishes the agency works from keep it.\n409 preference_locked when every wish carrying the tag is with the agency. Removing a tag\nthe client does not have is a no-op (204), so a second click does no harm.",
+        "operationId": "removeMyPreference",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "section",
+            "required": true,
+            "schema": {
+              "minLength": 1,
+              "title": "Section",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "tag",
+            "required": true,
+            "schema": {
+              "minLength": 1,
+              "title": "Tag",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "summary": "Remove My Preference",
         "tags": [
           "me"
         ]

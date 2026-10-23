@@ -82,12 +82,47 @@ class SqlWishRepository:
         self._read_status[row.id] = row.status
         return wish_to_entity(row)
 
+    async def owner_id_for_share(self, wish_id: UUID, owner_id: UUID) -> UUID | None:
+        """`owner_id` if they own the wish, its row then locked FOR SHARE until the transaction
+        ends; None otherwise, and nothing is locked: another user cannot hold the wish up."""
+        return await self._session.scalar(
+            select(WishModel.user_id)
+            .where(WishModel.id == wish_id, WishModel.user_id == owner_id)
+            .with_for_update(read=True)
+        )
+
+    async def lock_for_user(self, user_id: UUID) -> None:
+        """Lock every wish of this user FOR UPDATE, in id order, until the transaction ends."""
+        await self._session.execute(
+            select(WishModel.id)
+            .where(WishModel.user_id == user_id)
+            .order_by(WishModel.id)
+            .with_for_update()
+        )
+
     async def list_by_ids(self, ids: Sequence[UUID]) -> list[Wish]:
         if not ids:
             return []
         rows = await self._session.scalars(select(WishModel).where(WishModel.id.in_(ids)))
         found = {row.id: wish_to_entity(row) for row in rows}
         return [found[wish_id] for wish_id in ids if wish_id in found]
+
+    async def list_for_user(self, user_id: UUID, *, lock: bool = False) -> list[Wish]:
+        statement = select(WishModel).where(WishModel.user_id == user_id)
+        if lock:
+            # save() guards on the status only, which a removed tag does not change: two
+            # removals at once must wait for each other, or the second undoes the first.
+            # In id order, as lock_for_user (DELETE /me): two lockers never cross.
+            statement = statement.order_by(WishModel.id).with_for_update()
+        else:
+            statement = statement.order_by(WishModel.created_at.desc(), WishModel.id)
+        rows = await self._session.scalars(statement)
+        wishes = []
+        for row in rows:
+            self._read_status[row.id] = row.status
+            wishes.append(wish_to_entity(row))
+        # Newest first, either way (a stable sort keeps the id order on a tie).
+        return sorted(wishes, key=lambda wish: wish.created_at, reverse=True)
 
     async def add(self, wish: Wish) -> None:
         self._session.add(
@@ -118,15 +153,6 @@ class SqlWishRepository:
             select(WishModel.id).where(WishModel.user_id == user_id)
         )
         return list(result)
-
-    async def list_for_user(self, user_id: UUID) -> list[Wish]:
-        """This user's wishes, newest first."""
-        rows = await self._session.scalars(
-            select(WishModel)
-            .where(WishModel.user_id == user_id)
-            .order_by(WishModel.created_at.desc(), WishModel.id)
-        )
-        return [wish_to_entity(row) for row in rows]
 
     async def delete_for_user(self, user_id: UUID) -> None:
         """Erase every wish of this user. The caller commits."""

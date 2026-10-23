@@ -33,6 +33,28 @@
   --color-pending: #dba652;
   --color-danger: #b42318;
 
+  /*
+   * One colour per preference panel section (#165, domain/panel/sectionTone.ts). The strong
+   * tone marks the section (a border, 3:1 at least on paper); the soft one is behind ink
+   * text (over 10:1). The app is light only, so there is no dark set yet.
+   */
+  --color-section-1: #1f7a6d;
+  --color-section-1-soft: #d6ebe6;
+  --color-section-2: #7a3e8a;
+  --color-section-2-soft: #ecdcf1;
+  --color-section-3: #a8432b;
+  --color-section-3-soft: #f4ddd4;
+  --color-section-4: #2f5d9e;
+  --color-section-4-soft: #d9e4f3;
+  --color-section-5: #5f6b1f;
+  --color-section-5-soft: #e4e8c9;
+  --color-section-6: #8a5a00;
+  --color-section-6-soft: #f2e2bf;
+  --color-section-7: #9b2f5a;
+  --color-section-7-soft: #f3d9e3;
+  --color-section-8: #4a5565;
+  --color-section-8-soft: #e1e4ea;
+
   --font-sans: 'Instrument Sans', Arial, sans-serif;
   --font-serif: 'Bricolage Grotesque', 'Instrument Sans', Arial, sans-serif;
   --font-mono: 'IBM Plex Mono', ui-monospace, monospace;
