@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 import { useRouteContext } from '@tanstack/react-router'
+import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { getMeOptions } from '../../api/generated/@tanstack/react-query.gen'
@@ -35,6 +36,8 @@ export function ProfileTab() {
   const me = cached.data ?? loaded
   const save = useUpdateMe()
   const errors = useAccountErrors(save.error)
+  // Saved with nothing left to send: what is shown is what is stored.
+  const [upToDate, setUpToDate] = useState(false)
 
   return (
     <ProfileForm
@@ -44,12 +47,18 @@ export function ProfileTab() {
       required={{ firstName: me.first_name !== null, lastName: me.last_name !== null }}
       onSubmit={async (edited) => {
         const body = changes(me, edited)
-        if (Object.keys(body).length === 0) return profileOf(me)
+        if (Object.keys(body).length === 0) {
+          // No request: drop the error of an earlier failed save, and confirm.
+          save.reset()
+          setUpToDate(true)
+          return profileOf(me)
+        }
+        setUpToDate(false)
         return profileOf(await save.mutateAsync({ body }))
       }}
       pending={save.isPending}
       errors={{ firstName: errors.firstName, lastName: errors.lastName, form: errors.form }}
-      success={save.isSuccess ? t('saved') : undefined}
+      success={save.isSuccess || upToDate ? t('saved') : undefined}
     />
   )
 }

@@ -156,14 +156,75 @@ describe('the personal information tab on My trips', () => {
     expect(screen.queryByRole('status')).not.toBeInTheDocument()
   })
 
-  it('sends nothing when nothing changed', async () => {
+  it('sends nothing when nothing changed, and says the details are saved', async () => {
     renderAt('/trips')
     const form = await openProfileTab()
 
     fireEvent.click(within(form).getByRole('button', { name: 'Save' }))
-    await new Promise((resolve) => setTimeout(resolve, 50))
+    expect(await screen.findByRole('status')).toHaveTextContent('Your details are saved.')
 
     expect(patches()).toEqual([])
+  })
+
+  it('sends no name that differs from the stored one only by spaces', async () => {
+    renderAt('/trips')
+    const form = await openProfileTab()
+
+    fireEvent.change(within(form).getByLabelText('Last name'), { target: { value: ' Durand ' } })
+    fireEvent.click(within(form).getByRole('button', { name: 'Save' }))
+    expect(await screen.findByRole('status')).toHaveTextContent('Your details are saved.')
+
+    expect(patches()).toEqual([])
+  })
+
+  it('does not send spaces as a last name that was never stored', async () => {
+    me = { ...CAMILLE, last_name: null, name: 'Camille' }
+    renderAt('/trips')
+    const form = await openProfileTab()
+
+    fireEvent.change(within(form).getByLabelText('Last name'), { target: { value: '   ' } })
+    fireEvent.click(within(form).getByRole('button', { name: 'Save' }))
+    expect(await screen.findByRole('status')).toHaveTextContent('Your details are saved.')
+
+    expect(patches()).toEqual([])
+  })
+
+  it('clears a field error once the value is back to the stored one', async () => {
+    patchAnswer = () =>
+      Response.json({ code: 'invalid_input', detail: 'last_name: String should have at least 1 character' }, { status: 422 })
+    renderAt('/trips')
+    const form = await openProfileTab()
+    const last = within(form).getByLabelText('Last name')
+
+    fireEvent.change(last, { target: { value: '' } })
+    fireEvent.click(within(form).getByRole('button', { name: 'Save' }))
+    await waitFor(() => expect(last).toHaveAccessibleDescription('Enter your last name.'))
+
+    fireEvent.change(last, { target: { value: 'Durand' } })
+    fireEvent.click(within(form).getByRole('button', { name: 'Save' }))
+
+    expect(await screen.findByRole('status')).toHaveTextContent('Your details are saved.')
+    expect(last).not.toHaveAttribute('aria-invalid')
+    expect(last).not.toHaveAccessibleDescription('Enter your last name.')
+    expect(patches()).toHaveLength(1)
+  })
+
+  it('clears another failure once nothing is left to save', async () => {
+    patchAnswer = () => Response.json({ code: 'boom', detail: 'boom' }, { status: 500 })
+    renderAt('/trips')
+    const form = await openProfileTab()
+    const last = within(form).getByLabelText('Last name')
+
+    fireEvent.change(last, { target: { value: 'Martin' } })
+    fireEvent.click(within(form).getByRole('button', { name: 'Save' }))
+    expect(await within(form).findByRole('alert')).toBeInTheDocument()
+
+    fireEvent.change(last, { target: { value: 'Durand' } })
+    fireEvent.click(within(form).getByRole('button', { name: 'Save' }))
+
+    expect(await screen.findByRole('status')).toHaveTextContent('Your details are saved.')
+    expect(within(form).queryByRole('alert')).not.toBeInTheDocument()
+    expect(patches()).toHaveLength(1)
   })
 
   it('shows another failure above the button', async () => {
@@ -247,9 +308,8 @@ describe('the personal information tab on My trips', () => {
     fireEvent.change(within(form).getByLabelText('Last name'), { target: { value: 'Martin' } })
     // The tab renders again for another reason (here the interface language).
     await act(() => i18n.changeLanguage('fr'))
-    await new Promise((resolve) => setTimeout(resolve, 50))
 
-    const still = screen.getByRole('form', { name: 'Informations personnelles' })
+    const still = await screen.findByRole('form', { name: 'Informations personnelles' })
     expect(within(still).getByLabelText('Prénom')).toHaveValue('Camille-Anne')
     expect(within(still).getByLabelText('Nom de famille')).toHaveValue('Martin')
   })
