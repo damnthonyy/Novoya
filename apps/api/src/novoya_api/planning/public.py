@@ -82,7 +82,6 @@ __all__ = [
     "mark_accepted",
     "mark_rejected",
     "plan_trip",
-    "plans_for_wishes",
     "plan_trips",
     "plans_for_wishes",
     "priced_plan",

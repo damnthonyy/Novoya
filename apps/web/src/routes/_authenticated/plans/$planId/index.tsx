@@ -134,7 +134,7 @@ function QuoteCall({ children }: { children: ReactNode }) {
 function SendToAgency({ plan }: { plan: Plan }) {
   const { t } = useTranslation('plan')
   const { t: tTrips } = useTranslation('trips')
-  const send = useSendToAgency(plan.id)
+  const send = useSendToAgency(plan.id, `/plans/${encodeURIComponent(plan.id)}`)
   const days = plan.answer_within_days
 
   if (plan.status !== 'proposed') {
@@ -156,7 +156,8 @@ function SendToAgency({ plan }: { plan: Plan }) {
   }
 
   // A 409 means it was sent already: the plan is read again and shows it, so no error then.
-  const failed = send.isError && !(send.error instanceof ApiError && send.error.status === 409)
+  // A 401 goes to the sign-in page instead.
+  const failed = send.isError && !(send.error instanceof ApiError && [401, 409].includes(send.error.status))
   return (
     <>
       <AlertDialog>

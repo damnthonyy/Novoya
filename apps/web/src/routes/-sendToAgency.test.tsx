@@ -49,12 +49,15 @@ const PLAN: Plan = {
 let plan: Plan
 let sendAnswer: () => Response
 let sends: number
+let signedIn: boolean
 
 function mockApi() {
   vi.spyOn(globalThis, 'fetch').mockImplementation(async (input) => {
     const request = input instanceof Request ? input : new Request(String(input))
     const path = new URL(request.url).pathname
-    if (path === '/me') return Response.json(CAMILLE)
+    if (path === '/me') {
+      return signedIn ? Response.json(CAMILLE) : Response.json({ code: 'unauthenticated', detail: 'no session' }, { status: 401 })
+    }
     if (path === `/plans/${PLAN_ID}` && request.method === 'GET') return Response.json(plan)
     if (path === `/plans/${PLAN_ID}/request-quote` && request.method === 'POST') {
       sends += 1
@@ -80,6 +83,7 @@ describe('sending the plan to the agency', () => {
     client.setConfig({ baseUrl: 'http://api.test' })
     plan = PLAN
     sends = 0
+    signedIn = true
     sendAnswer = () => {
       plan = { ...PLAN, status: 'requested' }
       return Response.json(plan)
@@ -158,5 +162,20 @@ describe('sending the plan to the agency', () => {
 
     expect(await screen.findByRole('alert')).toHaveTextContent('Your trip could not be sent. Try again.')
     expect(screen.getByRole('button', { name: 'Send to the agency' })).toBeEnabled()
+  })
+
+  it('sends the client to sign in again when the session ended, then back to the plan', async () => {
+    sendAnswer = () => {
+      signedIn = false
+      return Response.json({ code: 'unauthenticated', detail: 'no session' }, { status: 401 })
+    }
+    const router = renderAt(`/plans/${PLAN_ID}`)
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Send to the agency' }))
+    fireEvent.click(within(await screen.findByRole('alertdialog')).getByRole('button', { name: 'Send' }))
+
+    await waitFor(() => expect(router.state.location.pathname).toBe('/login'))
+    expect(router.state.location.search).toEqual({ redirect: `/plans/${PLAN_ID}` })
+    expect(screen.queryByText('Your trip could not be sent. Try again.')).not.toBeInTheDocument()
   })
 })

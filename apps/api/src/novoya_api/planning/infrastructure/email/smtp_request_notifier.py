@@ -20,7 +20,7 @@ TEXTS: dict[Locale, dict[str, str]] = {
         "hello_name": "Hello {name},",
         "received_one": "The agency received your trip. An advisor will answer within 1 day.",
         "received": "The agency received your trip. An advisor will answer within {days} days.",
-        "next": "They check every day, negotiate the prices and send you a quote.",
+        "next": "They check each day of your trip, negotiate the prices and send you a quote.",
         "link": "Follow your trip:",
         "signature": "The Novoya team",
     },

@@ -43,8 +43,10 @@ export function usePlan(planId: string, comeBackTo: string) {
  * Send the plan to the agency with POST /plans/{id}/request-quote. Success or not, the plan
  * and My trips are read again: a 409 means it was sent already (a second tab, a double click),
  * and the page then shows it as sent. The API sends the confirmation email only once.
+ * A 401 means the session ended: sign in again and come back to `comeBackTo`, as usePlan does.
  */
-export function useSendToAgency(planId: string) {
+export function useSendToAgency(planId: string, comeBackTo: string) {
+  const navigate = useNavigate()
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: async () => {
@@ -52,6 +54,11 @@ export function useSendToAgency(planId: string) {
       return data
     },
     onSuccess: (plan) => queryClient.setQueryData(getPlanQueryKey({ path: { plan_id: planId } }), plan),
+    onError: (error) => {
+      if (!isUnauthenticated(error)) return
+      queryClient.removeQueries({ queryKey: getMeQueryKey() })
+      void navigate({ to: '/login', search: { redirect: comeBackTo }, replace: true })
+    },
     onSettled: async () => {
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: getPlanQueryKey({ path: { plan_id: planId } }) }),
