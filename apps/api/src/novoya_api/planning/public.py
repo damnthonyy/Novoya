@@ -84,6 +84,7 @@ __all__ = [
     "plan_trip",
     "plans_for_wishes",
     "plan_trips",
+    "plans_for_wishes",
     "priced_plan",
     "quote_plan",
 ]
