@@ -425,6 +425,37 @@ describe('sending a wish', () => {
       expect(posts('/wishes')).toHaveLength(2)
     })
 
+    it('gives the focus back to the box when it stayed on the send button', async () => {
+      renderAt('/wish')
+      fireEvent.change(await screen.findByLabelText('Your travel wish'), { target: { value: 'La Crète en mai' } })
+      const button = screen.getByRole('button', { name: 'Send' })
+      button.focus()
+      fireEvent.click(button)
+      await showsStep('Reading your wish')
+
+      finish(Response.json({ code: 'internal_error', detail: 'boom' }, { status: 500 }))
+
+      expect(await screen.findByRole('alert')).toBeInTheDocument()
+      await waitFor(() => expect(screen.getByLabelText('Your travel wish')).toHaveFocus())
+    })
+
+    it.each([
+      ['a plan is ready', () => Response.json(PANEL_WISH, { status: 201 })],
+      ['the session ended', () => Response.json({ code: 'unauthenticated', detail: 'expired' }, { status: 401 })],
+    ])('leaves the client where they went when the answer comes after they left (%s)', async (_, answer) => {
+      const { router } = renderAt('/wish')
+      await writeAndSend('Une semaine calme à Chania')
+      await showsStep('Reading your wish')
+
+      fireEvent.click(screen.getByRole('link', { name: 'My trips' }))
+      await waitFor(() => expect(router.state.location.pathname).toBe('/trips'))
+
+      finish(answer())
+      await act(() => vi.advanceTimersByTimeAsync(100))
+      await waitFor(() => expect(router.state.status).toBe('idle'))
+      expect(router.state.location.pathname).toBe('/trips')
+    })
+
     it('leaves the focus where the client put it during the sending', async () => {
       renderAt('/wish')
       await writeAndSend('La Crète en mai')
@@ -447,6 +478,16 @@ describe('sending a wish', () => {
 
       await showsStep('Nous lisons votre envie')
     })
+  })
+
+  it('offers to try again when the server is unavailable', async () => {
+    wishAnswer = () => Response.json({ code: 'unavailable', detail: 'down' }, { status: 503 })
+    renderAt('/wish')
+
+    await writeAndSend('La Crète en mai')
+
+    expect(await screen.findByRole('alert')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Try again' })).toBeInTheDocument()
   })
 
   it('offers to try again when the network fails', async () => {

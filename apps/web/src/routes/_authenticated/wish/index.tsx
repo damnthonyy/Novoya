@@ -1,5 +1,5 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { createFileRoute, useNavigate } from '@tanstack/react-router'
+import { createFileRoute, useNavigate, useRouter } from '@tanstack/react-router'
 import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
@@ -26,6 +26,7 @@ function WishPage() {
   const { me } = Route.useRouteContext()
   const queryClient = useQueryClient()
   const navigate = useNavigate()
+  const router = useRouter()
   const { t } = useTranslation('wish')
   const { t: tErrors } = useTranslation('errors')
   const textarea = useRef<HTMLTextAreaElement>(null)
@@ -36,6 +37,17 @@ function WishPage() {
 
   // Set at once on send, not at the next render: a second ⌘/Ctrl + Enter in between sends nothing.
   const sending = useRef(false)
+  // These callbacks still run once the client has left the page (a header link mid-send):
+  // they must not pull them back to the panel, or to /login. The page can also still be
+  // mounted while the next one loads: the location being left counts as gone too.
+  const mounted = useRef(false)
+  useEffect(() => {
+    mounted.current = true
+    return () => {
+      mounted.current = false
+    }
+  }, [])
+  const stillHere = () => mounted.current && router.latestLocation.pathname.replace(/\/$/, '') === '/wish'
   const send = useMutation({
     ...sendWishMutation(),
     // Here and not in mutate(): this one still runs after send.reset().
@@ -45,17 +57,18 @@ function WishPage() {
     // The session ended: sign in again and come back here. The cached /me goes first, or the
     // sign-in page would see a session and send the client straight back.
     onError: async (error) => {
-      if (!isUnauthenticated(error)) return
+      if (!isUnauthenticated(error) || !stillHere()) return
       queryClient.removeQueries({ queryKey: getMeQueryKey() })
       await navigate({ to: '/login', search: { redirect: '/wish' }, replace: true })
     },
     onSuccess: async (wish) => {
       if (wish.status === 'panel_shown') {
         queryClient.setQueryData<CachedWish>(wishQueryKey(wish.id), { ...wish, text: text.trim() })
+        if (!stillHere()) return
         await navigate({ to: '/wish/$wishId/preferences', params: { wishId: wish.id } })
         return
       }
-      setAnswer(wish)
+      if (stillHere()) setAnswer(wish)
     },
   })
 
@@ -74,8 +87,10 @@ function WishPage() {
   // client stays here (an error, or a question). After a navigation the box is gone: no-op.
   const wasPending = useRef(false)
   useEffect(() => {
-    // Only when the focus was lost, not when the client moved it elsewhere meanwhile.
-    const lost = document.activeElement === null || document.activeElement === document.body
+    // Only when the focus was lost, not when the client moved it elsewhere meanwhile. Lost is
+    // on the body, or still in the composer: a browser may keep it on the disabled send button.
+    const active = document.activeElement
+    const lost = active === null || active === document.body || Boolean(textarea.current?.form?.contains(active))
     if (wasPending.current && !send.isPending && lost) textarea.current?.focus()
     wasPending.current = send.isPending
   }, [send.isPending])

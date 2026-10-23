@@ -86,7 +86,7 @@ describe('WishProgress', () => {
     expect(animated.length).toBeGreaterThan(0)
     for (const element of animated) {
       for (const name of element.classList) {
-        // `orbit` turns three times then stops (index.css, WCAG 2.2.2); `spin` never stops.
+        // `orbit` turns twice (4 s) then stops (index.css, WCAG 2.2.2); `spin` never stops.
         if (name.includes('animate-')) expect(name).toBe('motion-safe:animate-orbit')
       }
     }
