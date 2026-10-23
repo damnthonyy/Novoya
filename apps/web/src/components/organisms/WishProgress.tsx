@@ -50,7 +50,7 @@ export function WishProgress({ steps, everyMs, active = true, note, tone = 'ligh
           }`}
         />
       )}
-      <div role="status" className={shown ? `min-w-0 text-sm ${dark ? 'text-white' : 'text-ink'}` : 'sr-only'}>
+      <div role="status" aria-atomic="false" className={shown ? `min-w-0 text-sm ${dark ? 'text-white' : 'text-ink'}` : 'sr-only'}>
         {shown && (
           <>
             <p>{steps[current]}…</p>

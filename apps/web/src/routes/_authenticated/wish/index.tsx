@@ -3,8 +3,8 @@ import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
-import { ApiError } from '../../../api/errors'
-import { sendWishMutation } from '../../../api/generated/@tanstack/react-query.gen'
+import { ApiError, isUnauthenticated } from '../../../api/errors'
+import { getMeQueryKey, sendWishMutation } from '../../../api/generated/@tanstack/react-query.gen'
 import { type CachedWish, type WishResponse, wishQueryKey } from '../../../api/wishes'
 import { Eyebrow } from '../../../components/atoms/Eyebrow'
 import { Seal } from '../../../components/atoms/Seal'
@@ -34,8 +34,21 @@ function WishPage() {
   // The last answer that keeps the client on this page: not covered, or no place named.
   const [answer, setAnswer] = useState<WishResponse>()
 
+  // Set at once on send, not at the next render: a second ⌘/Ctrl + Enter in between sends nothing.
+  const sending = useRef(false)
   const send = useMutation({
     ...sendWishMutation(),
+    // Here and not in mutate(): this one still runs after send.reset().
+    onSettled: () => {
+      sending.current = false
+    },
+    // The session ended: sign in again and come back here. The cached /me goes first, or the
+    // sign-in page would see a session and send the client straight back.
+    onError: async (error) => {
+      if (!isUnauthenticated(error)) return
+      queryClient.removeQueries({ queryKey: getMeQueryKey() })
+      await navigate({ to: '/login', search: { redirect: '/wish' }, replace: true })
+    },
     onSuccess: async (wish) => {
       if (wish.status === 'panel_shown') {
         queryClient.setQueryData<CachedWish>(wishQueryKey(wish.id), { ...wish, text: text.trim() })
@@ -46,8 +59,6 @@ function WishPage() {
     },
   })
 
-  // Set at once on send, not at the next render: a second ⌘/Ctrl + Enter in between sends nothing.
-  const sending = useRef(false)
   const submit = () => {
     if (sending.current) return
     const error = wishTextError(text)
@@ -56,20 +67,23 @@ function WishPage() {
     sending.current = true
     // The last answer goes: its "where?" status must not stay next to the progress.
     setAnswer(undefined)
-    send.mutate({ body: { text: text.trim() } }, { onSettled: () => (sending.current = false) })
+    send.mutate({ body: { text: text.trim() } })
   }
 
   // The box was disabled while sending, which drops the keyboard focus: give it back when the
   // client stays here (an error, or a question). After a navigation the box is gone: no-op.
   const wasPending = useRef(false)
   useEffect(() => {
-    if (wasPending.current && !send.isPending) textarea.current?.focus()
+    // Only when the focus was lost, not when the client moved it elsewhere meanwhile.
+    const lost = document.activeElement === null || document.activeElement === document.body
+    if (wasPending.current && !send.isPending && lost) textarea.current?.focus()
     wasPending.current = send.isPending
   }, [send.isPending])
 
   const startOver = (nextText: string) => {
     setAnswer(undefined)
     send.reset()
+    sending.current = false
     setText(nextText)
     // After the view switches back, put the cursor at the end of the text.
     requestAnimationFrame(() => {
@@ -103,6 +117,8 @@ function WishPage() {
         send.error instanceof ApiError ? send.error.retryAfterSeconds : undefined,
       )
     : undefined
+  // Only a network failure or a server error may go away by sending again.
+  const retryable = send.isError && (!(send.error instanceof ApiError) || send.error.status >= 500)
   const sendError = refused ? tErrors(refused.key, { count: refused.count }) : undefined
   const textError = checkError ? tErrors(checkError, { max: WISH_MAX_LENGTH }) : undefined
   const firstName = givenName(me)
@@ -132,7 +148,7 @@ function WishPage() {
           onSubmit={submit}
           pending={send.isPending}
           error={textError ?? sendError}
-          onRetry={!textError && refused?.key === 'wish.unknown' ? submit : undefined}
+          onRetry={!textError && retryable ? submit : undefined}
           textareaRef={textarea}
         />
         <div className="mt-[22px] flex w-full items-center justify-start gap-2.5 overflow-x-auto md:w-auto md:justify-center">
@@ -152,7 +168,9 @@ function WishPage() {
               key={label}
               type="button"
               onClick={() => startOver(wish)}
-              className="min-h-11 shrink-0 rounded-full border border-line px-[13px] py-2 text-xs"
+              // A spark mid-send would leave the running request free to navigate later.
+              disabled={send.isPending}
+              className="min-h-11 shrink-0 rounded-full border border-line px-[13px] py-2 text-xs disabled:opacity-60"
             >
               {label}
             </button>

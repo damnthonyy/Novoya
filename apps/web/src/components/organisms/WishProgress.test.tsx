@@ -67,8 +67,14 @@ describe('WishProgress', () => {
   it('reads the note with the step', () => {
     render(<WishProgress steps={STEPS} everyMs={3000} note="This can take up to a minute." />)
     act(() => vi.advanceTimersByTime(0))
+    const note = screen.getByText('This can take up to a minute.')
+    expect(screen.getByRole('status')).toHaveAttribute('aria-atomic', 'false')
 
-    expect(screen.getByRole('status')).toHaveTextContent('Reading your wish')
+    act(() => vi.advanceTimersByTime(3000))
+    // The same node: only the step text changes, so the note is not read again at every step.
+    expect(screen.getByText('This can take up to a minute.')).toBe(note)
+
+    expect(screen.getByRole('status')).toHaveTextContent('Finding destinations')
     expect(screen.getByRole('status')).toHaveTextContent('This can take up to a minute.')
   })
 

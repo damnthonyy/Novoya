@@ -390,6 +390,55 @@ describe('sending a wish', () => {
       expect(screen.getAllByRole('status').filter((element) => element.textContent !== '')).toHaveLength(1)
     })
 
+    it('locks the sparks while sending, and sends again once the answer is in', async () => {
+      const { router } = renderAt('/wish')
+      await writeAndSend('Quelque part au calme')
+      await showsStep('Reading your wish')
+
+      const spark = screen.getByRole('button', { name: 'Culture & calm' })
+      expect(spark).toBeDisabled()
+      fireEvent.click(spark)
+      expect(screen.getByLabelText('Your travel wish')).toHaveValue('Quelque part au calme')
+
+      finish(Response.json({ id: 'x', status: 'draft', destination: null, suggestions: [], panel: null }, { status: 201 }))
+      expect(await screen.findByText(/Where would you like to go\?/)).toBeInTheDocument()
+      expect(router.state.location.pathname).toBe('/wish')
+
+      fireEvent.click(screen.getByRole('button', { name: 'Culture & calm' }))
+      fireEvent.click(screen.getByRole('button', { name: 'Send' }))
+      await showsStep('Reading your wish')
+      expect(posts('/wishes')).toHaveLength(2)
+      expect(posts('/wishes')[1]!.body).toEqual({ text: 'A few days in the sun, between culture and calm' })
+    })
+
+    it('can send again after starting over from a suggestion', async () => {
+      renderAt('/wish')
+      await writeAndSend('Le Japon au printemps')
+      await showsStep('Reading your wish')
+      finish(Response.json(NOT_COVERED, { status: 201 }))
+
+      fireEvent.click(await screen.findByRole('button', { name: /Marrakech · Morocco/ }))
+      fireEvent.change(await screen.findByLabelText('Your travel wish'), { target: { value: 'Marrakech en mai' } })
+      fireEvent.click(screen.getByRole('button', { name: 'Send' }))
+
+      await showsStep('Reading your wish')
+      expect(posts('/wishes')).toHaveLength(2)
+    })
+
+    it('leaves the focus where the client put it during the sending', async () => {
+      renderAt('/wish')
+      await writeAndSend('La Crète en mai')
+      await showsStep('Reading your wish')
+      const link = screen.getByRole('link', { name: 'My trips' })
+      link.focus()
+
+      finish(Response.json({ code: 'internal_error', detail: 'boom' }, { status: 500 }))
+
+      expect(await screen.findByRole('alert')).toBeInTheDocument()
+      await act(() => vi.advanceTimersByTimeAsync(50))
+      expect(link).toHaveFocus()
+    })
+
     it('shows the steps in French', async () => {
       signedIn = { ...CAMILLE, locale: 'fr' }
       renderAt('/wish')
@@ -398,6 +447,41 @@ describe('sending a wish', () => {
 
       await showsStep('Nous lisons votre envie')
     })
+  })
+
+  it('offers to try again when the network fails', async () => {
+    wishAnswer = () => {
+      throw new TypeError('Failed to fetch')
+    }
+    renderAt('/wish')
+
+    await writeAndSend('La Crète en mai')
+
+    expect(await screen.findByRole('alert')).toHaveTextContent("couldn't be sent")
+    expect(screen.getByRole('button', { name: 'Try again' })).toBeInTheDocument()
+  })
+
+  it('does not offer to try again when the API refuses the input', async () => {
+    wishAnswer = () => Response.json({ code: 'invalid_input', detail: 'no' }, { status: 422 })
+    renderAt('/wish')
+
+    await writeAndSend('La Crète en mai')
+
+    expect(await screen.findByRole('alert')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Try again' })).not.toBeInTheDocument()
+  })
+
+  it('sends the client to sign in again when the session ended during the sending', async () => {
+    wishAnswer = () => Response.json({ code: 'unauthenticated', detail: 'expired' }, { status: 401 })
+    const { router } = renderAt('/wish')
+    await screen.findByLabelText('Your travel wish')
+    signedIn = null
+
+    await writeAndSend('La Crète en mai')
+
+    await waitFor(() => expect(router.state.location.pathname).toBe('/login'))
+    expect(router.state.location.search).toEqual({ redirect: '/wish' })
+    expect(screen.queryByRole('button', { name: 'Try again' })).not.toBeInTheDocument()
   })
 
   it('does not offer to try again when the wish itself is refused', async () => {
