@@ -9,7 +9,7 @@ import {
   removeMyPreferenceMutation,
 } from '../../api/generated/@tanstack/react-query.gen'
 import type { PreferenceSectionOut } from '../../api/generated/types.gen'
-import { sectionTone, TONE_CLASSES } from '../../domain/panel/sectionTone'
+import { sectionTones, TONE_CLASSES } from '../../domain/panel/sectionTone'
 import { Button } from '../atoms/Button'
 
 /**
@@ -35,6 +35,9 @@ export function PreferencesTab() {
       )
       void queryClient.invalidateQueries({ queryKey: listMyPreferencesQueryKey() })
     },
+    // 409 preference_locked: the trip went to the agency meanwhile. Reload, so the tag shows
+    // without its button.
+    onError: () => void queryClient.invalidateQueries({ queryKey: listMyPreferencesQueryKey() }),
   })
 
   if (preferences.isPending) return <p className="text-muted">{t('saved.loading')}</p>
@@ -51,6 +54,8 @@ export function PreferencesTab() {
     )
   }
 
+  const tones = sectionTones(preferences.data.map((section) => section.id))
+
   return (
     <div className="max-w-3xl">
       <p className="mb-6 text-muted">{t('saved.intro')}</p>
@@ -61,7 +66,7 @@ export function PreferencesTab() {
       )}
       <div className="grid gap-4 md:grid-cols-2">
         {preferences.data.map((section) => {
-          const tone = sectionTone(section.id)
+          const tone = tones.get(section.id) ?? 1
           const headingId = `preferences-section-${section.id}`
           return (
             <section
@@ -80,15 +85,19 @@ export function PreferencesTab() {
                     className="flex min-h-11 items-center gap-1 rounded-full border border-line bg-paper py-1 pr-1 pl-4 text-sm text-ink"
                   >
                     {tag.label}
-                    <button
-                      type="button"
-                      aria-label={t('saved.remove', { tag: tag.label })}
-                      disabled={remove.isPending}
-                      onClick={() => remove.mutate({ path: { section: section.id, tag: tag.id } })}
-                      className="grid size-9 place-items-center rounded-full hover:bg-sand disabled:opacity-50"
-                    >
-                      <X aria-hidden="true" className="size-4" />
-                    </button>
+                    {tag.removable ? (
+                      <button
+                        type="button"
+                        aria-label={t('saved.remove', { tag: tag.label })}
+                        disabled={remove.isPending}
+                        onClick={() => remove.mutate({ path: { section: section.id, tag: tag.id } })}
+                        className="grid size-9 place-items-center rounded-full hover:bg-sand disabled:opacity-50"
+                      >
+                        <X aria-hidden="true" className="size-4" />
+                      </button>
+                    ) : (
+                      <span className="pr-3 pl-1 text-xs text-muted">{t('saved.locked')}</span>
+                    )}
                   </li>
                 ))}
               </ul>

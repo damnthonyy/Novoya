@@ -39,6 +39,7 @@
     "loading": "Loading your preferences…",
     "loadFailed": "We could not load your preferences. Reload the page to try again.",
     "empty": "No preferences yet. They come from the preference panel you fill in after describing a trip.",
-    "emptyCta": "Describe a trip"
+    "emptyCta": "Describe a trip",
+    "locked": "Part of a trip sent to the agency"
   }
 }

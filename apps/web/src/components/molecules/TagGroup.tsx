@@ -1,6 +1,6 @@
 import { useTranslation } from 'react-i18next'
 
-import { sectionTone, TONE_CLASSES } from '../../domain/panel/sectionTone'
+import { type SectionTone, TONE_CLASSES } from '../../domain/panel/sectionTone'
 import { TagToggle } from './TagToggle'
 
 type Props = {
@@ -10,14 +10,13 @@ type Props = {
   tags: { id: string; label: string }[]
   selected: string[]
   onToggle: (tagId: string) => void
-  /** The section's id: its colour is the same as on the Preferences tab. */
-  sectionId?: string
+  /** The section's colour, from sectionTones(): the same as on the Preferences tab. */
+  tone?: SectionTone
 }
 
 /** One section of the preferences panel: a title and its tags. */
-export function TagGroup({ title, multi, tags, selected, onToggle, sectionId }: Props) {
+export function TagGroup({ title, multi, tags, selected, onToggle, tone }: Props) {
   const { t } = useTranslation('preferences')
-  const tone = sectionId ? sectionTone(sectionId) : undefined
   return (
     <fieldset data-tone={tone} className="m-0 border-0 border-t border-line px-0 py-[25px]">
       <legend

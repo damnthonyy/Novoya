@@ -6,14 +6,21 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import '../../api/client'
 import { client } from '../../api/generated/client.gen'
 import type { PreferenceSectionOut } from '../../api/generated/types.gen'
-import { sectionTone } from '../../domain/panel/sectionTone'
+import { sectionTones } from '../../domain/panel/sectionTone'
 import i18n from '../../i18n'
 import { TagGroup } from '../molecules/TagGroup'
 import { PreferencesTab } from './PreferencesTab'
 
 const SECTIONS: PreferenceSectionOut[] = [
-  { id: 'style', title: 'Style', tags: [{ id: 'beach', label: 'Beach' }, { id: 'city', label: 'City' }] },
-  { id: 'food', title: 'Food', tags: [{ id: 'wine', label: 'Wine' }] },
+  {
+    id: 'style',
+    title: 'Style',
+    tags: [
+      { id: 'beach', label: 'Beach', removable: true },
+      { id: 'city', label: 'City', removable: true },
+    ],
+  },
+  { id: 'food', title: 'Food', tags: [{ id: 'wine', label: 'Wine', removable: false }] },
 ]
 
 let stored: PreferenceSectionOut[]
@@ -65,9 +72,10 @@ describe('PreferencesTab', () => {
     expect(within(style).getByText('Beach')).toBeInTheDocument()
     expect(within(style).getByText('City')).toBeInTheDocument()
     expect(within(food).getByText('Wine')).toBeInTheDocument()
-    expect(style).toHaveAttribute('data-tone', String(sectionTone('style')))
-    expect(food).toHaveAttribute('data-tone', String(sectionTone('food')))
-    expect(sectionTone('style')).not.toBe(sectionTone('food'))
+    const tones = sectionTones(['style', 'food'])
+    expect(style).toHaveAttribute('data-tone', String(tones.get('style')))
+    expect(food).toHaveAttribute('data-tone', String(tones.get('food')))
+    expect(tones.get('style')).not.toBe(tones.get('food'))
   })
 
   it('removes a preference through the API and shows the change', async () => {
@@ -78,6 +86,15 @@ describe('PreferencesTab', () => {
     await waitFor(() => expect(screen.queryByText('Beach')).not.toBeInTheDocument())
     expect(calls).toContainEqual({ method: 'DELETE', path: '/me/preferences/style/beach' })
     expect(screen.getByText('City')).toBeInTheDocument()
+  })
+
+  it('shows a preference sent to the agency without a remove button', async () => {
+    renderTab()
+
+    const food = await screen.findByRole('region', { name: 'Food' })
+    expect(within(food).getByText('Wine')).toBeInTheDocument()
+    expect(within(food).getByText('Part of a trip sent to the agency')).toBeInTheDocument()
+    expect(within(food).queryByRole('button')).not.toBeInTheDocument()
   })
 
   it('explains where preferences come from when there are none, with a link to the wish page', async () => {
@@ -94,21 +111,38 @@ describe('PreferencesTab', () => {
     renderTab()
 
     expect(await screen.findByRole('button', { name: 'Retirer Beach' })).toBeInTheDocument()
+    expect(screen.getByText('Fait partie d’un voyage envoyé à l’agence')).toBeInTheDocument()
   })
 })
 
 describe('the preference panel', () => {
   it('uses the same colour for a section as the preferences tab', () => {
-    render(<TagGroup title="Food" multi tags={[{ id: 'wine', label: 'Wine' }]} selected={[]} onToggle={() => {}} sectionId="food" />)
+    const tone = sectionTones(['style', 'food']).get('food')
+    render(<TagGroup title="Food" multi tags={[{ id: 'wine', label: 'Wine' }]} selected={[]} onToggle={() => {}} tone={tone} />)
 
-    expect(screen.getByRole('group', { name: 'Food' })).toHaveAttribute('data-tone', String(sectionTone('food')))
+    expect(screen.getByRole('group', { name: 'Food' })).toHaveAttribute('data-tone', String(tone))
   })
 })
 
-describe('sectionTone', () => {
-  it('gives the usual sections different colours, and the same colour every time', () => {
-    const tones = ['style', 'rhythm', 'food', 'stay', 'activities'].map(sectionTone)
-    expect(new Set(tones).size).toBe(tones.length)
-    expect(sectionTone('something-new')).toBe(sectionTone('something-new'))
+describe('sectionTones', () => {
+  it('gives the usual sections fixed, different colours', () => {
+    const tones = sectionTones(['style', 'rhythm', 'food', 'stay', 'activities'])
+    expect(new Set(tones.values()).size).toBe(5)
+    expect(sectionTones(['activities']).get('activities')).toBe(tones.get('activities'))
+  })
+
+  it('gives other sections the colours not used on the page first', () => {
+    const tones = sectionTones(['activities', 'culture', 'nightlife', 'style', 'food'])
+    expect(new Set(tones.values()).size).toBe(5)
+  })
+
+  it('gives the same colours for the same sections every time', () => {
+    const ids = ['culture', 'style', 'nightlife']
+    expect([...sectionTones(ids)]).toEqual([...sectionTones(ids)])
+  })
+
+  it('does not trip over section names that are object properties', () => {
+    const tones = sectionTones(['constructor', '__proto__', 'toString'])
+    expect([...tones.values()].every((tone) => tone >= 1 && tone <= 6)).toBe(true)
   })
 })

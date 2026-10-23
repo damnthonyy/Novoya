@@ -39,6 +39,7 @@
     "loading": "Chargement de vos préférences…",
     "loadFailed": "Nous n’avons pas pu charger vos préférences. Rechargez la page pour réessayer.",
     "empty": "Pas encore de préférences. Elles viennent du panneau de préférences que vous remplissez après avoir décrit un voyage.",
-    "emptyCta": "Décrire un voyage"
+    "emptyCta": "Décrire un voyage",
+    "locked": "Fait partie d’un voyage envoyé à l’agence"
   }
 }
