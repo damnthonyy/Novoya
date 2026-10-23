@@ -25,6 +25,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '../../../../components/ui/alert-dialog'
+import { tripStatus } from '../../../../domain/trips/trip'
 import { DEMO_PLAN_ID, getPlan } from '../../../../fixtures/plans'
 
 export const Route = createFileRoute('/_authenticated/plans/$planId/')({
@@ -132,6 +133,7 @@ function QuoteCall({ children }: { children: ReactNode }) {
  */
 function SendToAgency({ plan }: { plan: Plan }) {
   const { t } = useTranslation('plan')
+  const { t: tTrips } = useTranslation('trips')
   const send = useSendToAgency(plan.id)
   const days = plan.answer_within_days
 
@@ -139,7 +141,12 @@ function SendToAgency({ plan }: { plan: Plan }) {
     return (
       <>
         <p role="status" className="text-lg">
-          {plan.status === 'requested' ? t('cta.sent', { count: days }) : t('cta.inProgress')}
+          {plan.status === 'requested'
+            ? t('cta.sent', { count: days })
+            : plan.status === 'negotiating'
+              ? t('cta.inProgress')
+              : // Quoted, accepted or rejected: the same words as My trips.
+                tTrips(`status.${tripStatus({ status: 'planned', plan_status: plan.status })}`)}
         </p>
         <Link to="/trips" className="text-sm text-white/80 underline underline-offset-4 hover:text-white">
           {t('cta.followOnTrips')}

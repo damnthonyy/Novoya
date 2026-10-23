@@ -135,6 +135,20 @@ describe('sending the plan to the agency', () => {
     expect(screen.queryByRole('button', { name: 'Send to the agency' })).not.toBeInTheDocument()
   })
 
+  it.each([
+    ['quoted', 'Quote ready'],
+    ['accepted', 'Accepted'],
+    ['rejected', 'Declined'],
+  ] as const)('says the plan is %s as My trips does, not that an advisor works on it', async (status, label) => {
+    plan = { ...PLAN, status }
+    renderAt(`/plans/${PLAN_ID}`)
+
+    expect(await screen.findByRole('status')).toHaveTextContent(label)
+    expect(screen.queryByText('An advisor is working on it.')).not.toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Follow it on My trips' })).toHaveAttribute('href', '/trips')
+    expect(screen.queryByRole('button', { name: 'Send to the agency' })).not.toBeInTheDocument()
+  })
+
   it('lets the client try again when sending failed', async () => {
     sendAnswer = () => Response.json({ code: 'unknown', detail: 'boom' }, { status: 500 })
     renderAt(`/plans/${PLAN_ID}`)
