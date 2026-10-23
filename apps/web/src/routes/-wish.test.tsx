@@ -312,6 +312,8 @@ describe('sending a wish', () => {
       await showsStep('Reading your wish')
       expect(screen.getByLabelText('Your travel wish')).toBeDisabled()
       expect(screen.getByRole('button', { name: 'Sending' })).toBeDisabled()
+      // One spinner, the loader's: the send button does not turn as well.
+      expect(screen.getByRole('button', { name: 'Sending' }).querySelector('[class*="animate-"]')).toBeNull()
 
       await act(() => vi.advanceTimersByTimeAsync(3000))
       expect(progress()).toHaveTextContent('Finding destinations')

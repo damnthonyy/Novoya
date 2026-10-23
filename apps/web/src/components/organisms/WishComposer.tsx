@@ -97,11 +97,8 @@ export function WishComposer({ value, onChange, onSubmit, pending = false, error
           disabled={pending}
           className="grid size-11 shrink-0 place-items-center rounded-full bg-coral text-xl text-ink transition hover:bg-coral-light disabled:opacity-60"
         >
-          {pending ? (
-            <span aria-hidden="true" className="size-4 motion-safe:animate-orbit rounded-full border-2 border-ink border-t-transparent" />
-          ) : (
-            <span aria-hidden="true">↑</span>
-          )}
+          {/* While sending, the loader beside it turns: one spinner is enough. */}
+          <span aria-hidden="true">↑</span>
         </button>
       </div>
     </form>

@@ -45,7 +45,7 @@ export function WishProgress({ steps, everyMs, active = true, note, tone = 'ligh
       {shown && (
         <span
           aria-hidden="true"
-          className={`mt-0.5 size-4 shrink-0 rounded-full border-2 border-t-transparent motion-safe:animate-orbit ${
+          className={`mt-0.5 size-4 shrink-0 rounded-full border-2 border-t-transparent motion-safe:animate-spin ${
             dark ? 'border-coral' : 'border-ink'
           }`}
         />

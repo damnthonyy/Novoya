@@ -78,7 +78,7 @@ describe('WishProgress', () => {
     expect(screen.getByRole('status')).toHaveTextContent('This can take up to a minute.')
   })
 
-  it('only animates when the device allows motion, and only for a few turns', () => {
+  it('keeps turning while the work runs, and only when the device allows motion', () => {
     const { container } = render(<WishProgress steps={STEPS} everyMs={3000} />)
     act(() => vi.advanceTimersByTime(0))
 
@@ -86,8 +86,8 @@ describe('WishProgress', () => {
     expect(animated.length).toBeGreaterThan(0)
     for (const element of animated) {
       for (const name of element.classList) {
-        // `orbit` turns twice (4 s) then stops (index.css, WCAG 2.2.2); `spin` never stops.
-        if (name.includes('animate-')) expect(name).toBe('motion-safe:animate-orbit')
+        // A loader that stopped would make the page look stuck during the last, longest step.
+        if (name.includes('animate-')) expect(name).toBe('motion-safe:animate-spin')
       }
     }
   })

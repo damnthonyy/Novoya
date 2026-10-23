@@ -23,7 +23,7 @@ export function PlanBuilding() {
   return (
     <main className="flex min-h-[calc(100vh-72px)] flex-col items-center justify-center bg-ink p-[30px] text-center text-white md:min-h-[calc(100vh-88px)]">
       <div className="relative mb-10 grid size-[150px] place-items-center rounded-full border border-white/15">
-        <div aria-hidden="true" className="absolute size-[105px] animate-orbit rounded-full border-t border-coral" />
+        <div aria-hidden="true" className="absolute size-[105px] motion-safe:animate-spin-slow rounded-full border-t border-coral" />
         <span aria-hidden="true" className="font-serif text-[38px] italic">
           N
         </span>
