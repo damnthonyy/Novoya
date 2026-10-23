@@ -30,5 +30,15 @@
     "title": "Let's start again from your wish.",
     "text": "We can't find this wish's panel on this page. Describe it again: it only takes a moment.",
     "cta": "Describe my trip"
+  },
+  "saved": {
+    "label": "Your preferences",
+    "intro": "What you picked on the preference panel of your wishes. The agency sees these tags; remove any that no longer fit you.",
+    "remove": "Remove {{tag}}",
+    "removeFailed": "We could not remove this preference. Try again.",
+    "loading": "Loading your preferences…",
+    "loadFailed": "We could not load your preferences. Reload the page to try again.",
+    "empty": "No preferences yet. They come from the preference panel you fill in after describing a trip.",
+    "emptyCta": "Describe a trip"
   }
 }

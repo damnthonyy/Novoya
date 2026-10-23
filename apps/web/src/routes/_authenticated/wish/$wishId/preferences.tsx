@@ -145,6 +145,7 @@ function PreferencesForm({ wishId, text, panel }: { wishId: string; text: string
             {panel.sections.map((section) => (
               <TagGroup
                 key={section.id}
+                sectionId={section.id}
                 title={section.title}
                 multi={section.multi}
                 tags={section.tags}
