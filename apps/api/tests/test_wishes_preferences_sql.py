@@ -10,10 +10,18 @@ from datetime import timedelta
 from uuid import UUID, uuid4
 
 import pytest
+from sqlalchemy import select, text
 
+from novoya_api.accounts.domain.value_objects import UserId
 from novoya_api.accounts.infrastructure.db.models import UserModel
+from novoya_api.accounts.presentation.http.dependencies import (
+    build_store,
+    get_delete_account,
+    get_user_data_eraser,
+)
+from novoya_api.planning.domain.errors import PlanNotFound
 from novoya_api.planning.infrastructure.db.models import PlanModel
-from novoya_api.planning.infrastructure.wish_owners import WishOwners
+from novoya_api.planning.infrastructure.db.repository import SqlPlanRepository
 from novoya_api.planning.presentation.http.dependencies import get_request_quote
 from novoya_api.shared.infrastructure.db.unit_of_work import SqlAlchemyUnitOfWork
 from novoya_api.wishes.application.use_cases.preferences import (
@@ -22,6 +30,7 @@ from novoya_api.wishes.application.use_cases.preferences import (
 )
 from novoya_api.wishes.domain.answers import Answers, SelectedTag
 from novoya_api.wishes.domain.errors import PreferenceLocked
+from novoya_api.wishes.infrastructure.db.models import WishModel
 from novoya_api.wishes.infrastructure.db.repository import SqlWishRepository
 from novoya_api.wishes.infrastructure.plan_statuses import PlanningPlanStatuses
 from novoya_api.wishes.public import preferences
@@ -146,8 +155,8 @@ async def test_plan_statuses_lock_the_wishes_the_agency_works_from(engine, user_
             [wish.id for wish in [*wishes.values(), no_plan]]
         )
 
-    # A rejected plan frees its wish's tags; proposed or no plan was never locked.
-    assert locked == {wishes[s].id for s in ("requested", "negotiating", "quoted", "accepted")}
+    # Only a proposed plan or no plan leaves the tags open; rejected keeps the quoted brief.
+    assert locked == {wishes[s].id for s in statuses if s != "proposed"}
 
 
 async def test_a_wish_with_two_plans_is_locked_when_one_is_with_the_agency(engine, user_id):  # noqa: F811
@@ -164,7 +173,7 @@ async def test_a_wish_with_two_plans_is_locked_when_one_is_with_the_agency(engin
             [requested_too.id, rejected_too.id]
         )
 
-    assert locked == {requested_too.id}
+    assert locked == {requested_too.id, rejected_too.id}
 
 
 async def test_removable_comes_from_the_real_plan_statuses(engine, user_id):  # noqa: F811
@@ -201,6 +210,45 @@ async def test_a_wish_sent_to_the_agency_keeps_its_tag(engine, user_id):  # noqa
     assert (await read_wish(engine, sent.id)).answers == ANSWERS
 
 
+async def backend_pid(session) -> int:
+    return await session.scalar(text("SELECT pg_backend_pid()"))
+
+
+LOCK_WAIT_SECONDS = 10
+
+
+async def wait_for_lock(engine, pid: int) -> None:  # noqa: F811
+    """Until the backend `pid` waits on a lock (pg_stat_activity), or fail after
+    LOCK_WAIT_SECONDS."""
+    deadline = asyncio.get_running_loop().time() + LOCK_WAIT_SECONDS
+    async with engine.connect() as connection:
+        while True:
+            waiting = await connection.scalar(
+                text("SELECT wait_event_type FROM pg_stat_activity WHERE pid = :pid"),
+                {"pid": pid},
+            )
+            await connection.rollback()  # a fresh snapshot of pg_stat_activity next time
+            if waiting == "Lock":
+                return
+            if asyncio.get_running_loop().time() > deadline:
+                raise AssertionError(f"backend {pid} never waited on a lock")
+            await asyncio.sleep(0.02)
+
+
+def hold_commit(session) -> tuple[asyncio.Event, asyncio.Event]:
+    """The session's commit waits for `release`; `reached` is set when it is called."""
+    reached, release = asyncio.Event(), asyncio.Event()
+    commit = session.commit
+
+    async def held() -> None:
+        reached.set()
+        await release.wait()
+        await commit()
+
+    session.commit = held
+    return reached, release
+
+
 async def test_two_removals_at_once_both_land(engine, user_id):  # noqa: F811
     wish = planned_wish(user_id)
     await add_wish(engine, wish)
@@ -209,9 +257,9 @@ async def test_two_removals_at_once_both_land(engine, user_id):  # noqa: F811
         # The first removal reads and locks the rows, then the second one starts.
         first_wishes = SqlWishRepository(first)
         (held,) = await first_wishes.list_for_user(user_id, lock=True)
+        second_pid = await backend_pid(second)
         racing = asyncio.create_task(remover(second)(user_id, "food", "seafood"))
-        await asyncio.sleep(0.3)
-        assert not racing.done()  # it waits for the lock
+        await wait_for_lock(engine, second_pid)  # it waits for the lock
 
         held.remove_tag("style", "beach", LATER)
         await first_wishes.save(held)
@@ -236,9 +284,9 @@ async def test_a_quote_request_waits_for_a_removal_in_progress(engine, user_id):
         removal_wishes = SqlWishRepository(removal)
         (held,) = await removal_wishes.list_for_user(user_id, lock=True)
         assert await PlanningPlanStatuses(removal).locked_wish_ids([wish.id]) == set()
-        racing = asyncio.create_task(get_request_quote(request)(plan_id, user_id))
-        await asyncio.sleep(0.3)
-        assert not racing.done()  # the quote request waits for the removal
+        request_pid = await backend_pid(request)
+        racing = asyncio.create_task(get_request_quote(request, user_id)(plan_id, user_id))
+        await wait_for_lock(engine, request_pid)  # the quote request waits for the removal
 
         held.remove_tag("style", "beach", LATER)
         await removal_wishes.save(held)
@@ -258,18 +306,104 @@ async def test_a_removal_after_a_quote_request_in_progress_is_locked(engine, use
     plan_id = await add_plan(engine, wish.id, "proposed")
 
     async with new_session(engine) as request, new_session(engine) as removal:
-        # The quote request holds the wish (FOR SHARE) and moves its plan to requested.
-        # The same reads RequestQuote does, through the adapter get_request_quote builds.
-        assert await WishOwners(request, lock=True).owner_id(wish.id) == user_id
-        plan = await request.get(PlanModel, plan_id)
-        plan.status = "requested"
-        await request.flush()
+        # The real quote request, stopped just before its commit: it holds the wish (FOR
+        # SHARE) and has moved the plan to requested.
+        reached, release = hold_commit(request)
+        quoting = asyncio.create_task(get_request_quote(request, user_id)(plan_id, user_id))
+        await asyncio.wait_for(reached.wait(), timeout=5)
+        removal_pid = await backend_pid(removal)
         racing = asyncio.create_task(remover(removal)(user_id, "style", "beach"))
-        await asyncio.sleep(0.3)
-        assert not racing.done()  # the removal waits for the quote request
+        await wait_for_lock(engine, removal_pid)  # the removal waits for the quote request
 
-        await request.commit()
+        release.set()
+        await asyncio.wait_for(quoting, timeout=5)
         with pytest.raises(PreferenceLocked):  # it sees the requested plan
             await asyncio.wait_for(racing, timeout=5)
 
     assert (await read_wish(engine, wish.id)).answers == ANSWERS
+    assert await plan_status(engine, plan_id) == "requested"
+
+
+async def test_a_quote_request_on_someone_elses_plan_does_not_lock_their_wish(engine, user_id):  # noqa: F811
+    wish = planned_wish(user_id)
+    await add_wish(engine, wish)
+    plan_id = await add_plan(engine, wish.id, "proposed")
+    stranger = await other_user(engine)
+
+    async with new_session(engine) as request, new_session(engine) as removal:
+        # The stranger's request is refused (404) but its transaction stays open.
+        with pytest.raises(PlanNotFound):
+            await get_request_quote(request, stranger)(plan_id, stranger)
+        # The owner's removal does not wait for it.
+        await asyncio.wait_for(remover(removal)(user_id, "style", "beach"), timeout=2)
+        await request.rollback()
+
+    assert (await read_wish(engine, wish.id)).answers.selected_tags == (
+        SelectedTag("food", "seafood"),
+    )
+
+
+def delete_account(session):
+    return get_delete_account(build_store(session), get_user_data_eraser(session))
+
+
+async def test_a_quote_request_and_delete_me_at_once_do_not_deadlock(
+    engine,  # noqa: F811
+    user_id,  # noqa: F811
+    monkeypatch,
+):
+    wish = planned_wish(user_id)
+    await add_wish(engine, wish)
+    plan_id = await add_plan(engine, wish.id, "proposed")
+
+    # The quote request stops after it locked the wish and before it updates the plan.
+    reached, release = asyncio.Event(), asyncio.Event()
+    save = SqlPlanRepository.save
+
+    async def held_save(self, plan):
+        reached.set()
+        await release.wait()
+        return await save(self, plan)
+
+    monkeypatch.setattr(SqlPlanRepository, "save", held_save)
+
+    async with new_session(engine) as request, new_session(engine) as deleting:
+        quoting = asyncio.create_task(get_request_quote(request, user_id)(plan_id, user_id))
+        await asyncio.wait_for(reached.wait(), timeout=5)
+        deleting_pid = await backend_pid(deleting)
+        erasing = asyncio.create_task(delete_account(deleting)(UserId(user_id)))
+        await wait_for_lock(engine, deleting_pid)  # DELETE /me waits for the quote request
+
+        release.set()
+        await asyncio.wait_for(quoting, timeout=10)  # no deadlock (40P01) on either side
+        await asyncio.wait_for(erasing, timeout=10)
+
+    assert await read_wish(engine, wish.id) is None
+
+
+async def test_a_removal_and_delete_me_lock_two_wishes_in_the_same_order(engine, user_id):  # noqa: F811
+    # The lower id is the older wish: newest first would lock the other one first.
+    low, high = sorted((planned_wish(user_id), planned_wish(user_id)), key=lambda w: w.id)
+    low.created_at = NOW - timedelta(days=1)
+    await add_wish(engine, low)
+    await add_wish(engine, high)
+
+    async with (
+        new_session(engine) as holder,
+        new_session(engine) as deleting,
+        new_session(engine) as removal,
+    ):
+        # Something holds the first wish; DELETE /me queues on it, then the removal does.
+        await holder.execute(select(WishModel.id).where(WishModel.id == low.id).with_for_update())
+        deleting_pid, removal_pid = await backend_pid(deleting), await backend_pid(removal)
+        erasing = asyncio.create_task(delete_account(deleting)(UserId(user_id)))
+        await wait_for_lock(engine, deleting_pid)
+        racing = asyncio.create_task(remover(removal)(user_id, "style", "beach"))
+        await wait_for_lock(engine, removal_pid)
+
+        await holder.commit()
+        await asyncio.wait_for(erasing, timeout=10)  # no deadlock (40P01) on either side
+        await asyncio.wait_for(racing, timeout=10)
+
+    assert await read_wish(engine, low.id) is None
+    assert await read_wish(engine, high.id) is None

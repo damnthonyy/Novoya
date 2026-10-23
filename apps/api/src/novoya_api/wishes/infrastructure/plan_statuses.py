@@ -5,9 +5,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from novoya_api.planning.public import plan_statuses
 
-# The plans the agency works from: their wish's answers stay. A proposed plan is the client's
-# alone, and a rejected one is over, so neither holds the tags.
-LOCKING = frozenset({"requested", "negotiating", "quoted", "accepted"})
+# The plans the agency has worked on: their wish's answers stay, so staff screens keep the
+# brief the agent quoted, rejected quotes included. Only a proposed plan is the client's alone.
+LOCKING = frozenset({"requested", "negotiating", "quoted", "accepted", "rejected"})
 
 
 class PlanningPlanStatuses:

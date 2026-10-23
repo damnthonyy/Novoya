@@ -44,12 +44,16 @@ def get_get_plan(session: Annotated[AsyncSession, Depends(get_session)]) -> GetP
     )
 
 
-def get_request_quote(session: Annotated[AsyncSession, Depends(get_session)]) -> RequestQuote:
+def get_request_quote(
+    session: Annotated[AsyncSession, Depends(get_session)],
+    client_id: Annotated[UUID, Depends(get_current_user_id)],
+) -> RequestQuote:
     return RequestQuote(
         plans=SqlPlanRepository(session),
         catalog=PartnerOffers(session),
-        # FOR SHARE on the wish: a preference removal in progress finishes first (#165).
-        wishes=WishOwners(session, lock=True),
+        # FOR SHARE on the client's own wish: a preference removal in progress finishes
+        # first (#165). Someone else's wish is not locked.
+        wishes=WishOwners(session, lock_for=client_id),
         uow=SqlAlchemyUnitOfWork(session),
         clock=SystemClock(),
     )

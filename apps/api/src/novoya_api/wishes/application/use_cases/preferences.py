@@ -15,7 +15,7 @@ class PreferenceTag:
     id: str
     label: str
     # At least one wish carrying it can still change: no plan of it is requested,
-    # negotiating, quoted or accepted.
+    # negotiating, quoted, accepted or rejected.
     removable: bool = True
 
 
@@ -81,9 +81,9 @@ class ListPreferences:
 
 class RemovePreference:
     """Withdraw one preference from the client's wishes that can still change: answered or
-    planned wishes with no plan requested, negotiating, quoted or accepted (a proposed or a
-    rejected plan does not hold the tags). Those wishes keep their tags: the agency works
-    from them, and the plan page and the quote read them.
+    planned wishes with no plan requested, negotiating, quoted, accepted or rejected (only
+    a proposed plan does not hold the tags). Those wishes keep their tags: the agency worked
+    from them, and the plan page, the quote and staff screens read them.
 
     The wishes are read with a row lock (FOR UPDATE), so two removals at once wait for each
     other instead of one overwriting the other, and a quote request, which reads the wish FOR

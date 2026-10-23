@@ -21,7 +21,7 @@ class WishNotFound(NotFound):  # 404
 
 class PreferenceLocked(Conflict):  # 409
     """Every wish carrying this tag is with the agency (a plan requested,
-    negotiating, quoted or accepted): the brief
+    negotiating, quoted, accepted or rejected): the brief
     behind that plan does not change."""
 
     code = "preference_locked"

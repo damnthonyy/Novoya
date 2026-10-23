@@ -1,7 +1,9 @@
 """What other modules may use from wishes. Nothing else in wishes may be imported.
 
-- owner_id(wish_id, lock=False) -> the user who sent the wish, or None when there is none.
-  lock=True reads the row FOR SHARE, so a preference removal on it waits
+- owner_id(wish_id, lock_for=None) -> the user who sent the wish, or None when there is
+  none. lock_for=user locks the row FOR SHARE when that user owns it, so a removal waits
+- lock_for_user(user_id) -> locks this user's wishes FOR UPDATE in id order. Call it first
+  in a transaction that also locks their plans or quotes (DELETE /me)
 - trips(wish_ids) -> text, destination, dates, travellers, budget and tags for those wishes
 - ids_for_user(user_id) -> the ids of this user's wishes
 - search_ids(query, user_ids) -> the ids of the wishes whose country or city contains `query`,
@@ -49,15 +51,24 @@ class WishTrip:
     tags: tuple[str, ...] = ()  # "section:tag", what the client clicked
 
 
-async def owner_id(wish_id: UUID, *, session: AsyncSession, lock: bool = False) -> UUID | None:
-    """The user who sent this wish. None when the wish is missing. With lock, the wish row
-    stays locked FOR SHARE until the caller's transaction ends, so a preference removal on it
-    waits (planning's quote request uses it)."""
+async def owner_id(
+    wish_id: UUID, *, session: AsyncSession, lock_for: UUID | None = None
+) -> UUID | None:
+    """The user who sent this wish. None when the wish is missing. With lock_for, and only
+    when that user owns the wish, its row stays locked FOR SHARE until the caller's
+    transaction ends, so a preference removal on it waits (planning's quote request)."""
     repository = SqlWishRepository(session)
-    if lock:
-        return await repository.owner_id_for_share(wish_id)
+    if lock_for is not None and await repository.owner_id_for_share(wish_id, lock_for):
+        return lock_for
     wish = await repository.get(wish_id)
     return None if wish is None else wish.user_id
+
+
+async def lock_for_user(user_id: UUID, *, session: AsyncSession) -> None:
+    """Lock every wish of this user (FOR UPDATE, in id order) until the caller's transaction
+    ends. DELETE /me calls it first, so it takes the wishes before their quotes and plans,
+    in the same order as a quote request or a preference removal: no deadlock."""
+    await SqlWishRepository(session).lock_for_user(user_id)
 
 
 async def trips(wish_ids: Sequence[UUID], *, session: AsyncSession) -> dict[UUID, WishTrip]:
