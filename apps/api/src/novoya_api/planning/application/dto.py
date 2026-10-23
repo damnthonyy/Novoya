@@ -36,6 +36,9 @@ class OfferSummary:
     description: str
     tags: tuple[str, ...]
     featured: bool
+    # From fitting_offers: the days of the trip it is open on (day 1 = the first day). A plan
+    # places it only on those (#182). Empty for summaries_for, which only shows titles.
+    open_days: frozenset[int] = frozenset()
 
 
 @dataclass(frozen=True)

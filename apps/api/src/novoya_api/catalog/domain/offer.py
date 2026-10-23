@@ -1,7 +1,7 @@
 import re
 from collections.abc import Iterable
 from dataclasses import dataclass
-from datetime import date
+from datetime import date, timedelta
 from enum import StrEnum
 from uuid import UUID
 
@@ -79,27 +79,26 @@ class Offer:
             raise InvalidOffer("offer does not belong to this partner")
         return partner.lists_offers() and self.active and not self.hidden
 
-    def fits(self, persons: int, start: date, end: date) -> bool:
-        """True when the group size and trip dates sit inside the offer's limits, and every
-        month of the trip is an opening month (when the offer gives any)."""
-        if start > end:
-            return False
-        if persons < self.min_persons or persons > self.max_persons:
-            return False
-        if start < self.available_from or end > self.available_to:
-            return False
-        return self._open_during(start, end)
+    def fits_group(self, persons: int) -> bool:
+        """True when the group size sits inside the offer's limits."""
+        return self.min_persons <= persons <= self.max_persons
 
-    def _open_during(self, start: date, end: date) -> bool:
-        """Every month the trip touches is an opening month. No months given: always open."""
-        if not self.opening_months:
-            return True
-        year, month = start.year, start.month
-        while (year, month) <= (end.year, end.month):
-            if month not in self.opening_months:
-                return False
-            year, month = (year + 1, 1) if month == 12 else (year, month + 1)
-        return True
+    def open_on(self, day: date) -> bool:
+        """True when the offer can be used on this day: inside its availability, in an opening
+        month (when it gives any). A plan checks each item against its own days (#182)."""
+        if not self.available_from <= day <= self.available_to:
+            return False
+        return not self.opening_months or day.month in self.opening_months
+
+    def open_days(self, start: date, end: date) -> tuple[int, ...]:
+        """The days of the trip from start to end the offer is open on, day 1 being start.
+
+        Only the days inside the offer's availability are looked at, so the work follows the
+        offer's season, never the range asked for (a model can ask for any dates)."""
+        first = max(start, self.available_from)
+        last = min(end, self.available_to)
+        days = (first + timedelta(days=offset) for offset in range((last - first).days + 1))
+        return tuple((day - start).days + 1 for day in days if self.open_on(day))
 
 
 def normalize_tags(tags: Iterable[str]) -> tuple[str, ...]:

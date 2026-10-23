@@ -57,13 +57,14 @@ from novoya_api.planning.domain.plan import PlanStatus
 from novoya_api.planning.infrastructure.catalog import PartnerOffers
 from novoya_api.planning.infrastructure.db.repository import SqlPlanRepository
 from novoya_api.planning.infrastructure.llm.plan_writer import LlmPlanWriter, NoModelPlanWriter
-from novoya_api.planning.infrastructure.llm.tools import travel_tools
+from novoya_api.planning.infrastructure.llm.tools import TripBounds, travel_tools
 from novoya_api.planning.infrastructure.wish_owners import WishOwners
 from novoya_api.planning.infrastructure.wish_search import WishesSearch
 from novoya_api.planning.infrastructure.wish_trips import WishTrips
 from novoya_api.shared.infrastructure.db.unit_of_work import SqlAlchemyUnitOfWork
 from novoya_api.shared.infrastructure.llm.client import get_orchestrator
 from novoya_api.shared.infrastructure.llm.errors import LLMError
+from novoya_api.shared.infrastructure.llm.orchestrator import Tool
 from novoya_api.shared.infrastructure.system_clock import SystemClock
 from novoya_api.wishes.public import ids_for_user as wish_ids_for_user
 
@@ -223,8 +224,14 @@ def _writer() -> PlanWriter:
     except LLMError:
         return NoModelPlanWriter()  # no API key: the plan is built from the catalog
     # No session: each tool call reads in a short session of its own, so no connection is held
-    # while the model thinks between calls.
-    return LlmPlanWriter(orchestrator, travel_tools(), DEADLINE_SECONDS)
+    # while the model thinks between calls. The search is bound to the trip being planned
+    # (#182): the model picks the place and the tags, never the dates or the travellers.
+    return LlmPlanWriter(orchestrator, _trip_tools, DEADLINE_SECONDS)
+
+
+def _trip_tools(request: PlanRequest) -> list[Tool]:
+    trip = TripBounds(request.persons, request.start_date, request.end_date)
+    return travel_tools(trip=trip)
 
 
 async def delete_for_user(user_id: UUID, *, session: AsyncSession) -> None:

@@ -57,35 +57,14 @@ def _offer(**overrides: object) -> Offer:
     return Offer(**values)  # type: ignore[arg-type]
 
 
-def test_offer_fits_when_persons_and_dates_are_inside_limits():
-    offer = _offer()
-    assert offer.fits(persons=2, start=date(2026, 5, 1), end=date(2026, 5, 8)) is True
-    assert offer.fits(persons=4, start=SEASON_START, end=SEASON_END) is True
+@pytest.mark.parametrize("persons", [2, 3, 4])
+def test_offer_fits_a_group_inside_its_person_limits(persons):
+    assert _offer(min_persons=2, max_persons=4).fits_group(persons) is True
 
 
-def test_offer_rejects_too_few_persons():
-    offer = _offer(min_persons=2, max_persons=4)
-    assert offer.fits(persons=1, start=date(2026, 5, 1), end=date(2026, 5, 8)) is False
-
-
-def test_offer_rejects_too_many_persons():
-    offer = _offer(min_persons=2, max_persons=4)
-    assert offer.fits(persons=5, start=date(2026, 5, 1), end=date(2026, 5, 8)) is False
-
-
-def test_offer_rejects_trip_starting_before_availability():
-    offer = _offer()
-    assert offer.fits(persons=2, start=date(2026, 3, 20), end=date(2026, 5, 8)) is False
-
-
-def test_offer_rejects_trip_ending_after_availability():
-    offer = _offer()
-    assert offer.fits(persons=2, start=date(2026, 5, 1), end=date(2026, 11, 2)) is False
-
-
-def test_offer_rejects_inverted_trip_dates():
-    offer = _offer()
-    assert offer.fits(persons=2, start=date(2026, 5, 8), end=date(2026, 5, 1)) is False
+@pytest.mark.parametrize("persons", [1, 5])
+def test_offer_rejects_a_group_outside_its_person_limits(persons):
+    assert _offer(min_persons=2, max_persons=4).fits_group(persons) is False
 
 
 def test_invalid_person_limits_are_rejected():
@@ -113,7 +92,7 @@ def test_inactive_offer_is_not_listed():
     partner = _partner(active=True)
     offer = _offer(partner_id=partner.id, active=False)
     assert offer.is_listed_with(partner) is False
-    assert offer.fits(persons=2, start=date(2026, 5, 1), end=date(2026, 5, 8)) is True
+    assert offer.fits_group(2) is True
 
 
 def test_a_hidden_offer_is_not_listed():
@@ -239,37 +218,51 @@ def test_blank_partner_phone_becomes_none():
     assert _partner(contact_phone="   ").contact_phone is None
 
 
-def test_offer_without_opening_months_fits_any_month_of_its_season():
-    offer = _offer(opening_months=())
-
-    assert offer.fits(persons=2, start=date(2026, 4, 1), end=date(2026, 10, 31)) is True
-
-
-def test_offer_fits_a_trip_inside_its_opening_months():
-    offer = _offer(opening_months=(5, 6))
-
-    assert offer.fits(persons=2, start=date(2026, 5, 25), end=date(2026, 6, 3)) is True
-
-
-@pytest.mark.parametrize(
-    ("start", "end"),
-    [
-        (date(2026, 7, 1), date(2026, 7, 8)),
-        (date(2026, 6, 28), date(2026, 7, 2)),
-        (date(2026, 4, 30), date(2026, 5, 3)),
-    ],
-    ids=["closed month", "ends in a closed month", "starts in a closed month"],
-)
-def test_offer_does_not_fit_a_trip_that_touches_a_closed_month(start, end):
-    offer = _offer(opening_months=(5, 6))
-
-    assert offer.fits(persons=2, start=start, end=end) is False
-
-
-def test_a_trip_over_a_new_year_needs_both_months_open():
+def test_an_offer_open_in_december_is_closed_on_new_years_day():
+    # Each day is checked on its own (#182): a trip over the new year can still use it in
+    # December.
     offer = _offer(
         available_from=date(2026, 1, 1), available_to=date(2027, 12, 31), opening_months=(12,)
     )
 
-    assert offer.fits(persons=2, start=date(2026, 12, 28), end=date(2027, 1, 3)) is False
-    assert offer.fits(persons=2, start=date(2026, 12, 20), end=date(2026, 12, 27)) is True
+    assert offer.open_on(date(2026, 12, 31)) is True
+    assert offer.open_on(date(2027, 1, 1)) is False
+
+
+# open_on: one day of a trip (#182)
+
+
+@pytest.mark.parametrize("day", [SEASON_START, date(2026, 6, 15), SEASON_END])
+def test_offer_is_open_on_a_day_inside_its_availability_boundaries_included(day):
+    offer = _offer()
+
+    assert offer.open_on(day) is True
+
+
+@pytest.mark.parametrize("day", [date(2026, 3, 31), date(2026, 11, 1)])
+def test_offer_is_closed_on_a_day_outside_its_availability(day):
+    offer = _offer()
+
+    assert offer.open_on(day) is False
+
+
+def test_offer_is_closed_on_a_day_of_a_closed_month():
+    offer = _offer(opening_months=(6,))
+
+    assert offer.open_on(date(2026, 5, 31)) is False
+    assert offer.open_on(date(2026, 6, 1)) is True
+    assert offer.open_on(date(2026, 6, 30)) is True
+    assert offer.open_on(date(2026, 7, 1)) is False
+
+
+def test_offer_without_opening_months_is_open_every_day_of_its_season():
+    offer = _offer(opening_months=())
+
+    assert offer.open_on(date(2026, 4, 1)) is True
+    assert offer.open_on(date(2026, 8, 15)) is True
+
+
+def test_an_opening_month_outside_the_availability_does_not_open_the_offer():
+    offer = _offer(opening_months=(11,))
+
+    assert offer.open_on(date(2026, 11, 2)) is False

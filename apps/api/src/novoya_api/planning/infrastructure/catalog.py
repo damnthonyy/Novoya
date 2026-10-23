@@ -36,6 +36,7 @@ class PartnerOffers:
                 description=offer.description,
                 tags=tuple(offer.tags),
                 featured=offer.featured,
+                open_days=frozenset(offer.open_days),
             )
             for offer in offers
         ]

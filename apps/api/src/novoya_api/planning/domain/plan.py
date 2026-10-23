@@ -1,5 +1,5 @@
 import unicodedata
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field, replace
 from datetime import datetime
 from decimal import Decimal
@@ -99,26 +99,42 @@ PER_QUANTITY_UNITS = frozenset(
 )
 
 
-def keep_valid(drafts: Sequence[DraftItem], allowed: set[UUID], trip_days: int) -> list[DraftItem]:
+def keep_valid(
+    drafts: Sequence[DraftItem],
+    open_days: Mapping[UUID, frozenset[int]],
+    hotels: set[UUID],
+    trip_days: int,
+) -> list[DraftItem]:
     """The drafts that point to an allowed offer, on a day of the trip, in their order.
 
-    The model chooses the offer ids, so an id it invented or an offer that does not fit the
-    group or the dates never reaches the plan."""
+    open_days holds the allowed offers and the trip days each is open on. The model chooses
+    the offer ids, so an id it invented or an offer that does not fit the group never reaches
+    the plan. Each item is checked against its own days (#182): an activity here, on its
+    day; a hotel in tidy(), on the nights it keeps once the other hotels have theirs."""
     return [
         draft
         for draft in drafts
-        if draft.offer_id in allowed and 1 <= draft.day <= trip_days and draft.quantity >= 1
+        if draft.offer_id in open_days
+        and 1 <= draft.day <= trip_days
+        and draft.quantity >= 1
+        and (draft.offer_id in hotels or draft.day in open_days[draft.offer_id])
     ]
 
 
-def tidy(drafts: Sequence[DraftItem], hotels: set[UUID], trip_days: int) -> list[DraftItem]:
+def tidy(
+    drafts: Sequence[DraftItem],
+    hotels: set[UUID],
+    trip_days: int,
+    open_days: Mapping[UUID, frozenset[int]],
+) -> list[DraftItem]:
     """The valid drafts without repeats, and hotel nights that are each booked once.
 
     The model repeats itself: an offer is kept once a day, a hotel once in the whole trip. A
     hotel night runs from its day to the next, so the nights are 1 to trip_days - 1. A hotel
     keeps its free nights from its day on, up to the first night another hotel already has,
     and is dropped when its first night is taken: an agent would otherwise quote nights no
-    one sleeps."""
+    one sleeps. It is dropped too when it is closed on one of the nights it keeps (#182),
+    and those nights stay free for the next hotel."""
     kept: list[DraftItem] = []
     seen: set[tuple[UUID, int | None]] = set()
     booked: set[int] = set()
@@ -133,9 +149,10 @@ def tidy(drafts: Sequence[DraftItem], hotels: set[UUID], trip_days: int) -> list
                 if night in booked:
                     break
                 nights += 1
-            if nights == 0:
+            kept_nights = set(range(draft.day, draft.day + nights))
+            if nights == 0 or not kept_nights <= open_days[draft.offer_id]:
                 continue
-            booked.update(range(draft.day, draft.day + nights))
+            booked.update(kept_nights)
             draft = replace(draft, quantity=nights)
         kept.append(draft)
     return kept

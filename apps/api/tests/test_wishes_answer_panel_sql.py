@@ -17,6 +17,7 @@ from novoya_api.planning import public as planning_public
 from novoya_api.planning.domain.errors import NoOfferFits
 from novoya_api.planning.infrastructure.db.models import PlanItemModel, PlanModel
 from novoya_api.planning.infrastructure.llm.plan_writer import LlmPlanWriter, NoModelPlanWriter
+from novoya_api.planning.infrastructure.llm.tools import TripBounds
 from novoya_api.shared.domain.errors import InvalidTransition
 from novoya_api.shared.infrastructure.db.unit_of_work import SqlAlchemyUnitOfWork
 from novoya_api.wishes.application.use_cases.answer_panel import (
@@ -157,6 +158,22 @@ def test_the_model_reads_the_catalog_in_sessions_of_its_own(monkeypatch):
     )
 
     writer = REAL_WRITER()
-
     assert isinstance(writer, LlmPlanWriter)
-    assert calls == [{}]  # no session: the request's connection is free while the model thinks
+    # The tools are built for each trip (#182): bound to its dates and travellers, and with
+    # no session, so the request's connection is free while the model thinks.
+    request = planning_public.PlanRequest(
+        wish_id=uuid4(),
+        text="A calm week",
+        country="Greece",
+        city="Chania",
+        tags=(),
+        persons=2,
+        start_date=date(2026, 5, 10),
+        end_date=date(2026, 5, 17),
+        budget_max=Decimal("1500"),
+    )
+    planning_public._trip_tools(request)
+
+    assert calls == [
+        {"trip": TripBounds(persons=2, start_date=date(2026, 5, 10), end_date=date(2026, 5, 17))}
+    ]
