@@ -148,6 +148,19 @@ class SqlPlanRepository:
         rows = await self._session.scalars(select(PlanModel).where(PlanModel.id.in_(plan_ids)))
         return [self._to_plan(row, ()) for row in rows]
 
+    async def statuses_by_wish(self, wish_ids: Sequence[UUID]) -> dict[UUID, list[str]]:
+        """The status of each plan of these wishes, by wish. A wish without a plan is left
+        out. Statuses only: no plan is loaded."""
+        if not wish_ids:
+            return {}
+        rows = await self._session.execute(
+            select(PlanModel.wish_id, PlanModel.status).where(PlanModel.wish_id.in_(wish_ids))
+        )
+        found: dict[UUID, list[str]] = {}
+        for wish_id, status in rows:
+            found.setdefault(wish_id, []).append(status)
+        return found
+
     def _to_plan(
         self,
         row: PlanModel,

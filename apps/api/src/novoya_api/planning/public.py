@@ -21,6 +21,8 @@
 - mark_accepted(plan_id), mark_rejected(plan_id): the client's answer to the quote, in the
   caller's session (the caller commits, with the answer on its quote). Raises PlanNotFound
   (404) or InvalidTransition (409, not quoted, or changed meanwhile).
+- plan_statuses(wish_ids) -> {wish_id: (status, ...)}: where the plans of these wishes stand,
+  so wishes knows which answers the agency already works from (#165).
 - delete_for_user(user_id): erases the plans of this user's wishes; their items and extras
   go with them. Erase the user's quotes first (quoting.public.delete_for_user) and the wishes
   after (wishes.public.delete_for_user): neither has a cascade. The caller commits.
@@ -77,6 +79,7 @@ __all__ = [
     "generate_plan",
     "mark_accepted",
     "mark_rejected",
+    "plan_statuses",
     "plan_trip",
     "plan_trips",
     "priced_plan",
@@ -173,6 +176,15 @@ async def plan_trips(plan_ids: Sequence[UUID], *, session: AsyncSession) -> dict
     plans = await SqlPlanRepository(session).list_by_ids(plan_ids)
     trips = await WishTrips(session).for_wish_ids([plan.wish_id for plan in plans])
     return {plan.id: trips[plan.wish_id] for plan in plans if plan.wish_id in trips}
+
+
+async def plan_statuses(
+    wish_ids: Sequence[UUID], *, session: AsyncSession
+) -> dict[UUID, tuple[str, ...]]:
+    """The status of each plan of these wishes, keyed by wish id. A wish without a plan is
+    left out. The caller checks the wishes are the signed-in client's."""
+    found = await SqlPlanRepository(session).statuses_by_wish(wish_ids)
+    return {wish_id: tuple(statuses) for wish_id, statuses in found.items()}
 
 
 def _writer() -> PlanWriter:

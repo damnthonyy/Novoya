@@ -13,8 +13,9 @@ class WishRepository(Protocol):
 
     async def get(self, wish_id: UUID) -> Wish | None: ...
 
-    async def list_for_user(self, user_id: UUID) -> list[Wish]:
-        """This user's wishes, newest first. save() works on each of them, as after get()."""
+    async def list_for_user(self, user_id: UUID, *, lock: bool = False) -> list[Wish]:
+        """This user's wishes, newest first. save() works on each of them, as after get().
+        With lock, the rows stay locked until the transaction ends (SELECT ... FOR UPDATE)."""
         ...
 
     async def save(self, wish: Wish) -> None:

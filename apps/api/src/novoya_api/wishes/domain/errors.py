@@ -19,6 +19,13 @@ class WishNotFound(NotFound):  # 404
     code = "wish_not_found"
 
 
+class PreferenceLocked(Conflict):  # 409
+    """Every wish carrying this tag is with the agency (its plan left proposed): the brief
+    behind that plan does not change."""
+
+    code = "preference_locked"
+
+
 class AnswerInProgress(Conflict):  # 409
     """Another request is answering this wish and building its plan right now."""
 

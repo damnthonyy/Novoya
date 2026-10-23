@@ -70,7 +70,9 @@ async def answer_panel(
 
 # The client's own tastes: no shared or browser cache keeps them.
 PRIVATE = "private, no-store"
-TagId = Annotated[str, Path(min_length=1, max_length=100)]
+# No max length: a tag from an import can be long, and the lookup is equality on the
+# client's own wishes.
+TagId = Annotated[str, Path(min_length=1)]
 
 me_router = APIRouter(
     prefix="/me/preferences",
@@ -86,7 +88,8 @@ async def list_my_preferences(
     use_case: Annotated[ListPreferences, Depends(get_list_preferences)],
 ) -> list[PreferenceSectionOut]:
     """The tags the client picked on the panels of their own wishes, grouped by panel
-    section, each tag once. Empty when no wish is answered yet."""
+    section, each tag once, with whether it can still be removed. Empty when no wish is
+    answered yet."""
     response.headers["Cache-Control"] = PRIVATE
     return [PreferenceSectionOut.of(section) for section in await use_case(user_id)]
 
@@ -95,6 +98,7 @@ async def list_my_preferences(
     "/{section}/{tag}",
     operation_id="removeMyPreference",
     status_code=status.HTTP_204_NO_CONTENT,
+    responses={409: {"model": ErrorResponse}},
 )
 async def remove_my_preference(
     section: TagId,
@@ -103,9 +107,10 @@ async def remove_my_preference(
     user_id: Annotated[UUID, Depends(get_current_user_id)],
     use_case: Annotated[RemovePreference, Depends(get_remove_preference)],
 ) -> None:
-    """Withdraw a preference: the tag leaves every answered or planned wish of the client.
-    Their plans already built stay as they are. Removing a tag they do not have is a no-op
-    (204), so a second click does no harm."""
+    """Withdraw a preference from the client's wishes that can still change: those whose
+    plan is still proposed, or that have none. Wishes whose plan is with the agency keep it.
+    409 preference_locked when every wish carrying the tag is with the agency. Removing a tag
+    the client does not have is a no-op (204), so a second click does no harm."""
     response.headers["Cache-Control"] = PRIVATE
     await use_case(user_id, section, tag)
 

@@ -2519,11 +2519,16 @@
           "label": {
             "title": "Label",
             "type": "string"
+          },
+          "removable": {
+            "title": "Removable",
+            "type": "boolean"
           }
         },
         "required": [
           "id",
-          "label"
+          "label",
+          "removable"
         ],
         "title": "PreferenceTagOut",
         "type": "object"
@@ -8421,7 +8426,7 @@
     },
     "/me/preferences": {
       "get": {
-        "description": "The tags the client picked on the panels of their own wishes, grouped by panel\nsection, each tag once. Empty when no wish is answered yet.",
+        "description": "The tags the client picked on the panels of their own wishes, grouped by panel\nsection, each tag once, with whether it can still be removed. Empty when no wish is\nanswered yet.",
         "operationId": "listMyPreferences",
         "responses": {
           "200": {
@@ -8477,7 +8482,7 @@
     },
     "/me/preferences/{section}/{tag}": {
       "delete": {
-        "description": "Withdraw a preference: the tag leaves every answered or planned wish of the client.\nTheir plans already built stay as they are. Removing a tag they do not have is a no-op\n(204), so a second click does no harm.",
+        "description": "Withdraw a preference from the client's wishes that can still change: those whose\nplan is still proposed, or that have none. Wishes whose plan is with the agency keep it.\n409 preference_locked when every wish carrying the tag is with the agency. Removing a tag\nthe client does not have is a no-op (204), so a second click does no harm.",
         "operationId": "removeMyPreference",
         "parameters": [
           {
@@ -8485,7 +8490,6 @@
             "name": "section",
             "required": true,
             "schema": {
-              "maxLength": 100,
               "minLength": 1,
               "title": "Section",
               "type": "string"
@@ -8496,7 +8500,6 @@
             "name": "tag",
             "required": true,
             "schema": {
-              "maxLength": 100,
               "minLength": 1,
               "title": "Tag",
               "type": "string"
@@ -8526,6 +8529,16 @@
               }
             },
             "description": "Forbidden"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
           },
           "422": {
             "content": {

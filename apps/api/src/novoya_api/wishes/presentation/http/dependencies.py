@@ -38,6 +38,7 @@ from novoya_api.wishes.infrastructure.llm.panel_builder import (
     LlmPanelBuilder,
     TagsFromOffersBuilder,
 )
+from novoya_api.wishes.infrastructure.plan_statuses import PlanningPlanStatuses
 from novoya_api.wishes.infrastructure.planner import PartnerPlanner
 
 # One for the process: every request must see the answers the others are building.
@@ -122,12 +123,15 @@ def get_list_admin_wishes(
 def get_list_preferences(
     session: Annotated[AsyncSession, Depends(get_session)],
 ) -> ListPreferences:
-    return ListPreferences(SqlWishRepository(session))
+    return ListPreferences(SqlWishRepository(session), PlanningPlanStatuses(session))
 
 
 def get_remove_preference(
     session: Annotated[AsyncSession, Depends(get_session)],
 ) -> RemovePreference:
     return RemovePreference(
-        SqlWishRepository(session), SqlAlchemyUnitOfWork(session), SystemClock()
+        SqlWishRepository(session),
+        PlanningPlanStatuses(session),
+        SqlAlchemyUnitOfWork(session),
+        SystemClock(),
     )

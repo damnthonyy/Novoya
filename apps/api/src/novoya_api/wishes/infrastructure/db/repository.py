@@ -89,12 +89,17 @@ class SqlWishRepository:
         found = {row.id: wish_to_entity(row) for row in rows}
         return [found[wish_id] for wish_id in ids if wish_id in found]
 
-    async def list_for_user(self, user_id: UUID) -> list[Wish]:
-        rows = await self._session.scalars(
+    async def list_for_user(self, user_id: UUID, *, lock: bool = False) -> list[Wish]:
+        statement = (
             select(WishModel)
             .where(WishModel.user_id == user_id)
             .order_by(WishModel.created_at.desc(), WishModel.id)
         )
+        if lock:
+            # save() guards on the status only, which a removed tag does not change: two
+            # removals at once must wait for each other, or the second undoes the first.
+            statement = statement.with_for_update()
+        rows = await self._session.scalars(statement)
         wishes = []
         for row in rows:
             self._read_status[row.id] = row.status

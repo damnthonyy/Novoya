@@ -20,6 +20,7 @@ from novoya_api.wishes.application.use_cases.preferences import (
     RemovePreference,
 )
 from novoya_api.wishes.domain.answers import Answers, SelectedTag
+from novoya_api.wishes.domain.errors import PreferenceLocked
 from novoya_api.wishes.domain.panel import Panel, PanelSection, Tag
 from novoya_api.wishes.domain.wish import Destination, Wish, WishStatus
 from novoya_api.wishes.presentation.http.dependencies import (
@@ -87,12 +88,28 @@ class FakeWishes:
     def __init__(self, *wishes: Wish) -> None:
         self.wishes = list(wishes)
         self.saved: list[Wish] = []
+        self.locked_reads = 0
 
-    async def list_for_user(self, user_id: UUID) -> list[Wish]:
+    async def list_for_user(self, user_id: UUID, *, lock: bool = False) -> list[Wish]:
+        self.locked_reads += lock
         return [wish for wish in self.wishes if wish.user_id == user_id]
 
     async def save(self, wish: Wish) -> None:
         self.saved.append(wish)
+
+
+class FakePlans:
+    """Wishes whose plan has left proposed (requested, quoted, ...)."""
+
+    def __init__(self, *locked: Wish) -> None:
+        self.locked = {wish.id for wish in locked}
+
+    async def locked_wish_ids(self, wish_ids) -> set[UUID]:
+        return self.locked & set(wish_ids)
+
+
+def remover(wishes, plans=None, uow=None) -> RemovePreference:
+    return RemovePreference(wishes, plans or FakePlans(), uow or FakeUnitOfWork(), FixedClock())
 
 
 # The domain rule
@@ -105,7 +122,7 @@ def test_remove_tag_drops_it_from_the_answers_and_keeps_the_rest():
 
     assert wish.answers.selected_tags == (SelectedTag("food", "wine"),)
     assert wish.answers.budget_max == Decimal("1500")
-    assert wish.status is WishStatus.PLANNED  # the plan already built stays
+    assert wish.status is WishStatus.PLANNED  # the proposed plan stays
     assert wish.updated_at == NOW
 
 
@@ -134,19 +151,34 @@ def test_removing_does_not_open_the_answers_again():
 # The use cases
 
 
+def tag(tag_id: str, label: str, removable: bool = True) -> PreferenceTag:
+    return PreferenceTag(tag_id, label, removable)
+
+
 async def test_preferences_are_grouped_by_section_with_the_panel_labels():
     wishes = FakeWishes(
         answered_wish(USER_ID, ("style", "beach"), ("food", "seafood")),
         answered_wish(USER_ID, ("style", "city"), ("style", "beach")),
     )
 
-    found = await ListPreferences(wishes)(USER_ID)
+    found = await ListPreferences(wishes, FakePlans())(USER_ID)
 
     assert found == [
-        PreferenceSection(
-            "style", "Style", (PreferenceTag("beach", "Beach"), PreferenceTag("city", "City"))
-        ),
-        PreferenceSection("food", "Food", (PreferenceTag("seafood", "Seafood"),)),
+        PreferenceSection("style", "Style", (tag("beach", "Beach"), tag("city", "City"))),
+        PreferenceSection("food", "Food", (tag("seafood", "Seafood"),)),
+    ]
+
+
+async def test_a_tag_is_removable_while_one_wish_carrying_it_can_change():
+    sent = answered_wish(USER_ID, ("style", "beach"), ("food", "wine"))
+    open_wish = answered_wish(USER_ID, ("style", "beach"))
+    wishes = FakeWishes(sent, open_wish)
+
+    found = await ListPreferences(wishes, FakePlans(sent))(USER_ID)
+
+    assert found == [
+        PreferenceSection("style", "Style", (tag("beach", "Beach"),)),
+        PreferenceSection("food", "Food", (tag("wine", "Wine", removable=False),)),
     ]
 
 
@@ -157,61 +189,84 @@ async def test_preferences_show_only_the_clients_own_wishes():
         shown_wish(USER_ID),
     )
 
-    found = await ListPreferences(wishes)(USER_ID)
+    found = await ListPreferences(wishes, FakePlans())(USER_ID)
 
-    assert found == [PreferenceSection("style", "Style", (PreferenceTag("beach", "Beach"),))]
+    assert found == [PreferenceSection("style", "Style", (tag("beach", "Beach"),))]
 
 
 async def test_no_answered_wish_means_no_preferences():
-    assert await ListPreferences(FakeWishes(shown_wish(USER_ID)))(USER_ID) == []
+    assert await ListPreferences(FakeWishes(shown_wish(USER_ID)), FakePlans())(USER_ID) == []
 
 
-async def test_remove_preference_drops_it_from_every_answered_wish_of_the_client():
+async def test_remove_preference_drops_it_from_every_changeable_wish_of_the_client():
     first = answered_wish(USER_ID, ("style", "beach"), ("food", "wine"))
     second = answered_wish(USER_ID, ("style", "beach"), planned=False)
+    sent = answered_wish(USER_ID, ("style", "beach"))
     without = answered_wish(USER_ID, ("food", "wine"))
     others = answered_wish(OTHER_ID, ("style", "beach"))
     unanswered = shown_wish(USER_ID)
-    wishes = FakeWishes(first, second, without, others, unanswered)
+    wishes = FakeWishes(first, second, sent, without, others, unanswered)
     uow = FakeUnitOfWork()
 
-    await RemovePreference(wishes, uow, FixedClock())(USER_ID, "style", "beach")
+    await remover(wishes, FakePlans(sent), uow)(USER_ID, "style", "beach")
 
     assert wishes.saved == [first, second]
     assert first.answers.selected_tags == (SelectedTag("food", "wine"),)
     assert second.answers.selected_tags == ()
+    assert sent.answers.selected_tags == (SelectedTag("style", "beach"),)
     assert others.answers.selected_tags == (SelectedTag("style", "beach"),)
     assert uow.commits == 1
+    assert wishes.locked_reads == 1  # two removals at once wait for each other
+
+
+async def test_a_tag_only_on_wishes_sent_to_the_agency_is_locked():
+    sent = answered_wish(USER_ID, ("style", "beach"))
+    wishes = FakeWishes(sent)
+    uow = FakeUnitOfWork()
+
+    with pytest.raises(PreferenceLocked):
+        await remover(wishes, FakePlans(sent), uow)(USER_ID, "style", "beach")
+
+    assert wishes.saved == []
+    assert uow.commits == 0
+    assert sent.answers.selected_tags == (SelectedTag("style", "beach"),)
 
 
 async def test_removing_a_preference_the_client_does_not_have_changes_nothing():
     wishes = FakeWishes(answered_wish(USER_ID, ("food", "wine")))
     uow = FakeUnitOfWork()
 
-    await RemovePreference(wishes, uow, FixedClock())(USER_ID, "style", "beach")
+    await remover(wishes, uow=uow)(USER_ID, "style", "beach")
 
     assert wishes.saved == []
+    assert uow.commits == 0
 
 
 # The routes
 
 
 @pytest.fixture
-def wishes() -> FakeWishes:
-    return FakeWishes(
-        answered_wish(USER_ID, ("style", "beach"), ("food", "wine")),
-        answered_wish(OTHER_ID, ("food", "seafood")),
-    )
+def sent() -> Wish:
+    return answered_wish(USER_ID, ("style", "city"))
 
 
 @pytest.fixture
-def app(wishes):
+def theirs() -> Wish:
+    return answered_wish(OTHER_ID, ("food", "seafood"))
+
+
+@pytest.fixture
+def wishes(sent, theirs) -> FakeWishes:
+    return FakeWishes(answered_wish(USER_ID, ("style", "beach"), ("food", "wine")), sent, theirs)
+
+
+@pytest.fixture
+def app(wishes, sent):
     app = create_app()
+    plans = FakePlans(sent)
     app.dependency_overrides[get_current_user_id] = lambda: USER_ID
-    app.dependency_overrides[get_list_preferences] = lambda: ListPreferences(wishes)
-    app.dependency_overrides[get_remove_preference] = lambda: RemovePreference(
-        wishes, FakeUnitOfWork(), FixedClock()
-    )
+    app.dependency_overrides[get_list_preferences] = lambda: ListPreferences(wishes, plans)
+    app.dependency_overrides[get_remove_preference] = lambda: remover(wishes, plans)
     return app
 
 
@@ -221,26 +276,56 @@ async def client(app) -> AsyncIterator[AsyncClient]:
         yield client
 
 
+def section_json(section_id, title, *tags):
+    return {
+        "id": section_id,
+        "title": title,
+        "tags": [{"id": i, "label": label, "removable": r} for i, label, r in tags],
+    }
+
+
 async def test_get_my_preferences_returns_the_sections_and_is_not_cached(client):
     response = await client.get("/me/preferences")
 
     assert response.status_code == 200
     assert response.headers["cache-control"] == "private, no-store"
     assert response.json() == [
-        {"id": "style", "title": "Style", "tags": [{"id": "beach", "label": "Beach"}]},
-        {"id": "food", "title": "Food", "tags": [{"id": "wine", "label": "Wine"}]},
+        section_json("style", "Style", ("beach", "Beach", True), ("city", "City", False)),
+        section_json("food", "Food", ("wine", "Wine", True)),
     ]
 
 
-async def test_delete_my_preference_removes_it(client, wishes):
+async def test_delete_my_preference_removes_it(client):
     response = await client.delete("/me/preferences/style/beach")
 
     assert response.status_code == 204
     assert response.headers["cache-control"] == "private, no-store"
     after = await client.get("/me/preferences")
-    assert after.json() == [
-        {"id": "food", "title": "Food", "tags": [{"id": "wine", "label": "Wine"}]},
+    assert [[t["id"] for t in section["tags"]] for section in after.json()] == [
+        ["wine"],
+        ["city"],
     ]
+
+
+async def test_delete_a_preference_sent_to_the_agency_is_409(client, sent):
+    response = await client.delete("/me/preferences/style/city")
+
+    assert response.status_code == 409
+    assert response.json()["code"] == "preference_locked"
+    assert sent.answers.selected_tags == (SelectedTag("style", "city"),)
+
+
+async def test_delete_a_tag_only_another_client_has_is_204_and_leaves_theirs(client, theirs):
+    response = await client.delete("/me/preferences/food/seafood")
+
+    assert response.status_code == 204
+    assert theirs.answers.selected_tags == (SelectedTag("food", "seafood"),)
+
+
+async def test_a_long_tag_can_be_removed(client):
+    response = await client.delete(f"/me/preferences/style/{'x' * 300}")
+
+    assert response.status_code == 204
 
 
 @pytest.mark.parametrize(("role", "status"), [(Role.CLIENT, 200), (Role.AGENT, 403)])
@@ -249,6 +334,14 @@ async def test_only_clients_read_their_preferences(app, client, role, status):
     app.dependency_overrides[current_user] = lambda: signed_in_as(role)
 
     assert (await client.get("/me/preferences")).status_code == status
+
+
+async def test_an_agent_cannot_remove_a_preference(app, client, wishes):
+    del app.dependency_overrides[get_current_user_id]
+    app.dependency_overrides[current_user] = lambda: signed_in_as(Role.AGENT)
+
+    assert (await client.delete("/me/preferences/style/beach")).status_code == 403
+    assert wishes.saved == []
 
 
 async def test_preferences_need_a_session(app, client):

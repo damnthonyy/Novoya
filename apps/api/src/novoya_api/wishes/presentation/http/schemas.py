@@ -199,6 +199,8 @@ class AdminWish(BaseModel):
 class PreferenceTagOut(BaseModel):
     id: str
     label: str
+    # False when every wish carrying it is with the agency (its plan left proposed).
+    removable: bool
 
 
 class PreferenceSectionOut(BaseModel):
@@ -213,5 +215,8 @@ class PreferenceSectionOut(BaseModel):
         return cls(
             id=section.id,
             title=section.title,
-            tags=[PreferenceTagOut(id=tag.id, label=tag.label) for tag in section.tags],
+            tags=[
+                PreferenceTagOut(id=tag.id, label=tag.label, removable=tag.removable)
+                for tag in section.tags
+            ],
         )

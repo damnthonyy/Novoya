@@ -23,7 +23,7 @@ from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from novoya_api.wishes.application.use_cases.preferences import ListPreferences
+from novoya_api.wishes.application.use_cases.preferences import group_preferences
 from novoya_api.wishes.infrastructure.db.repository import SqlWishRepository
 
 # The wishes a search may match, newest first: past it the query is too broad to filter, and
@@ -96,7 +96,8 @@ async def search_ids(query: str, user_ids: Sequence[UUID], *, session: AsyncSess
 
 async def preferences(user_id: UUID, *, session: AsyncSession) -> tuple[str, ...]:
     """The "section:tag" this user picked on their wishes' panels, each once, newest first."""
-    found = await ListPreferences(SqlWishRepository(session))(user_id)
+    wishes = await SqlWishRepository(session).list_for_user(user_id)
+    found = group_preferences(wishes, locked=set())
     return tuple(f"{section.id}:{tag.id}" for section in found for tag in section.tags)
 
 
