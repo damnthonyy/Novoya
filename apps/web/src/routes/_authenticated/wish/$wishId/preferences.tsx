@@ -12,6 +12,7 @@ import { type CachedWish, wishQueryKey } from '../../../../api/wishes'
 import { Button } from '../../../../components/atoms/Button'
 import { Eyebrow } from '../../../../components/atoms/Eyebrow'
 import { TagGroup } from '../../../../components/molecules/TagGroup'
+import { AdvisorChat } from '../../../../components/organisms/AdvisorChat'
 import { ConstraintsFields, type ConstraintsValues } from '../../../../components/organisms/ConstraintsFields'
 import { IntentAside } from '../../../../components/organisms/IntentAside'
 import { PlanBuilding } from '../../../../components/organisms/PlanBuilding'
@@ -31,6 +32,7 @@ import {
   selectedTags,
   toggleTag,
 } from '../../../../domain/panel/selection'
+import { sectionTones } from '../../../../domain/panel/sectionTone'
 
 export const Route = createFileRoute('/_authenticated/wish/$wishId/preferences')({
   component: PreferencesPage,
@@ -117,6 +119,7 @@ function PreferencesForm({ wishId, text, panel }: { wishId: string; text: string
     )
   }
 
+  const tones = sectionTones(panel.sections.map((section) => section.id))
   const labels = new Map(panel.sections.flatMap((section) => section.tags.map((tag) => [`${section.id}:${tag.id}`, tag.label])))
   const picked = selectedTags(selection).map(({ section, tag }) => labels.get(`${section}:${tag}`) ?? tag)
 
@@ -145,6 +148,7 @@ function PreferencesForm({ wishId, text, panel }: { wishId: string; text: string
             {panel.sections.map((section) => (
               <TagGroup
                 key={section.id}
+                tone={tones.get(section.id)}
                 title={section.title}
                 multi={section.multi}
                 tags={section.tags}
@@ -180,6 +184,7 @@ function PreferencesForm({ wishId, text, panel }: { wishId: string; text: string
             </Button>
           }
         />
+        <AdvisorChat wishId={wishId} raised />
       </div>
     </AppShell>
   )

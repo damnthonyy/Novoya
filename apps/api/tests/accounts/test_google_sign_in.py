@@ -245,6 +245,18 @@ async def test_second_sign_in_loads_the_same_user_and_keeps_the_name(google):
     assert first.token != second.token
 
 
+async def test_a_sign_in_after_a_rename_keeps_the_names_the_user_chose(google):
+    await google.full()
+    [user] = google.store.users.rows.values()
+    user.rename("Camille", "Durand")
+    await google.store.users.save(user)
+
+    await google.full()
+
+    [user] = google.store.users.rows.values()
+    assert (user.first_name, user.last_name, user.name) == ("Camille", "Durand", "Camille Durand")
+
+
 async def test_linked_identity_wins_over_the_email(google):
     """Google's sub is the key: an address change at Google keeps the same account."""
     await google.full()

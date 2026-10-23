@@ -105,6 +105,7 @@ So the inner layers of a module never know other modules exist, and each module 
 | `wishes` | `catalog` (coverage, tags), `planning` (start a plan) | `catalog.public`, `planning.public` |
 | `planning` | `catalog` (check offer ids, LLM travel tools) | `catalog.public` |
 | `quoting` | `planning` (priced plan, mark quoted, accepted or rejected), `accounts` (email, language) | `planning.public`, `accounts.public` |
+| `messaging` | `wishes` (the wish's client), `planning` (the plans' status and agent, for the chat's read rule) | `wishes.public`, `planning.public` |
 | `accounts` | `wishes`, `planning`, `quoting` (delete a user's data) | each `public.delete_for_user` |
 | `dashboard` | `accounts`, `catalog`, `planning`, `quoting` (counts for the admin home) | each `public.count_*` |
 | all routers | `accounts` (`current_user`, `require_client`, `require_agent`, `require_admin`, `Role`, `get_user`) | `accounts.public` |
@@ -141,11 +142,12 @@ The allowed moves are methods on `Plan`, for example `plan.request_quote(by=user
 
 | Module | Use cases | Endpoints | Ports |
 |---|---|---|---|
-| accounts | `StartSignIn`, `SignIn`, `Register`, `VerifyEmail`, `SignInWithPassword`, `RequestPasswordReset`, `ResetPassword`, `ChangePassword`, `SignOut`, `SignOutEverywhere`, `GetCurrentUser`, `ChangeLocale`, `ListUsers`, `ChangeUserRole`, `DeleteAccount` | `/auth/{provider}/*` (Google), `/auth/register`, `/auth/login`, `/auth/email/*`, `/auth/password/*`, `/auth/logout`, `/auth/logout-all`, `GET /me`, `PATCH /me`, `DELETE /me`, `/admin/users` | UserRepository, PasswordCredentialRepository, OAuthIdentityRepository, SessionRepository, IdentityProvider, PasswordHasher, AuthMailer, RateLimiter, PersonalDataEraser |
+| accounts | `StartSignIn`, `SignIn`, `Register`, `VerifyEmail`, `SignInWithPassword`, `RequestPasswordReset`, `ResetPassword`, `ChangePassword`, `SignOut`, `SignOutEverywhere`, `GetCurrentUser`, `UpdateMe`, `ListUsers`, `ChangeUserRole`, `DeleteAccount` | `/auth/{provider}/*` (Google), `/auth/register`, `/auth/login`, `/auth/email/*`, `/auth/password/*`, `/auth/logout`, `/auth/logout-all`, `GET /me`, `PATCH /me`, `DELETE /me`, `/admin/users` | UserRepository, PasswordCredentialRepository, OAuthIdentityRepository, SessionRepository, IdentityProvider, PasswordHasher, AuthMailer, RateLimiter, PersonalDataEraser |
 | catalog | `ListDestinations`, `SearchOffers`, `ManagePartners`, `ManageOffers`, `GetOfferDetail`, `ListReviews`, `ListAllReviews`, `UpdateReview`, `ListExtras`, `GetExtras`, `ListAllExtras`, `UpdateExtra` | `GET /destinations`, `GET /offers/{id}`, `GET /reviews`, `GET /extras`, `/admin/partners`, `/admin/offers`, `/admin/extras`, `/admin/reviews` | PartnerRepository, OfferRepository, ReviewRepository, ExtraRepository |
 | wishes | `SendWish`, `AnswerPanel` | `POST /wishes`, `POST /wishes/{id}/answers` | WishRepository, Catalog, PanelBuilder, PlanStarter |
 | planning | `GeneratePlan`, `GetPlan`, `RequestQuote`, `ListQuoteQueue`, `TakePlan`, `SetItemPrice`, `SetExtraPrice` | `GET /plans/{id}`, `POST /plans/{id}/request-quote`, `/agent/plans/*` | PlanRepository, PlanGenerator, Catalog |
 | quoting | `SendQuote`, `GetQuote`, `DownloadQuotePdf`, `DecideQuote` | `POST /agent/plans/{id}/quote`, `/quotes/{id}`, `/quotes/{id}/pdf`, `/accept`, `/reject` | QuoteRepository, Plans, Users, QuoteRenderer, QuoteNotifier |
+| trips | `ListMyTrips` | `GET /me/trips` | TripWishes, TripPlans, TripQuotes |
 | dashboard | `GetAdminStats` | `GET /admin/stats` | Counts |
 | health | `CheckDatabase` | `GET /health`, `GET /health/db` | DatabaseProbe |
 

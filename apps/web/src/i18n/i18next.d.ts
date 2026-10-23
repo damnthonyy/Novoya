@@ -4,6 +4,7 @@ import type admin from './locales/en/admin.json'
 import type agent from './locales/en/agent.json'
 import type auth from './locales/en/auth.json'
 import type building from './locales/en/building.json'
+import type chat from './locales/en/chat.json'
 import type common from './locales/en/common.json'
 import type demo from './locales/en/demo.json'
 import type destinations from './locales/en/destinations.json'
@@ -15,6 +16,7 @@ import type offer from './locales/en/offer.json'
 import type plan from './locales/en/plan.json'
 import type preferences from './locales/en/preferences.json'
 import type privacy from './locales/en/privacy.json'
+import type profile from './locales/en/profile.json'
 import type quote from './locales/en/quote.json'
 import type settings from './locales/en/settings.json'
 import type trips from './locales/en/trips.json'
@@ -30,6 +32,7 @@ declare module 'i18next' {
       agent: typeof agent
       auth: typeof auth
       building: typeof building
+      chat: typeof chat
       common: typeof common
       demo: typeof demo
       destinations: typeof destinations
@@ -41,6 +44,7 @@ declare module 'i18next' {
       plan: typeof plan
       preferences: typeof preferences
       privacy: typeof privacy
+      profile: typeof profile
       quote: typeof quote
       settings: typeof settings
       trips: typeof trips

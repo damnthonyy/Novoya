@@ -67,6 +67,17 @@ class SqlPlanRepository:
             .execution_options(synchronize_session=False)
         )
 
+    async def summaries_for_wishes(self, wish_ids: Sequence[UUID]) -> list[tuple[UUID, UUID, str]]:
+        """(plan id, wish id, status) of the plans of these wishes, oldest plan first."""
+        if not wish_ids:
+            return []
+        rows = await self._session.execute(
+            select(PlanModel.id, PlanModel.wish_id, PlanModel.status)
+            .where(PlanModel.wish_id.in_(wish_ids))
+            .order_by(PlanModel.created_at, PlanModel.id)
+        )
+        return [(row.id, row.wish_id, row.status) for row in rows]
+
     async def get(self, plan_id: UUID) -> Plan | None:
         row = await self._session.get(PlanModel, plan_id, populate_existing=True)
         if row is None:
@@ -147,6 +158,19 @@ class SqlPlanRepository:
             return []
         rows = await self._session.scalars(select(PlanModel).where(PlanModel.id.in_(plan_ids)))
         return [self._to_plan(row, ()) for row in rows]
+
+    async def statuses_by_wish(self, wish_ids: Sequence[UUID]) -> dict[UUID, list[str]]:
+        """The status of each plan of these wishes, by wish. A wish without a plan is left
+        out. Statuses only: no plan is loaded."""
+        if not wish_ids:
+            return {}
+        rows = await self._session.execute(
+            select(PlanModel.wish_id, PlanModel.status).where(PlanModel.wish_id.in_(wish_ids))
+        )
+        found: dict[UUID, list[str]] = {}
+        for wish_id, status in rows:
+            found.setdefault(wish_id, []).append(status)
+        return found
 
     def _to_plan(
         self,

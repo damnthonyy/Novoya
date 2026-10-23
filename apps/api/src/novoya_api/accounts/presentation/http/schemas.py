@@ -3,7 +3,16 @@ from datetime import datetime
 from typing import Annotated, Literal
 from uuid import UUID
 
-from pydantic import AfterValidator, BaseModel, Field, SecretStr, StringConstraints
+from pydantic import (
+    AfterValidator,
+    BaseModel,
+    ConfigDict,
+    Field,
+    SecretStr,
+    StringConstraints,
+    field_validator,
+    model_validator,
+)
 
 from novoya_api.accounts.application.dto import AccountView
 from novoya_api.accounts.domain.role import Role
@@ -67,7 +76,27 @@ class ChangeStatusRequest(BaseModel):
 
 
 class UpdateMeRequest(BaseModel):
-    locale: Literal["en", "fr"]
+    """Send only what changes, at least one field. A field sent as null is refused, and so is
+    any other field: the email, the sign-in identity, cannot be changed here."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    first_name: PersonName | None = None
+    last_name: PersonName | None = None
+    locale: Literal["en", "fr"] | None = None
+
+    @field_validator("first_name", "last_name", "locale", mode="before")
+    @classmethod
+    def _not_null(cls, value: object) -> object:
+        if value is None:
+            raise ValueError("must not be null")
+        return value
+
+    @model_validator(mode="after")
+    def _something_given(self) -> "UpdateMeRequest":
+        if not self.model_fields_set:
+            raise ValueError("send first_name, last_name or locale")
+        return self
 
 
 class AccountResponse(BaseModel):

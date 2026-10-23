@@ -75,6 +75,18 @@ def test_a_user_changes_their_language():
     assert user.locale is Locale.FR
 
 
+def test_a_user_renames_themselves_and_the_display_name_follows():
+    user = make_user()
+    user.rename(" Camille ", "Durand")
+    assert (user.first_name, user.last_name, user.name) == ("Camille", "Durand", "Camille Durand")
+
+
+def test_a_rename_keeps_the_other_name_when_only_one_is_given():
+    user = make_user()
+    user.rename(None, "Durand")
+    assert (user.first_name, user.last_name, user.name) == ("Alice", "Durand", "Alice Durand")
+
+
 def test_register_keeps_trimmed_names_and_composes_the_display_name():
     user = User.register(Email("alice@example.com"), " Alice ", " Martin ", Locale.EN, NOW)
     assert user.first_name == "Alice"

@@ -1,10 +1,10 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { createFileRoute, useNavigate } from '@tanstack/react-router'
-import { useRef, useState } from 'react'
+import { createFileRoute, useNavigate, useRouter } from '@tanstack/react-router'
+import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
-import { ApiError } from '../../../api/errors'
-import { sendWishMutation } from '../../../api/generated/@tanstack/react-query.gen'
+import { ApiError, isUnauthenticated } from '../../../api/errors'
+import { getMeQueryKey, sendWishMutation } from '../../../api/generated/@tanstack/react-query.gen'
 import { type CachedWish, type WishResponse, wishQueryKey } from '../../../api/wishes'
 import { Eyebrow } from '../../../components/atoms/Eyebrow'
 import { Seal } from '../../../components/atoms/Seal'
@@ -26,6 +26,7 @@ function WishPage() {
   const { me } = Route.useRouteContext()
   const queryClient = useQueryClient()
   const navigate = useNavigate()
+  const router = useRouter()
   const { t } = useTranslation('wish')
   const { t: tErrors } = useTranslation('errors')
   const textarea = useRef<HTMLTextAreaElement>(null)
@@ -34,27 +35,76 @@ function WishPage() {
   // The last answer that keeps the client on this page: not covered, or no place named.
   const [answer, setAnswer] = useState<WishResponse>()
 
+  // Set at once on send, not at the next render: a second ⌘/Ctrl + Enter in between sends nothing.
+  const sending = useRef(false)
+  // These callbacks still run once the client has left the page (a header link mid-send):
+  // they must not pull them back to the panel, or to /login. The page can also still be
+  // mounted while the next one loads: the location being left counts as gone too.
+  const mounted = useRef(false)
+  useEffect(() => {
+    mounted.current = true
+    return () => {
+      mounted.current = false
+    }
+  }, [])
+  const stillHere = () => mounted.current && router.latestLocation.pathname.replace(/\/$/, '') === '/wish'
   const send = useMutation({
     ...sendWishMutation(),
+    // Here and not in mutate(): this one still runs after send.reset().
+    onSettled: () => {
+      sending.current = false
+    },
+    // The session ended: the cached /me goes in every case, or the sign-in page (or the next
+    // guarded page, if the client left) would still see a session. Sign in again and come back
+    // here only from this page.
+    onError: async (error) => {
+      if (!isUnauthenticated(error)) return
+      // Not while /me is being read (the next page's guard): removing it would cancel that
+      // fetch, and the guard would show the error page. That fetch gets the 401 itself.
+      if (queryClient.isFetching({ queryKey: getMeQueryKey() }) === 0) {
+        queryClient.removeQueries({ queryKey: getMeQueryKey() })
+      }
+      if (!stillHere()) return
+      await navigate({ to: '/login', search: { redirect: '/wish' }, replace: true })
+    },
     onSuccess: async (wish) => {
       if (wish.status === 'panel_shown') {
         queryClient.setQueryData<CachedWish>(wishQueryKey(wish.id), { ...wish, text: text.trim() })
+        if (!stillHere()) return
         await navigate({ to: '/wish/$wishId/preferences', params: { wishId: wish.id } })
         return
       }
-      setAnswer(wish)
+      if (stillHere()) setAnswer(wish)
     },
   })
 
   const submit = () => {
+    if (sending.current) return
     const error = wishTextError(text)
     setCheckError(error ?? undefined)
-    if (!error) send.mutate({ body: { text: text.trim() } })
+    if (error) return
+    sending.current = true
+    // The last answer goes: its "where?" status must not stay next to the progress.
+    setAnswer(undefined)
+    send.mutate({ body: { text: text.trim() } })
   }
+
+  // The box was disabled while sending, which drops the keyboard focus: give it back when the
+  // client stays here (an error, or a question). After a navigation the box is gone: no-op.
+  const wasPending = useRef(false)
+  useEffect(() => {
+    // Only when the focus was lost, not when the client moved it elsewhere meanwhile. Lost is
+    // on the body, or still in the composer: a browser may keep it on the disabled send button.
+    const active = document.activeElement
+    const lost = active === null || active === document.body || Boolean(textarea.current?.form?.contains(active))
+    if (wasPending.current && !send.isPending && lost) textarea.current?.focus()
+    wasPending.current = send.isPending
+  }, [send.isPending])
 
   const startOver = (nextText: string) => {
     setAnswer(undefined)
     send.reset()
+    sending.current = false
     setText(nextText)
     // After the view switches back, put the cursor at the end of the text.
     requestAnimationFrame(() => {
@@ -88,6 +138,8 @@ function WishPage() {
         send.error instanceof ApiError ? send.error.retryAfterSeconds : undefined,
       )
     : undefined
+  // Only a network failure or a server error may go away by sending again.
+  const retryable = send.isError && (!(send.error instanceof ApiError) || send.error.status >= 500)
   const sendError = refused ? tErrors(refused.key, { count: refused.count }) : undefined
   const textError = checkError ? tErrors(checkError, { max: WISH_MAX_LENGTH }) : undefined
   const firstName = givenName(me)
@@ -117,6 +169,7 @@ function WishPage() {
           onSubmit={submit}
           pending={send.isPending}
           error={textError ?? sendError}
+          onRetry={!textError && retryable ? submit : undefined}
           textareaRef={textarea}
         />
         <div className="mt-[22px] flex w-full items-center justify-start gap-2.5 overflow-x-auto md:w-auto md:justify-center">
@@ -136,7 +189,9 @@ function WishPage() {
               key={label}
               type="button"
               onClick={() => startOver(wish)}
-              className="min-h-11 shrink-0 rounded-full border border-line px-[13px] py-2 text-xs"
+              // A spark mid-send would leave the running request free to navigate later.
+              disabled={send.isPending}
+              className="min-h-11 shrink-0 rounded-full border border-line px-[13px] py-2 text-xs disabled:opacity-60"
             >
               {label}
             </button>

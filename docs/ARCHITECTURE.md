@@ -75,7 +75,7 @@ flowchart LR
 | Part | Tech | Job |
 |---|---|---|
 | `apps/web` | React, TypeScript, Vite, TanStack Router, TanStack Query, TanStack Form | Client pages (wish, panel, plan, quote) and agent pages (quote queue, pricing) and admin pages (users, partners and offers, extras, reviews, activity) |
-| `apps/api` | Python 3.12, FastAPI, Pydantic v2, SQLAlchemy 2, Alembic | Modular monolith with Clean Architecture: accounts, catalog, wishes, planning and quoting modules, each with domain, use cases, adapters and REST endpoints |
+| `apps/api` | Python 3.12, FastAPI, Pydantic v2, SQLAlchemy 2, Alembic | Modular monolith with Clean Architecture: accounts, catalog, wishes, planning, quoting, messaging, trips and dashboard modules, each with domain, use cases, adapters and REST endpoints |
 | Database | PostgreSQL | Users, partners and offers, wishes, plans, quotes |
 | LLM | OpenRouter, called with the OpenAI Python SDK | Check coverage, build the panel, write the plan |
 
@@ -92,6 +92,8 @@ The backend is a modular monolith: one application and one database, split by bu
 | `wishes` | The wish, the coverage check, the preference panel |
 | `planning` | The plan built from offers, its status machine, the agent's negotiation |
 | `quoting` | The quote: total, validity, PDF, email, accept or reject |
+| `messaging` | The advisor chat of a wish: the client and the agency's staff write to each other while the trip is composed ([ADR 0016](adr/0016-advisor-chat.md)) |
+| `trips` | The client's list of trips: their wishes, each with its plan and its quote, read through the public files of wishes, planning and quoting. Reads only |
 | `dashboard` | The admin home's key numbers. No table: each module counts its own rows |
 | `shared` | Domain errors, common value objects, database session, LLM client |
 
@@ -186,7 +188,7 @@ A plan moves through these statuses:
 ```mermaid
 stateDiagram-v2
   [*] --> proposed: AI builds the plan
-  proposed --> requested: client asks for a quote
+  proposed --> requested: client sends it to the agency
   requested --> negotiating: an agent takes it
   negotiating --> quoted: agent sends the PDF
   quoted --> accepted: client accepts
@@ -194,7 +196,7 @@ stateDiagram-v2
 ```
 
 - **proposed**: the client sees the plan, with no price.
-- **requested**: the plan is in the agents' queue.
+- **requested**: the client clicked "Send to the agency" and confirmed. The plan is in the agents' queue. The client gets one email in their language saying the agency will answer within `NOVOYA_QUOTE_ANSWER_DAYS` days (4), with a link to the plan; a second send is a 409, so no second request and no second email. A failed email keeps the request and logs only the error type. My trips shows "Sent to the agency, answer within N days", then "An advisor is working on it" (negotiating), then "Quote ready" (quoted).
 - **negotiating**: one agent owns it (`assigned_agent_id`). They enter a negotiated price on each item.
 - **quoted**: every remaining item has a price. The agent clicked "Send quote". The backend computes the total, saves a `quotes` row and renders the PDF.
 - **accepted** or **rejected**: the client's final answer. A rejected client can start a new wish.
@@ -236,6 +238,7 @@ The PDF exists in English and French, in the client's language (`users.locale`).
 | `plan_items` | id, plan_id, offer_id, day, quantity, note, negotiated_price (empty until the agent fills it), removed |
 | `plan_extras` | plan_id, extra_id, pricing, price_eur (the supplement when requested, or the agent's price for `on_quote`), label and unit (copied when requested), confirmed (the agent set its price; a supplement per person, night or day needs it before the quote) |
 | `quotes` | id, number (`NV-YYYYMMDD-XXXXXX`), plan_id (one quote per plan), client_id, agent_id, total_price, currency (`EUR`), locale, sent_at, valid_until (sent_at + 7 days; the quote stays open to the end of that day in Paris), pdf (the file's bytes: the demo host wipes its disk, [ADR 0013](adr/0013-host-the-demo-on-render.md)), answer (`accepted`, `rejected`) and decided_at (both set together when the client answers), client_comment |
+| `messages` | id, wish_id (ON DELETE CASCADE: the conversation goes with the wish), author_id (SET NULL when that account is erased), from_agency (an agent or an admin wrote it), body (1 to 2000 characters), sent_at |
 
 `wishes` holds the whole request: the text, the panel we showed, the tags the client clicked, the budget, the number of travellers and the dates. `panel_json` and `selected_tags` are JSONB columns.
 
@@ -264,6 +267,7 @@ Client:
 | POST | `/auth/logout-all` | Sign out on every device |
 | GET | `/me` | The signed-in user, their role, language and sign-in methods |
 | PATCH | `/me` | Change the signed-in user's language (`{"locale": "en"}` or `"fr"`); answers like `GET /me` |
+| GET | `/me/trips` | The signed-in client's wishes, newest first: destination, dates, travellers, status, and the ids and status of its plan and quote when they exist. Own wishes only: 401 without a session, 403 for an agent or an admin. Not cached (`private, no-store`) |
 | GET | `/destinations` | Destinations with at least one listed offer (active offer of an active partner) |
 | GET | `/reviews?country=&city=` | Published reviews, newest first. Public. Hidden reviews are omitted |
 | GET | `/offers/{id}` | A listed offer: indicative price, opening months, terms. Never the partner |
@@ -271,8 +275,9 @@ Client:
 | POST | `/wishes` | Send the wish. Returns the panel, or `not_covered` with suggested destinations |
 | POST | `/wishes/{id}/answers` | Send the selected tags, budget, travellers and dates. Saves them on the wish and returns the proposed plan |
 | GET | `/plans/{id}` | The plan, day by day, with no prices until it is quoted and no partner names |
-| POST | `/plans/{id}/request-quote` | Ask the agency for a quote, with optional `extra_ids` |
+| POST | `/plans/{id}/request-quote` | Send the plan to the agency, with optional `extra_ids`; emails the client once |
 | GET | `/quotes/{id}` | Read a quote and its status: `open`, `expired` after its validity date, or the client's answer (`accepted`, `rejected`). A quote is open until the end of its validity day in Paris time, the day the PDF shows. With what the quote page shows: the agent's name, the trip, the priced items and extras, the budget, and the answer's date and comment. Its client, the agent who sent it or an admin; 404 for anyone else, another agent too. Not cached (`private, no-store`) |
+| GET, POST | `/wishes/{id}/messages` | The advisor chat of a wish: read it (oldest first, polled by the pages) or write in it. Its client and the admins; an agent while the plan is requested and not taken, or once they took it; 404 for anyone else. 422 `invalid_message` when empty or over 2000 characters, 429 past 30 messages in 5 minutes. Not cached (`private, no-store`) |
 | GET | `/quotes/{id}/pdf` | Download the quote PDF. Same readers as `GET /quotes/{id}` |
 | POST | `/quotes/{id}/accept`, `/quotes/{id}/reject` | The client's answer, with an optional comment (up to 1000 characters). Saves it on the quote and moves the plan to `accepted` or `rejected`, together. 204. Only the quote's client: 403 for staff, 404 for anyone else. 409 `quote_expired` after the validity day, 409 `quote_answered` when already answered |
 | DELETE | `/me` | Delete the account, its wishes, plans and quotes (with their PDF), then sign out. Clients only: 403 `staff_account` for an agent or an admin |
@@ -315,7 +320,7 @@ novoya/
     web/                     React + TanStack (pnpm)
     api/                     FastAPI (uv)
       src/novoya_api/
-        accounts/ catalog/ wishes/ planning/ quoting/ dashboard/
+        accounts/ catalog/ wishes/ planning/ quoting/ messaging/ trips/ dashboard/
           public.py          what other modules may use
           domain/            entities, rules
           application/       use_cases/, ports/
@@ -342,7 +347,8 @@ novoya/
 - Sessions and one-time links are deleted once expired: each sign-in deletes the sessions past their absolute expiry (30 days), each new link deletes the expired links (24 hours at most), and the API's startup deletes both, which covers a quiet spell. No worker is needed; `sessions.absolute_expires_at` and `one_time_tokens.expires_at` are indexed for it.
 - The privacy page describes production, where the AI model is Mistral AI, hosted in France. Development and the demo use OpenRouter instead, which can route the wish text to providers outside the EU: never put real client data in them.
 - The client can delete their account and everything linked to it (`DELETE /me`).
-- Agents see client data only for the plans in their queue.
+- Agents see client data only for the plans in their queue. The advisor chat (`messages`, [ADR 0016](adr/0016-advisor-chat.md)) follows the same rule: the client who sent the wish and the admins always read and write it; an agent only while the wish's plan waits in the queue (requested, nobody took it) or once they took it. A wish with no plan, or a proposed plan, is the client's and the admins' only. Anyone else gets 404.
+- Chat messages are personal data, like the wish they belong to: what the client writes there can say who travels, with whom, and why. They are kept as long as the wish, and `DELETE /me` erases them with the wishes (ON DELETE CASCADE). The API marks both the list and a posted message `Cache-Control: private, no-store`. The privacy page must list them (follow-up).
 
 ## 10. Schedule: 5 days, three sprints
 
