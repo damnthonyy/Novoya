@@ -247,6 +247,8 @@ describe('the personal information tab on My trips', () => {
 
     answer()
     expect(await screen.findByRole('heading', { name: 'Mes aperçus' })).toBeInTheDocument()
+    // The submit made while the header saved has settled by now, and sent nothing.
+    expect(patches()).toHaveLength(1)
     const french = screen.getByRole('form', { name: 'Informations personnelles' })
     fireEvent.click(await within(french).findByRole('button', { name: 'Enregistrer' }))
     await screen.findByRole('status')
