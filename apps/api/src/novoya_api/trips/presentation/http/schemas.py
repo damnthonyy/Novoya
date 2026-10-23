@@ -2,7 +2,7 @@ from datetime import date, datetime
 from typing import Literal
 from uuid import UUID
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from novoya_api.trips.application.dto import TripView
 
@@ -24,7 +24,10 @@ class Trip(BaseModel):
         Literal["proposed", "requested", "negotiating", "quoted", "accepted", "rejected"] | None
     )
     quote_id: UUID | None
+    answer_within_days: int = Field(
+        description="Days within which the agency answers once the trip is sent (a setting)."
+    )
 
     @classmethod
-    def of(cls, view: TripView) -> "Trip":
-        return cls.model_validate(view, from_attributes=True)
+    def of(cls, view: TripView, answer_within_days: int) -> "Trip":
+        return cls(**vars(view), answer_within_days=answer_within_days)

@@ -75,7 +75,7 @@ flowchart LR
 | Part | Tech | Job |
 |---|---|---|
 | `apps/web` | React, TypeScript, Vite, TanStack Router, TanStack Query, TanStack Form | Client pages (wish, panel, plan, quote) and agent pages (quote queue, pricing) and admin pages (users, partners and offers, extras, reviews, activity) |
-| `apps/api` | Python 3.12, FastAPI, Pydantic v2, SQLAlchemy 2, Alembic | Modular monolith with Clean Architecture: accounts, catalog, wishes, planning, quoting and trips modules, each with domain, use cases, adapters and REST endpoints |
+| `apps/api` | Python 3.12, FastAPI, Pydantic v2, SQLAlchemy 2, Alembic | Modular monolith with Clean Architecture: accounts, catalog, wishes, planning, quoting, trips and dashboard modules, each with domain, use cases, adapters and REST endpoints |
 | Database | PostgreSQL | Users, partners and offers, wishes, plans, quotes |
 | LLM | OpenRouter, called with the OpenAI Python SDK | Check coverage, build the panel, write the plan |
 
@@ -187,7 +187,7 @@ A plan moves through these statuses:
 ```mermaid
 stateDiagram-v2
   [*] --> proposed: AI builds the plan
-  proposed --> requested: client asks for a quote
+  proposed --> requested: client sends it to the agency
   requested --> negotiating: an agent takes it
   negotiating --> quoted: agent sends the PDF
   quoted --> accepted: client accepts
@@ -195,7 +195,7 @@ stateDiagram-v2
 ```
 
 - **proposed**: the client sees the plan, with no price.
-- **requested**: the plan is in the agents' queue.
+- **requested**: the client clicked "Send to the agency" and confirmed. The plan is in the agents' queue. The client gets one email in their language saying the agency will answer within `NOVOYA_QUOTE_ANSWER_DAYS` days (4), with a link to the plan; a second send is a 409, so no second request and no second email. A failed email keeps the request and logs only the error type. My trips shows "Sent to the agency, answer within N days", then "An advisor is working on it" (negotiating), then "Quote ready" (quoted).
 - **negotiating**: one agent owns it (`assigned_agent_id`). They enter a negotiated price on each item.
 - **quoted**: every remaining item has a price. The agent clicked "Send quote". The backend computes the total, saves a `quotes` row and renders the PDF.
 - **accepted** or **rejected**: the client's final answer. A rejected client can start a new wish.
@@ -273,7 +273,7 @@ Client:
 | POST | `/wishes` | Send the wish. Returns the panel, or `not_covered` with suggested destinations |
 | POST | `/wishes/{id}/answers` | Send the selected tags, budget, travellers and dates. Saves them on the wish and returns the proposed plan |
 | GET | `/plans/{id}` | The plan, day by day, with no prices until it is quoted and no partner names |
-| POST | `/plans/{id}/request-quote` | Ask the agency for a quote, with optional `extra_ids` |
+| POST | `/plans/{id}/request-quote` | Send the plan to the agency, with optional `extra_ids`; emails the client once |
 | GET | `/quotes/{id}` | Read a quote and its status: `open`, `expired` after its validity date, or the client's answer (`accepted`, `rejected`). A quote is open until the end of its validity day in Paris time, the day the PDF shows. With what the quote page shows: the agent's name, the trip, the priced items and extras, the budget, and the answer's date and comment. Its client, the agent who sent it or an admin; 404 for anyone else, another agent too. Not cached (`private, no-store`) |
 | GET | `/quotes/{id}/pdf` | Download the quote PDF. Same readers as `GET /quotes/{id}` |
 | POST | `/quotes/{id}/accept`, `/quotes/{id}/reject` | The client's answer, with an optional comment (up to 1000 characters). Saves it on the quote and moves the plan to `accepted` or `rejected`, together. 204. Only the quote's client: 403 for staff, 404 for anyone else. 409 `quote_expired` after the validity day, 409 `quote_answered` when already answered |

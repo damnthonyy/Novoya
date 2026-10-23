@@ -63,8 +63,7 @@ describe('demo fixtures', () => {
   })
 
   it('give the Chania plan and quote the same dates', () => {
-    const range = { startDate: plan.startDate, endDate: plan.endDate }
-    expect({ startDate: quote.startDate, endDate: quote.endDate }).toEqual(range)
+    expect({ startDate: quote.startDate, endDate: quote.endDate }).toEqual({ startDate: plan.startDate, endDate: plan.endDate })
   })
 
   it('update the Chania plan before the quote is issued', () => {

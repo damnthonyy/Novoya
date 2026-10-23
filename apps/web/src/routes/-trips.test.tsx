@@ -40,6 +40,7 @@ function trip(overrides: Partial<Trip>): Trip {
     plan_id: null,
     plan_status: null,
     quote_id: null,
+    answer_within_days: 4,
     ...overrides,
   }
 }
@@ -112,6 +113,18 @@ describe('the trips page', () => {
 
     expect(await screen.findByText('Quote ready')).toBeInTheDocument()
     expect(screen.queryByRole('note')).not.toBeInTheDocument()
+  })
+
+  it('says a sent trip is with the agency and when the answer comes, then that an advisor works on it', async () => {
+    trips = [
+      trip({ text: 'Voyage envoyé', status: 'planned', plan_id: PLAN_ID, plan_status: 'requested', answer_within_days: 6 }),
+      trip({ text: 'Voyage en cours', status: 'planned', plan_id: PLAN_ID, plan_status: 'negotiating', wish_id: PANEL_WISH_ID }),
+    ]
+    renderAt('/trips')
+
+    expect(await screen.findByText('Sent to the agency')).toBeInTheDocument()
+    expect(screen.getByText('Answer within 6 days')).toBeInTheDocument()
+    expect(screen.getByText('An advisor is working on it')).toBeInTheDocument()
   })
 
   it('says when the trips could not be loaded', async () => {

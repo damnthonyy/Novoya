@@ -37,8 +37,8 @@ describe('tripTarget', () => {
 describe('tripStatus', () => {
   it('follows the plan when there is one', () => {
     expect(tripStatus({ status: 'planned', plan_status: 'proposed' })).toBe('plan_proposed')
-    expect(tripStatus({ status: 'planned', plan_status: 'requested' })).toBe('quote_requested')
-    expect(tripStatus({ status: 'planned', plan_status: 'negotiating' })).toBe('quote_requested')
+    expect(tripStatus({ status: 'planned', plan_status: 'requested' })).toBe('sent')
+    expect(tripStatus({ status: 'planned', plan_status: 'negotiating' })).toBe('in_progress')
     expect(tripStatus({ status: 'planned', plan_status: 'quoted' })).toBe('quoted')
     expect(tripStatus({ status: 'planned', plan_status: 'accepted' })).toBe('accepted')
     expect(tripStatus({ status: 'planned', plan_status: 'rejected' })).toBe('rejected')
