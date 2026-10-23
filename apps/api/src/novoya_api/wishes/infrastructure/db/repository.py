@@ -89,6 +89,18 @@ class SqlWishRepository:
         found = {row.id: wish_to_entity(row) for row in rows}
         return [found[wish_id] for wish_id in ids if wish_id in found]
 
+    async def list_for_user(self, user_id: UUID) -> list[Wish]:
+        rows = await self._session.scalars(
+            select(WishModel)
+            .where(WishModel.user_id == user_id)
+            .order_by(WishModel.created_at.desc(), WishModel.id)
+        )
+        wishes = []
+        for row in rows:
+            self._read_status[row.id] = row.status
+            wishes.append(wish_to_entity(row))
+        return wishes
+
     async def add(self, wish: Wish) -> None:
         self._session.add(
             WishModel(

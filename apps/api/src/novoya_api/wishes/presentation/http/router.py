@@ -1,25 +1,29 @@
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Query, status
+from fastapi import APIRouter, Depends, Path, Query, Response, status
 
 from novoya_api.accounts.public import require_admin
 from novoya_api.shared.presentation.http.errors import ErrorResponse
 from novoya_api.wishes.application.ports.wish_repository import ADMIN_CAP, ADMIN_PAGE
 from novoya_api.wishes.application.use_cases.answer_panel import AnswerPanel, AnswerPanelCommand
 from novoya_api.wishes.application.use_cases.list_admin_wishes import ListAdminWishes
+from novoya_api.wishes.application.use_cases.preferences import ListPreferences, RemovePreference
 from novoya_api.wishes.application.use_cases.send_wish import SendWish, SendWishCommand
 from novoya_api.wishes.domain.wish import WishStatus
 from novoya_api.wishes.presentation.http.dependencies import (
     get_answer_panel,
     get_current_user_id,
     get_list_admin_wishes,
+    get_list_preferences,
+    get_remove_preference,
     get_send_wish,
 )
 from novoya_api.wishes.presentation.http.schemas import (
     AdminWish,
     AnswerPanelRequest,
     PlanResponse,
+    PreferenceSectionOut,
     SendWishRequest,
     WishResponse,
     WishStatusName,
@@ -62,6 +66,48 @@ async def answer_panel(
     dates."""
     command = AnswerPanelCommand(user_id=user_id, wish_id=wish_id, answers=body.to_answers())
     return PlanResponse.of((await use_case(command)).plan)
+
+
+# The client's own tastes: no shared or browser cache keeps them.
+PRIVATE = "private, no-store"
+TagId = Annotated[str, Path(min_length=1, max_length=100)]
+
+me_router = APIRouter(
+    prefix="/me/preferences",
+    tags=["me"],
+    responses={status_code: {"model": ErrorResponse} for status_code in (401, 403, 422)},
+)
+
+
+@me_router.get("", operation_id="listMyPreferences")
+async def list_my_preferences(
+    response: Response,
+    user_id: Annotated[UUID, Depends(get_current_user_id)],
+    use_case: Annotated[ListPreferences, Depends(get_list_preferences)],
+) -> list[PreferenceSectionOut]:
+    """The tags the client picked on the panels of their own wishes, grouped by panel
+    section, each tag once. Empty when no wish is answered yet."""
+    response.headers["Cache-Control"] = PRIVATE
+    return [PreferenceSectionOut.of(section) for section in await use_case(user_id)]
+
+
+@me_router.delete(
+    "/{section}/{tag}",
+    operation_id="removeMyPreference",
+    status_code=status.HTTP_204_NO_CONTENT,
+)
+async def remove_my_preference(
+    section: TagId,
+    tag: TagId,
+    response: Response,
+    user_id: Annotated[UUID, Depends(get_current_user_id)],
+    use_case: Annotated[RemovePreference, Depends(get_remove_preference)],
+) -> None:
+    """Withdraw a preference: the tag leaves every answered or planned wish of the client.
+    Their plans already built stay as they are. Removing a tag they do not have is a no-op
+    (204), so a second click does no harm."""
+    response.headers["Cache-Control"] = PRIVATE
+    await use_case(user_id, section, tag)
 
 
 admin_router = APIRouter(

@@ -6,6 +6,8 @@
 - search_ids(query, user_ids) -> the ids of the wishes whose country or city contains `query`,
   or that one of `user_ids` sent (accounts.public.search_user_ids finds them), for the admin
   overview of plans and quotes
+- preferences(user_id) -> the "section:tag" this user picked on the panels of their wishes,
+  each once, newest wish first
 - delete_for_user(user_id) -> erases every wish of this user. Erase their plans first
   (plans.wish_id has no cascade).
 
@@ -21,6 +23,7 @@ from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from novoya_api.wishes.application.use_cases.preferences import ListPreferences
 from novoya_api.wishes.infrastructure.db.repository import SqlWishRepository
 
 # The wishes a search may match, newest first: past it the query is too broad to filter, and
@@ -89,6 +92,12 @@ async def search_ids(query: str, user_ids: Sequence[UUID], *, session: AsyncSess
     erases wishes. For admins only: the caller's router must require the admin role."""
     wishes = await SqlWishRepository(session).search(None, query, user_ids, limit=SEARCH_CAP)
     return [wish.id for wish in wishes]
+
+
+async def preferences(user_id: UUID, *, session: AsyncSession) -> tuple[str, ...]:
+    """The "section:tag" this user picked on their wishes' panels, each once, newest first."""
+    found = await ListPreferences(SqlWishRepository(session))(user_id)
+    return tuple(f"{section.id}:{tag.id}" for section in found for tag in section.tags)
 
 
 async def delete_for_user(user_id: UUID, *, session: AsyncSession) -> None:

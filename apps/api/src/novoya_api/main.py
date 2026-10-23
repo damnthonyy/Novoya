@@ -22,6 +22,7 @@ from novoya_api.shared.infrastructure.db.session import get_sessionmaker
 from novoya_api.shared.presentation.http.errors import register_error_handlers
 from novoya_api.shared.presentation.http.origin_middleware import OriginCheckMiddleware
 from novoya_api.wishes.presentation.http.router import admin_router as admin_wishes_router
+from novoya_api.wishes.presentation.http.router import me_router as my_preferences_router
 from novoya_api.wishes.presentation.http.router import router as wishes_router
 
 logger = logging.getLogger(__name__)
@@ -62,6 +63,7 @@ def create_app() -> FastAPI:
     app.include_router(catalog_router)
     app.include_router(wishes_router)
     app.include_router(admin_wishes_router)
+    app.include_router(my_preferences_router)
     app.include_router(planning_router)
     app.include_router(planning_agent_router)
     app.include_router(admin_plans_router)
