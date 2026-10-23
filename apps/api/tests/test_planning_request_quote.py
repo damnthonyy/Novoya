@@ -1,5 +1,6 @@
 """RequestQuote is tested with fake ports: a stored plan, its owner, and offer titles."""
 
+import logging
 from datetime import UTC, datetime
 from decimal import Decimal
 from uuid import UUID
@@ -12,6 +13,7 @@ from novoya_api.planning.application.dto import (
     OfferSummary,
     RequestReceivedEmail,
 )
+from novoya_api.planning.application.use_cases import request_quote as request_quote_module
 from novoya_api.planning.application.use_cases.request_quote import RequestQuote
 from novoya_api.planning.domain.errors import PlanNotFound
 from novoya_api.planning.domain.plan import DraftItem, Plan, PlanExtra, PlanStatus
@@ -311,3 +313,29 @@ async def test_no_email_when_the_request_fails():
         await use_case(plan.id, OTHER_ID)
 
     assert notifier.sent == []
+
+
+class BrokenClients:
+    """The account lookup fails after the commit: a database error, say."""
+
+    async def contact(self, user_id: UUID) -> ClientContact | None:
+        raise ConnectionError("the database is gone camille@example.fr")
+
+
+async def test_a_failing_contact_lookup_keeps_the_request_and_logs_the_error_type(
+    monkeypatch, caplog
+):
+    plan = stored_plan()
+    notifier = FakeNotifier()
+    use_case, uow = request_quote(plan, notifier=notifier, clients=BrokenClients())
+    # Alembic's fileConfig, run by the SQL tests, disables the loggers that exist already.
+    monkeypatch.setattr(request_quote_module.logger, "disabled", False)
+
+    with caplog.at_level(logging.ERROR):
+        view = await use_case(plan.id, OWNER_ID)
+
+    assert view.status == "requested"
+    assert uow.commits == 1
+    assert notifier.sent == []
+    assert "ConnectionError" in caplog.text
+    assert "camille@example.fr" not in caplog.text

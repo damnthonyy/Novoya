@@ -5,7 +5,9 @@ import logging
 
 import aiosmtplib
 import pytest
+from pydantic import ValidationError
 
+from novoya_api.config import Settings
 from novoya_api.planning.application.dto import RequestReceivedEmail
 from novoya_api.planning.infrastructure.email import smtp_request_notifier
 from novoya_api.planning.infrastructure.email.smtp_request_notifier import (
@@ -81,3 +83,26 @@ async def test_a_failing_server_returns_false_and_logs_no_address(monkeypatch, c
 
     assert "SMTPRecipientsRefused" in caplog.text
     assert "camille@example.fr" not in caplog.text
+
+
+@pytest.mark.parametrize(
+    ("locale", "promise"),
+    [(Locale.EN, "within 1 day."), (Locale.FR, "sous 1 jour.")],
+)
+def test_one_day_is_singular(locale, promise):
+    body = request_received_message(email(locale, days=1), SENDER).get_content()
+
+    assert promise in body
+    assert "1 days" not in body
+    assert "1 jours" not in body
+
+
+@pytest.mark.parametrize("days", [0, -1, 31])
+def test_the_answer_time_setting_refuses_a_value_out_of_bounds(days):
+    with pytest.raises(ValidationError):
+        Settings(quote_answer_days=days)
+
+
+@pytest.mark.parametrize("days", [1, 4, 30])
+def test_the_answer_time_setting_takes_1_to_30_days(days):
+    assert Settings(quote_answer_days=days).quote_answer_days == days

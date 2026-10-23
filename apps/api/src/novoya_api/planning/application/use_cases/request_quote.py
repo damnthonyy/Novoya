@@ -1,3 +1,4 @@
+import logging
 from collections.abc import Sequence
 from uuid import UUID
 
@@ -12,6 +13,8 @@ from novoya_api.planning.domain.errors import InvalidPlan, PlanNotFound
 from novoya_api.planning.domain.plan import PlanExtra
 from novoya_api.shared.application.clock import Clock
 from novoya_api.shared.application.unit_of_work import UnitOfWork
+
+logger = logging.getLogger(__name__)
 
 
 class RequestQuote:
@@ -57,19 +60,29 @@ class RequestQuote:
         offers = {offer.id: offer for offer in await self._catalog.summaries_for(kept_ids)}
         await self._uow.commit()
 
-        # After the commit: a failed email never undoes the request. The notifier logs it.
-        client = await self._clients.contact(client_id)
-        if client is not None:
+        # After the commit: a failed email never undoes the request.
+        await self._confirm(client_id, plan.id)
+        return plan_as_view(plan, offers)
+
+    async def _confirm(self, client_id: UUID, plan_id: UUID) -> None:
+        """Email the client that the agency has the trip. The request is saved already, so any
+        error here, the account lookup too, is logged by its type only (it can hold the
+        address) and never raised."""
+        try:
+            client = await self._clients.contact(client_id)
+            if client is None:
+                return
             await self._notifier.send_request_received(
                 RequestReceivedEmail(
                     to=client.email,
                     name=client.name,
                     locale=client.locale,
-                    plan_url=f"{self._frontend_url}/plans/{plan.id}",
+                    plan_url=f"{self._frontend_url}/plans/{plan_id}",
                     answer_days=self._answer_days,
                 )
             )
-        return plan_as_view(plan, offers)
+        except Exception as error:
+            logger.error("could not send the request email: %s", type(error).__name__)
 
     async def _extras(self, extra_ids: Sequence[UUID]) -> list[PlanExtra]:
         """A snapshot of each chosen extra: a supplement keeps today's amount."""

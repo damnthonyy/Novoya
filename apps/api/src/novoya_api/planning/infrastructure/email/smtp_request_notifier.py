@@ -18,6 +18,7 @@ TEXTS: dict[Locale, dict[str, str]] = {
         "subject": "The agency received your trip",
         "hello": "Hello,",
         "hello_name": "Hello {name},",
+        "received_one": "The agency received your trip. An advisor will answer within 1 day.",
         "received": "The agency received your trip. An advisor will answer within {days} days.",
         "next": "They check every day, negotiate the prices and send you a quote.",
         "link": "Follow your trip:",
@@ -27,6 +28,9 @@ TEXTS: dict[Locale, dict[str, str]] = {
         "subject": "L'agence a bien reçu votre voyage",
         "hello": "Bonjour,",
         "hello_name": "Bonjour {name},",
+        "received_one": (
+            "L'agence a bien reçu votre voyage. Un conseiller vous répondra sous 1 jour."
+        ),
         "received": (
             "L'agence a bien reçu votre voyage. Un conseiller vous répondra sous {days} jours."
         ),
@@ -43,7 +47,9 @@ def request_received_message(email: RequestReceivedEmail, sender: str) -> EmailM
     lines = [
         hello,
         "",
-        texts["received"].format(days=email.answer_days),
+        texts["received_one" if email.answer_days == 1 else "received"].format(
+            days=email.answer_days
+        ),
         texts["next"],
         "",
         texts["link"],
