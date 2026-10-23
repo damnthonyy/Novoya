@@ -1,33 +1,51 @@
 import { useQuery } from '@tanstack/react-query'
+import { useRouteContext } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
 
 import { getMeOptions } from '../../api/generated/@tanstack/react-query.gen'
-import { useAccountErrors } from '../../routes/-accountErrors'
+import type { MeResponse, UpdateMeRequest } from '../../api/generated/types.gen'
 import { useUpdateMe } from '../../hooks/i18n/useUpdateMe'
+import { useAccountErrors } from '../../routes/-accountErrors'
 import { ProfileForm, type Profile } from './ProfileForm'
+
+const profileOf = (me: MeResponse): Profile => ({
+  firstName: me.first_name ?? '',
+  lastName: me.last_name ?? '',
+  locale: me.locale,
+})
+
+/** Only what differs from what is stored. An empty name that was never stored stays unsent. */
+function changes(stored: MeResponse, edited: Profile): UpdateMeRequest {
+  const body: UpdateMeRequest = {}
+  const firstName = edited.firstName.trim()
+  const lastName = edited.lastName.trim()
+  if (firstName !== (stored.first_name ?? '')) body.first_name = firstName
+  if (lastName !== (stored.last_name ?? '')) body.last_name = lastName
+  if (edited.locale !== stored.locale) body.locale = edited.locale
+  return body
+}
 
 /** The "Personal information" tab on My trips: GET /me, saved with PATCH /me. */
 export function ProfileTab() {
   const { t } = useTranslation('profile')
-  // The signed-in guard has loaded /me already: this reads the cache and follows each save.
-  const me = useQuery(getMeOptions())
+  // Read like useLanguageChoice: the cache, never fetched here, and the user the signed-in
+  // layout loaded when the idle check has dropped the cache. The form never unmounts.
+  const loaded = useRouteContext({ from: '/_authenticated', select: (context) => context.me })
+  const cached = useQuery({ ...getMeOptions(), enabled: false })
+  const me = cached.data ?? loaded
   const save = useUpdateMe()
   const errors = useAccountErrors(save.error)
 
-  if (!me.data) return null
-  const profile: Profile = {
-    firstName: me.data.first_name ?? '',
-    lastName: me.data.last_name ?? '',
-    locale: me.data.locale,
-  }
-
   return (
     <ProfileForm
-      profile={profile}
-      email={me.data.email}
-      onSubmit={async ({ firstName, lastName, locale }) => {
-        const user = await save.mutateAsync({ body: { first_name: firstName, last_name: lastName, locale } })
-        return { firstName: user.first_name ?? '', lastName: user.last_name ?? '', locale: user.locale }
+      profile={profileOf(me)}
+      email={me.email}
+      // A Google account can come without a last name: it may stay empty.
+      required={{ firstName: me.first_name !== null, lastName: me.last_name !== null }}
+      onSubmit={async (edited) => {
+        const body = changes(me, edited)
+        if (Object.keys(body).length === 0) return profileOf(me)
+        return profileOf(await save.mutateAsync({ body }))
       }}
       pending={save.isPending}
       errors={{ firstName: errors.firstName, lastName: errors.lastName, form: errors.form }}

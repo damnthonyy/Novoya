@@ -1,9 +1,10 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { createMemoryHistory, RouterProvider } from '@tanstack/react-router'
-import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import '../api/client'
+import { getMeQueryKey } from '../api/generated/@tanstack/react-query.gen'
 import { client } from '../api/generated/client.gen'
 import type { MeResponse } from '../api/generated/types.gen'
 import i18n from '../i18n'
@@ -39,7 +40,8 @@ function mockApi() {
     calls.push({ method: request.method, path, body })
     if (path === '/me' && request.method === 'PATCH') {
       if (patchAnswer) return patchAnswer(body)
-      me = { ...me, ...body, name: `${body.first_name ?? me.first_name} ${body.last_name ?? me.last_name}` }
+      me = { ...me, ...body }
+      me.name = [me.first_name, me.last_name].filter(Boolean).join(' ')
       return Response.json(me)
     }
     if (path === '/me') return Response.json(me)
@@ -56,7 +58,7 @@ function renderAt(url: string) {
       <RouterProvider router={router} />
     </QueryClientProvider>,
   )
-  return { router }
+  return { router, queryClient }
 }
 
 async function openProfileTab() {
@@ -65,7 +67,6 @@ async function openProfileTab() {
 }
 
 const patches = () => calls.filter((call) => call.method === 'PATCH' && call.path === '/me')
-const meReads = () => calls.filter((call) => call.method === 'GET' && call.path === '/me').length
 
 beforeEach(async () => {
   client.setConfig({ baseUrl: 'http://api.test' })
@@ -105,7 +106,6 @@ describe('the personal information tab on My trips', () => {
   it('saves the names and the language, says so, and shows the stored values', async () => {
     renderAt('/trips')
     const form = await openProfileTab()
-    const readsBefore = meReads()
 
     fireEvent.change(within(form).getByLabelText('First name'), { target: { value: 'Camille-Anne' } })
     fireEvent.change(within(form).getByLabelText('Last name'), { target: { value: 'Martin' } })
@@ -113,10 +113,11 @@ describe('the personal information tab on My trips', () => {
 
     expect(await screen.findByRole('status')).toHaveTextContent('Your details are saved.')
     expect(patches()).toEqual([
-      { method: 'PATCH', path: '/me', body: { first_name: 'Camille-Anne', last_name: 'Martin', locale: 'en' } },
+      { method: 'PATCH', path: '/me', body: { first_name: 'Camille-Anne', last_name: 'Martin' } },
     ])
-    // /me is read again: everything that shows the user follows.
-    await waitFor(() => expect(meReads()).toBeGreaterThan(readsBefore))
+    // Everything that shows the user follows: the header too.
+    // The header names the client by their first name.
+    await waitFor(() => expect(within(screen.getByRole('banner')).getByText('Camille-Anne')).toBeInTheDocument())
     expect(within(form).getByLabelText('First name')).toHaveValue('Camille-Anne')
     expect(within(form).getByLabelText('Last name')).toHaveValue('Martin')
   })
@@ -155,14 +156,102 @@ describe('the personal information tab on My trips', () => {
     expect(screen.queryByRole('status')).not.toBeInTheDocument()
   })
 
+  it('sends nothing when nothing changed', async () => {
+    renderAt('/trips')
+    const form = await openProfileTab()
+
+    fireEvent.click(within(form).getByRole('button', { name: 'Save' }))
+    await new Promise((resolve) => setTimeout(resolve, 50))
+
+    expect(patches()).toEqual([])
+  })
+
   it('shows another failure above the button', async () => {
     patchAnswer = () => Response.json({ code: 'boom', detail: 'boom' }, { status: 500 })
     renderAt('/trips')
     const form = await openProfileTab()
 
+    fireEvent.change(within(form).getByLabelText('Last name'), { target: { value: 'Martin' } })
     fireEvent.click(within(form).getByRole('button', { name: 'Save' }))
 
     expect(await within(form).findByRole('alert')).toHaveTextContent('Something went wrong. Please try again in a moment.')
+  })
+
+  it('does not undo a language chosen in the header since the form was touched', async () => {
+    renderAt('/trips')
+    const form = await openProfileTab()
+
+    fireEvent.change(within(form).getByLabelText('First name'), { target: { value: 'Camille-Anne' } })
+    fireEvent.click(screen.getAllByRole('button', { name: 'FR, Français' })[0]!)
+    expect(await screen.findByRole('heading', { name: 'Mes aperçus' })).toBeInTheDocument()
+
+    const french = screen.getByRole('form', { name: 'Informations personnelles' })
+    expect(within(french).getByLabelText('Langue')).toHaveValue('fr')
+    expect(within(french).getByLabelText('Prénom')).toHaveValue('Camille-Anne')
+    fireEvent.click(within(french).getByRole('button', { name: 'Enregistrer' }))
+
+    await screen.findByRole('status')
+    expect(patches().at(-1)?.body).toEqual({ first_name: 'Camille-Anne' })
+    expect(me.locale).toBe('fr')
+  })
+
+  it('lets a client without a stored last name save without one', async () => {
+    me = { ...CAMILLE, last_name: null, name: 'Camille' }
+    renderAt('/trips')
+    const form = await openProfileTab()
+
+    const last = within(form).getByLabelText('Last name')
+    expect(last).toHaveValue('')
+    expect(last).not.toBeRequired()
+    expect(within(form).getByLabelText('First name')).toBeRequired()
+    fireEvent.change(within(form).getByLabelText('First name'), { target: { value: 'Camille-Anne' } })
+    fireEvent.click(within(form).getByRole('button', { name: 'Save' }))
+
+    await screen.findByRole('status')
+    expect(patches()).toEqual([{ method: 'PATCH', path: '/me', body: { first_name: 'Camille-Anne' } }])
+  })
+
+  it('sends a cleared last name, and shows the error next to it', async () => {
+    patchAnswer = () =>
+      Response.json({ code: 'invalid_input', detail: 'last_name: String should have at least 1 character' }, { status: 422 })
+    renderAt('/trips')
+    const form = await openProfileTab()
+
+    fireEvent.change(within(form).getByLabelText('Last name'), { target: { value: '' } })
+    fireEvent.click(within(form).getByRole('button', { name: 'Save' }))
+
+    await waitFor(() =>
+      expect(within(form).getByLabelText('Last name')).toHaveAccessibleDescription('Enter your last name.'),
+    )
+    expect(patches()[0]?.body).toEqual({ last_name: '' })
+  })
+
+  it('stops saying "saved" once the client edits again', async () => {
+    renderAt('/trips')
+    const form = await openProfileTab()
+
+    fireEvent.change(within(form).getByLabelText('First name'), { target: { value: 'Camille-Anne' } })
+    fireEvent.click(within(form).getByRole('button', { name: 'Save' }))
+    expect(await screen.findByRole('status')).toHaveTextContent('Your details are saved.')
+
+    fireEvent.change(within(form).getByLabelText('Last name'), { target: { value: 'Martin' } })
+    expect(screen.queryByText('Your details are saved.')).not.toBeInTheDocument()
+  })
+
+  it('keeps the typed edits when the idle check drops the cached /me', async () => {
+    const { queryClient } = renderAt('/trips')
+    const form = await openProfileTab()
+
+    fireEvent.change(within(form).getByLabelText('First name'), { target: { value: 'Camille-Anne' } })
+    queryClient.removeQueries({ queryKey: getMeQueryKey() })
+    fireEvent.change(within(form).getByLabelText('Last name'), { target: { value: 'Martin' } })
+    // The tab renders again for another reason (here the interface language).
+    await act(() => i18n.changeLanguage('fr'))
+    await new Promise((resolve) => setTimeout(resolve, 50))
+
+    const still = screen.getByRole('form', { name: 'Informations personnelles' })
+    expect(within(still).getByLabelText('Prénom')).toHaveValue('Camille-Anne')
+    expect(within(still).getByLabelText('Nom de famille')).toHaveValue('Martin')
   })
 
   it('switches the interface to the saved language', async () => {
@@ -173,7 +262,7 @@ describe('the personal information tab on My trips', () => {
     fireEvent.click(within(form).getByRole('button', { name: 'Save' }))
 
     expect(await screen.findByRole('heading', { name: 'Mes aperçus' })).toBeInTheDocument()
-    expect(patches()[0]?.body).toEqual({ first_name: 'Camille', last_name: 'Durand', locale: 'fr' })
+    expect(patches()[0]?.body).toEqual({ locale: 'fr' })
     expect(await screen.findByRole('status')).toHaveTextContent('Vos informations sont enregistrées.')
     expect(screen.getByRole('form', { name: 'Informations personnelles' })).toBeInTheDocument()
   })

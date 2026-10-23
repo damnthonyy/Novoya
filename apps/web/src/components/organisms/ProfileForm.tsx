@@ -1,4 +1,5 @@
-import { useForm } from '@tanstack/react-form'
+import { useForm, useStore } from '@tanstack/react-form'
+import { useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import type { Locale } from '../../domain/i18n/locale'
@@ -13,17 +14,27 @@ type Props = {
   profile: Profile
   /** Shown, never sent: it is the sign-in identity. */
   email: string
+  /** Which names must be filled in. Both by default. */
+  required?: { firstName?: boolean; lastName?: boolean }
   /** Resolves with what the API stored, which the form then shows. Rejects on failure. */
   onSubmit: (profile: Profile) => Promise<Profile>
   pending?: boolean
   /** Why the last save failed: next to its field, or for the whole form. */
   errors?: { firstName?: string; lastName?: string; form?: string }
-  /** Said once the save worked. */
+  /** Said once the save worked, until the next edit. */
   success?: string
 }
 
 /** The client's first name, last name and language, and their e-mail, read-only. */
-export function ProfileForm({ profile, email, onSubmit, pending = false, errors = {}, success }: Props) {
+export function ProfileForm({
+  profile,
+  email,
+  required = { firstName: true, lastName: true },
+  onSubmit,
+  pending = false,
+  errors = {},
+  success,
+}: Props) {
   const { t } = useTranslation('profile')
   const form = useForm({
     defaultValues: profile,
@@ -36,11 +47,26 @@ export function ProfileForm({ profile, email, onSubmit, pending = false, errors 
       }
     },
   })
+  const dirty = useStore(form.store, (state) => state.isDirty)
+
+  // What is stored can change elsewhere (the header's language switch): follow it in every
+  // field the client has not edited, so a save never sends an old value back.
+  const { firstName, lastName, locale } = profile
+  useEffect(() => {
+    const stored: Profile = { firstName, lastName, locale }
+    for (const name of ['firstName', 'lastName', 'locale'] as const) {
+      if (!form.getFieldMeta(name)?.isDirty && form.getFieldValue(name) !== stored[name]) {
+        form.setFieldValue(name, stored[name], { dontUpdateMeta: true })
+      }
+    }
+  }, [form, firstName, lastName, locale])
 
   return (
     <form
       aria-label={t('title')}
       className="max-w-[420px]"
+      // The API's messages show next to each field, the browser's own bubbles would not.
+      noValidate
       onSubmit={(event) => {
         event.preventDefault()
         void form.handleSubmit()
@@ -52,7 +78,7 @@ export function ProfileForm({ profile, email, onSubmit, pending = false, errors 
             label={t('firstName')}
             name={field.name}
             autoComplete="given-name"
-            required
+            required={required.firstName}
             maxLength={100}
             value={field.state.value}
             onChange={field.handleChange}
@@ -67,7 +93,7 @@ export function ProfileForm({ profile, email, onSubmit, pending = false, errors 
             label={t('lastName')}
             name={field.name}
             autoComplete="family-name"
-            required
+            required={required.lastName}
             maxLength={100}
             value={field.state.value}
             onChange={field.handleChange}
@@ -97,7 +123,7 @@ export function ProfileForm({ profile, email, onSubmit, pending = false, errors 
           {errors.form}
         </p>
       )}
-      {success && (
+      {success && !dirty && (
         <p role="status" className="mb-4 text-sm">
           {success}
         </p>
