@@ -48,8 +48,6 @@
   --animate-reveal: reveal 0.9s 0.2s both;
   --animate-spin-slow: spin 2s linear infinite;
   --animate-grow: grow 3.2s ease-out;
-  /* Turns a few times, then stops: nothing should move on its own for long (WCAG 2.2.2). */
-  --animate-orbit: spin 2s linear 3;
 
   @keyframes zoom {
     from {
