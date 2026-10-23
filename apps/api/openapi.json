@@ -8482,7 +8482,7 @@
     },
     "/me/preferences/{section}/{tag}": {
       "delete": {
-        "description": "Withdraw a preference from the client's wishes that can still change: those whose\nplan is still proposed, or that have none. Wishes whose plan is with the agency keep it.\n409 preference_locked when every wish carrying the tag is with the agency. Removing a tag\nthe client does not have is a no-op (204), so a second click does no harm.",
+        "description": "Withdraw a preference from the client's wishes that can still change: those with no\nplan requested, negotiating, quoted or accepted. Wishes the agency works from keep it.\n409 preference_locked when every wish carrying the tag is with the agency. Removing a tag\nthe client does not have is a no-op (204), so a second click does no harm.",
         "operationId": "removeMyPreference",
         "parameters": [
           {

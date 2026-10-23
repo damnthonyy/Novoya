@@ -1,6 +1,7 @@
 """What other modules may use from wishes. Nothing else in wishes may be imported.
 
-- owner_id(wish_id) -> the user who sent the wish, or None when there is none
+- owner_id(wish_id, lock=False) -> the user who sent the wish, or None when there is none.
+  lock=True reads the row FOR SHARE, so a preference removal on it waits
 - trips(wish_ids) -> text, destination, dates, travellers, budget and tags for those wishes
 - ids_for_user(user_id) -> the ids of this user's wishes
 - search_ids(query, user_ids) -> the ids of the wishes whose country or city contains `query`,
@@ -48,9 +49,14 @@ class WishTrip:
     tags: tuple[str, ...] = ()  # "section:tag", what the client clicked
 
 
-async def owner_id(wish_id: UUID, *, session: AsyncSession) -> UUID | None:
-    """The user who sent this wish. None when the wish is missing."""
-    wish = await SqlWishRepository(session).get(wish_id)
+async def owner_id(wish_id: UUID, *, session: AsyncSession, lock: bool = False) -> UUID | None:
+    """The user who sent this wish. None when the wish is missing. With lock, the wish row
+    stays locked FOR SHARE until the caller's transaction ends, so a preference removal on it
+    waits (planning's quote request uses it)."""
+    repository = SqlWishRepository(session)
+    if lock:
+        return await repository.owner_id_for_share(wish_id)
+    wish = await repository.get(wish_id)
     return None if wish is None else wish.user_id
 
 

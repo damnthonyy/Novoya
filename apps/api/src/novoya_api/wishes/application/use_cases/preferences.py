@@ -14,7 +14,8 @@ from novoya_api.wishes.domain.wish import Wish
 class PreferenceTag:
     id: str
     label: str
-    # At least one wish carrying it can still change (its plan is proposed, or it has none).
+    # At least one wish carrying it can still change: no plan of it is requested,
+    # negotiating, quoted or accepted.
     removable: bool = True
 
 
@@ -80,13 +81,15 @@ class ListPreferences:
 
 class RemovePreference:
     """Withdraw one preference from the client's wishes that can still change: answered or
-    planned wishes whose plan is still proposed, or that have no plan. A wish whose plan left
-    proposed (requested, negotiating, quoted, accepted, rejected) keeps its tags: the agency
-    works from them, and the plan page and the quote read them.
+    planned wishes with no plan requested, negotiating, quoted or accepted (a proposed or a
+    rejected plan does not hold the tags). Those wishes keep their tags: the agency works
+    from them, and the plan page and the quote read them.
 
-    The wishes are read with a row lock, so two removals at once wait for each other instead
-    of one overwriting the other. Other clients' wishes are never read. A tag the client does
-    not have changes nothing; a tag only on locked wishes raises PreferenceLocked (409)."""
+    The wishes are read with a row lock (FOR UPDATE), so two removals at once wait for each
+    other instead of one overwriting the other, and a quote request, which reads the wish FOR
+    SHARE, cannot move a plan to requested between the status read and the commit. Other
+    clients' wishes are never read. A tag the client does not have changes nothing; a tag
+    only on locked wishes raises PreferenceLocked (409)."""
 
     def __init__(
         self, wishes: WishRepository, plans: PlanStatuses, uow: UnitOfWork, clock: Clock

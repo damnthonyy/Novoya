@@ -82,6 +82,12 @@ class SqlWishRepository:
         self._read_status[row.id] = row.status
         return wish_to_entity(row)
 
+    async def owner_id_for_share(self, wish_id: UUID) -> UUID | None:
+        """The wish's owner, its row locked FOR SHARE until the transaction ends."""
+        return await self._session.scalar(
+            select(WishModel.user_id).where(WishModel.id == wish_id).with_for_update(read=True)
+        )
+
     async def list_by_ids(self, ids: Sequence[UUID]) -> list[Wish]:
         if not ids:
             return []

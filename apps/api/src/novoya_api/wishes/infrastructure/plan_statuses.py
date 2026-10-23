@@ -5,6 +5,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from novoya_api.planning.public import plan_statuses
 
+# The plans the agency works from: their wish's answers stay. A proposed plan is the client's
+# alone, and a rejected one is over, so neither holds the tags.
+LOCKING = frozenset({"requested", "negotiating", "quoted", "accepted"})
+
 
 class PlanningPlanStatuses:
     """PlanStatuses through planning.public, in the request's session."""
@@ -17,5 +21,5 @@ class PlanningPlanStatuses:
         return {
             wish_id
             for wish_id, statuses in found.items()
-            if any(status != "proposed" for status in statuses)
+            if any(status in LOCKING for status in statuses)
         }

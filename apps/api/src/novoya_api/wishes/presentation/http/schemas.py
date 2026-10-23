@@ -199,7 +199,8 @@ class AdminWish(BaseModel):
 class PreferenceTagOut(BaseModel):
     id: str
     label: str
-    # False when every wish carrying it is with the agency (its plan left proposed).
+    # False when every wish carrying it is with the agency (a plan requested,
+    # negotiating, quoted or accepted).
     removable: bool
 
 

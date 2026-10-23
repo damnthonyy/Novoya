@@ -48,7 +48,8 @@ def get_request_quote(session: Annotated[AsyncSession, Depends(get_session)]) ->
     return RequestQuote(
         plans=SqlPlanRepository(session),
         catalog=PartnerOffers(session),
-        wishes=WishOwners(session),
+        # FOR SHARE on the wish: a preference removal in progress finishes first (#165).
+        wishes=WishOwners(session, lock=True),
         uow=SqlAlchemyUnitOfWork(session),
         clock=SystemClock(),
     )

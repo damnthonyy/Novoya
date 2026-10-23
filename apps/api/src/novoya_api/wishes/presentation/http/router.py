@@ -107,8 +107,8 @@ async def remove_my_preference(
     user_id: Annotated[UUID, Depends(get_current_user_id)],
     use_case: Annotated[RemovePreference, Depends(get_remove_preference)],
 ) -> None:
-    """Withdraw a preference from the client's wishes that can still change: those whose
-    plan is still proposed, or that have none. Wishes whose plan is with the agency keep it.
+    """Withdraw a preference from the client's wishes that can still change: those with no
+    plan requested, negotiating, quoted or accepted. Wishes the agency works from keep it.
     409 preference_locked when every wish carrying the tag is with the agency. Removing a tag
     the client does not have is a no-op (204), so a second click does no harm."""
     response.headers["Cache-Control"] = PRIVATE
