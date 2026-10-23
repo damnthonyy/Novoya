@@ -260,6 +260,64 @@ async def test_patch_me_changes_the_language(client, mailer):
     assert (await client.get("/me")).json()["locale"] == "fr"
 
 
+async def test_patch_me_changes_the_names(client, mailer):
+    await sign_up(client, mailer, "alice@example.com")
+    await sign_in(client, "alice@example.com")
+
+    response = await client.patch("/me", json={"first_name": " Camille ", "last_name": "Durand"})
+    assert response.status_code == 200
+    body = response.json()
+    assert (body["first_name"], body["last_name"], body["name"]) == (
+        "Camille",
+        "Durand",
+        "Camille Durand",
+    )
+    assert body["locale"] == "en"  # untouched
+    again = (await client.get("/me")).json()
+    assert (again["first_name"], again["last_name"]) == ("Camille", "Durand")
+
+
+async def test_patch_me_changes_names_and_language_at_once(client, mailer):
+    await sign_up(client, mailer, "alice@example.com")
+    await sign_in(client, "alice@example.com")
+    response = await client.patch(
+        "/me", json={"first_name": "Camille", "last_name": "Durand", "locale": "fr"}
+    )
+    assert response.status_code == 200
+    assert response.json()["locale"] == "fr"
+    assert response.json()["first_name"] == "Camille"
+
+
+@pytest.mark.parametrize(
+    ("body", "field"),
+    [
+        ({"first_name": "   "}, "first_name"),
+        ({"last_name": "x" * 101}, "last_name"),
+        ({"first_name": None}, "first_name"),
+        ({"first_name": "1234"}, "first_name"),
+    ],
+)
+async def test_patch_me_refuses_a_bad_name(client, mailer, body, field):
+    await sign_up(client, mailer, "alice@example.com")
+    await sign_in(client, "alice@example.com")
+    response = await client.patch("/me", json=body)
+    assert response.status_code == 422
+    assert response.json()["code"] == "invalid_input"
+    assert response.json()["detail"].startswith(f"{field}:")
+    assert (await client.get("/me")).json()["first_name"] == "Alice"
+
+
+async def test_patch_me_cannot_change_the_email(client, mailer):
+    await sign_up(client, mailer, "alice@example.com")
+    await sign_in(client, "alice@example.com")
+    response = await client.patch("/me", json={"email": "eve@example.com", "locale": "fr"})
+    assert response.status_code == 422
+    assert response.json()["code"] == "invalid_input"
+    assert response.json()["detail"].startswith("email:")
+    me = (await client.get("/me")).json()
+    assert (me["email"], me["locale"]) == ("alice@example.com", "en")
+
+
 @pytest.mark.parametrize("body", [{"locale": "de"}, {"locale": "FR"}, {"locale": None}, {}])
 async def test_patch_me_refuses_another_language(client, mailer, body):
     await sign_up(client, mailer, "alice@example.com")

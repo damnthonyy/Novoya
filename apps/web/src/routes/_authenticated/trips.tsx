@@ -6,6 +6,7 @@ import { Button } from '../../components/atoms/Button'
 import { Eyebrow } from '../../components/atoms/Eyebrow'
 import { lineTabList, lineTabPanel, lineTabTrigger } from '../../components/molecules/lineTabs'
 import { PreferencesTab } from '../../components/organisms/PreferencesTab'
+import { ProfileTab } from '../../components/organisms/ProfileTab'
 import { TripList } from '../../components/organisms/TripList'
 import { AppShell } from '../../components/templates/AppShell'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui/tabs'
@@ -67,8 +68,8 @@ function TripsPage() {
               <TripList trips={trips.data} />
             )}
           </TabsContent>
-          <TabsContent value="profile" className={`${lineTabPanel} px-5 py-9 text-muted md:px-[8vw]`}>
-            {t('soon.profile')}
+          <TabsContent value="profile" className={`${lineTabPanel} px-5 py-9 md:px-[8vw]`}>
+            <ProfileTab />
           </TabsContent>
           <TabsContent value="preferences" className={`${lineTabPanel} px-5 py-9 md:px-[8vw]`}>
             <PreferencesTab />

@@ -131,6 +131,15 @@ class User:
         if self.name is not None and self.first_name is None and self.last_name is None:
             self.first_name, self.last_name = _names_from_display(self.name)
 
+    def rename(self, first_name: str | None, last_name: str | None) -> None:
+        """The user changes their own names; None keeps that one. The display name follows."""
+        given = _clip(first_name, _PART_MAX) if first_name is not None else self.first_name
+        family = _clip(last_name, _PART_MAX) if last_name is not None else self.last_name
+        if (given, family) == (self.first_name, self.last_name):
+            return
+        self.first_name, self.last_name = given, family
+        self.name = _display_name(given, family)
+
     def change_locale(self, locale: Locale) -> None:
         """The language of the interface, the emails and the quote PDF."""
         self.locale = locale
