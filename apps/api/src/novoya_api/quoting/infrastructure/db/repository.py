@@ -1,12 +1,13 @@
 from collections.abc import Sequence
+from datetime import datetime, time
 from uuid import UUID
 
-from sqlalchemy import delete, select, update
+from sqlalchemy import delete, func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import defer
 
 from novoya_api.quoting.domain.errors import QuoteAlreadyAnswered
-from novoya_api.quoting.domain.quote import Quote, QuoteStatus
+from novoya_api.quoting.domain.quote import AGENCY_TIMEZONE, Quote, QuoteStatus, paris_day
 from novoya_api.quoting.infrastructure.db.models import QuoteModel
 from novoya_api.shared.domain.value_objects import Locale
 
@@ -56,8 +57,17 @@ class SqlQuoteRepository:
         row = await self._session.get(
             QuoteModel, quote_id, options=options, populate_existing=with_pdf
         )
-        if row is None:
-            return None
+        return None if row is None else self._to_quote(row, with_pdf)
+
+    async def get_for_plan(self, plan_id: UUID) -> Quote | None:
+        """Without the PDF: the agent's page shows the quote, the file downloads apart."""
+        row = await self._session.scalar(
+            select(QuoteModel).where(QuoteModel.plan_id == plan_id).options(defer(QuoteModel.pdf))
+        )
+        return None if row is None else self._to_quote(row, with_pdf=False)
+
+    @staticmethod
+    def _to_quote(row: QuoteModel, with_pdf: bool) -> Quote:
         return Quote(
             id=row.id,
             number=row.number,
@@ -74,6 +84,56 @@ class SqlQuoteRepository:
             decided_at=row.decided_at,
             client_comment=row.client_comment,
         )
+
+    async def search(
+        self,
+        plan_ids: Sequence[UUID] | None,
+        status: QuoteStatus | None,
+        now: datetime,
+        *,
+        limit: int = 50,
+        offset: int = 0,
+    ) -> list[Quote]:
+        # A list never needs the PDF (about 23 KB a quote): it stays in the database.
+        statement = select(QuoteModel).options(defer(QuoteModel.pdf))
+        if plan_ids is not None:
+            statement = statement.where(QuoteModel.plan_id.in_(plan_ids))
+        if status in (QuoteStatus.ACCEPTED, QuoteStatus.REJECTED):
+            statement = statement.where(QuoteModel.answer == status.value)
+        elif status is not None:
+            today = _start_of_today(now)
+            statement = statement.where(
+                QuoteModel.answer.is_(None),
+                QuoteModel.valid_until < today
+                if status is QuoteStatus.EXPIRED
+                else QuoteModel.valid_until >= today,
+            )
+        rows = await self._session.scalars(
+            statement.order_by(QuoteModel.sent_at.desc(), QuoteModel.id).limit(limit).offset(offset)
+        )
+        return [self._to_quote(row, with_pdf=False) for row in rows]
+
+    async def count_by_status(self, now: datetime) -> dict[QuoteStatus, int]:
+        """Every quote by its status at `now`, as Quote.status gives it."""
+        today = _start_of_today(now)
+        unanswered = QuoteModel.answer.is_(None)
+        row = (
+            await self._session.execute(
+                select(
+                    func.count().filter(unanswered, QuoteModel.valid_until >= today),
+                    func.count().filter(unanswered, QuoteModel.valid_until < today),
+                    func.count().filter(QuoteModel.answer == QuoteStatus.ACCEPTED.value),
+                    func.count().filter(QuoteModel.answer == QuoteStatus.REJECTED.value),
+                )
+            )
+        ).one()
+        statuses = (
+            QuoteStatus.OPEN,
+            QuoteStatus.EXPIRED,
+            QuoteStatus.ACCEPTED,
+            QuoteStatus.REJECTED,
+        )
+        return dict(zip(statuses, row, strict=True))
 
     async def save_answer(self, quote: Quote) -> None:
         """Writes the client's answer, only if the row has none yet: of two answers sent at
@@ -98,3 +158,9 @@ class SqlQuoteRepository:
             .where(QuoteModel.client_id == client_id)
             .execution_options(synchronize_session=False)
         )
+
+
+def _start_of_today(now: datetime) -> datetime:
+    """Quote.has_expired in SQL: a quote valid before this moment has expired, since the
+    whole validity day counts, in Paris."""
+    return datetime.combine(paris_day(now), time.min, tzinfo=AGENCY_TIMEZONE)

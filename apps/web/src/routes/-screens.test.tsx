@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import '../api/client'
 import { client } from '../api/generated/client.gen'
-import type { MeResponse, Plan, UserResponse } from '../api/generated/types.gen'
+import type { MeResponse, Plan, QueueEntry, UserResponse } from '../api/generated/types.gen'
 import { createAppRouter } from '../router'
 
 const ADMIN: MeResponse = {
@@ -66,6 +66,23 @@ const PLAN: Plan = {
   answer_within_days: 4,
 }
 
+// The one request waiting in the agency queue.
+const REQUEST: QueueEntry = {
+  id: '00000000-0000-4000-8000-000000000030',
+  wish_id: '00000000-0000-4000-8000-000000000010',
+  status: 'requested',
+  summary: 'Chania, au rythme de la mer',
+  updated_at: '2026-10-22T08:00:00Z',
+  wish_text: 'Une semaine calme, de bonnes tables et beaucoup de mer.',
+  country: 'Greece',
+  city: 'Chania',
+  persons: 2,
+  start_date: '2027-05-12',
+  end_date: '2027-05-19',
+  budget_max: '3500.00',
+  currency: 'EUR',
+}
+
 let me: MeResponse
 let signedIn: boolean
 let planAnswer: (path: string) => Response | Promise<Response>
@@ -85,6 +102,12 @@ function mockApi() {
     }
     if (url.pathname === '/admin/users') return Response.json(users)
     if (url.pathname === '/me/trips') return Response.json([])
+    if (url.pathname === '/agent/plans' && request.method === 'GET') {
+      return Response.json([REQUEST].filter((entry) => url.searchParams.getAll('status').includes(entry.status)))
+    }
+    if (url.pathname === `/agent/plans/${REQUEST.id}/take` && request.method === 'POST') {
+      return Response.json({ code: 'invalid_transition', detail: 'already taken' }, { status: 409 })
+    }
     if (url.pathname.startsWith('/plans/') && request.method === 'GET') return planAnswer(url.pathname)
     const role = url.pathname.match(/^\/admin\/users\/([^/]+)\/role$/)
     if (role && request.method === 'PATCH') {
@@ -136,7 +159,7 @@ describe('back-office and plan screens', () => {
   afterEach(() => vi.restoreAllMocks())
 
   it('lists the users for an admin', async () => {
-    renderAt('/admin')
+    renderAt('/admin/users')
 
     // The first render of the admin chunk can be slow on a cold start.
     const table = await screen.findByRole('table', { name: 'Users and roles' }, { timeout: 3000 })
@@ -145,7 +168,7 @@ describe('back-office and plan screens', () => {
   })
 
   it('asks before changing a role, then sends PATCH /admin/users/{id}/role', async () => {
-    renderAt('/admin')
+    renderAt('/admin/users')
 
     const select = await screen.findByRole('combobox', { name: 'Role of Léa Morel' })
     fireEvent.change(select, { target: { value: 'agent' } })
@@ -164,11 +187,11 @@ describe('back-office and plan screens', () => {
   })
 
   it('sends nothing when the admin cancels the role change', async () => {
-    renderAt('/admin')
+    renderAt('/admin/users')
 
     const select = await screen.findByRole('combobox', { name: 'Role of Léa Morel' })
     // What the arrow keys do on a closed <select> in Windows: one change per key press.
-    fireEvent.change(select, { target: { value: 'admin' } })
+    fireEvent.change(select, { target: { value: 'agent' } })
     fireEvent.click(await screen.findByRole('button', { name: 'Cancel' }))
 
     await waitFor(() => expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument())
@@ -177,13 +200,13 @@ describe('back-office and plan screens', () => {
   })
 
   it('does not let an admin change their own role', async () => {
-    renderAt('/admin')
+    renderAt('/admin/users')
 
     expect(await screen.findByRole('combobox', { name: 'Role of Arthur Roche' })).toBeDisabled()
   })
 
   it('asks before disabling an account, then sends PATCH /admin/users/{id}/status', async () => {
-    renderAt('/admin')
+    renderAt('/admin/users')
 
     fireEvent.click(await screen.findByRole('button', { name: "Disable Léa Morel's account" }))
 
@@ -204,7 +227,7 @@ describe('back-office and plan screens', () => {
   })
 
   it('sends nothing when the admin cancels disabling an account', async () => {
-    renderAt('/admin')
+    renderAt('/admin/users')
 
     fireEvent.click(await screen.findByRole('button', { name: "Disable Léa Morel's account" }))
     fireEvent.click(await screen.findByRole('button', { name: 'Cancel' }))
@@ -216,7 +239,7 @@ describe('back-office and plan screens', () => {
   it('offers no disable action on their own account nor on another admin', async () => {
     const OTHER_ADMIN: UserResponse = { ...LEA, id: '00000000-0000-4000-8000-000000000003', name: 'Inès Faure', role: 'admin' }
     users = [ADMIN_ROW, LEA, OTHER_ADMIN]
-    renderAt('/admin')
+    renderAt('/admin/users')
 
     expect(await screen.findByRole('button', { name: "Disable Léa Morel's account" })).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: "Disable Arthur Roche's account" })).not.toBeInTheDocument()
@@ -224,7 +247,7 @@ describe('back-office and plan screens', () => {
   })
 
   it('explains a refused status change and refreshes the list', async () => {
-    renderAt('/admin')
+    renderAt('/admin/users')
 
     fireEvent.click(await screen.findByRole('button', { name: "Disable Léa Morel's account" }))
     const dialog = await screen.findByRole('alertdialog')
@@ -233,15 +256,30 @@ describe('back-office and plan screens', () => {
     statusRefusal = 'cannot_change_admin_status'
     fireEvent.click(within(dialog).getByRole('button', { name: 'Disable account' }))
 
-    expect(await screen.findByRole('alert')).toHaveTextContent('you cannot disable or enable their account')
+    expect(await screen.findByRole('alert')).toHaveTextContent('only a super admin can disable or enable their account')
     await waitFor(() => expect(screen.getByRole('combobox', { name: 'Role of Léa Morel' })).toHaveDisplayValue('Admin'))
     expect(screen.queryByRole('button', { name: "Disable Léa Morel's account" })).not.toBeInTheDocument()
+  })
+
+  it('explains that a super admin is managed on the server', async () => {
+    renderAt('/admin/users')
+
+    fireEvent.click(await screen.findByRole('button', { name: "Disable Léa Morel's account" }))
+    const dialog = await screen.findByRole('alertdialog')
+    // Meanwhile, the grant-role command made Léa a super admin.
+    users = [ADMIN_ROW, { ...LEA, role: 'super_admin' }]
+    statusRefusal = 'super_admin_server_only'
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Disable account' }))
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('managed on the server only')
+    await waitFor(() => expect(screen.getByRole('combobox', { name: 'Role of Léa Morel' })).toHaveDisplayValue('Super admin'))
+    expect(screen.getByRole('combobox', { name: 'Role of Léa Morel' })).toBeDisabled()
   })
 
   it("locks another admin's role, and keeps a disabled account a client", async () => {
     const OTHER_ADMIN: UserResponse = { ...LEA, id: '00000000-0000-4000-8000-000000000003', name: 'Inès Faure', role: 'admin' }
     users = [ADMIN_ROW, { ...LEA, status: 'disabled' }, OTHER_ADMIN]
-    renderAt('/admin')
+    renderAt('/admin/users')
 
     expect(await screen.findByRole('combobox', { name: 'Role of Inès Faure' })).toBeDisabled()
     const lea = screen.getByRole('combobox', { name: 'Role of Léa Morel' })
@@ -250,8 +288,64 @@ describe('back-office and plan screens', () => {
     expect(within(lea).getByRole('option', { name: 'Admin' })).toBeDisabled()
   })
 
+  it('keeps the admin roles and the admin rows for a super admin', async () => {
+    const OTHER_ADMIN: UserResponse = { ...LEA, id: '00000000-0000-4000-8000-000000000003', name: 'Inès Faure', role: 'admin' }
+    const BOSS: UserResponse = { ...LEA, id: '00000000-0000-4000-8000-000000000004', name: 'Paul Girard', role: 'super_admin' }
+    users = [ADMIN_ROW, LEA, OTHER_ADMIN, BOSS]
+    renderAt('/admin/users')
+
+    // A plain admin: the admin and super admin rows are locked, and so are those roles.
+    expect(await screen.findByRole('combobox', { name: 'Role of Paul Girard' })).toBeDisabled()
+    expect(screen.getByRole('combobox', { name: 'Role of Paul Girard' })).toHaveDisplayValue('Super admin')
+    expect(screen.queryByRole('button', { name: "Disable Paul Girard's account" })).not.toBeInTheDocument()
+    const lea = screen.getByRole('combobox', { name: 'Role of Léa Morel' })
+    expect(within(lea).getByRole('option', { name: 'Agent' })).toBeEnabled()
+    expect(within(lea).getByRole('option', { name: 'Admin' })).toBeDisabled()
+    expect(within(lea).queryByRole('option', { name: 'Super admin' })).not.toBeInTheDocument()
+  })
+
+  it('lets a super admin act on admins, but on no super admin', async () => {
+    me = { ...ADMIN, role: 'super_admin' }
+    const OTHER_ADMIN: UserResponse = { ...LEA, id: '00000000-0000-4000-8000-000000000003', name: 'Inès Faure', role: 'admin' }
+    const OTHER_BOSS: UserResponse = { ...LEA, id: '00000000-0000-4000-8000-000000000004', name: 'Paul Girard', role: 'super_admin' }
+    users = [{ ...ADMIN_ROW, role: 'super_admin' }, LEA, OTHER_ADMIN, OTHER_BOSS]
+    renderAt('/admin/users')
+
+    expect(await screen.findByRole('combobox', { name: 'Role of Inès Faure' })).toBeEnabled()
+    // Super admins, themselves included, are managed on the server only.
+    expect(screen.getByRole('combobox', { name: 'Role of Paul Girard' })).toBeDisabled()
+    expect(screen.getByRole('combobox', { name: 'Role of Arthur Roche' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: "Disable Inès Faure's account" })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: "Disable Paul Girard's account" })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: "Disable Arthur Roche's account" })).not.toBeInTheDocument()
+    // Only the server command names a super admin: the page never offers the role.
+    const lea = screen.getByRole('combobox', { name: 'Role of Léa Morel' })
+    expect(within(lea).getByRole('option', { name: 'Admin' })).toBeEnabled()
+    expect(within(lea).queryByRole('option', { name: 'Super admin' })).not.toBeInTheDocument()
+    expect(screen.getByRole('combobox', { name: 'Role of Paul Girard' })).toHaveDisplayValue('Super admin')
+
+    fireEvent.change(lea, { target: { value: 'admin' } })
+    const dialog = await screen.findByRole('alertdialog', { name: "Change Léa Morel's role?" })
+    expect(dialog).toHaveTextContent('Léa Morel will go from Client to Admin.')
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Change role' }))
+    await waitFor(() =>
+      expect(requests).toContainEqual(
+        expect.objectContaining({ method: 'PATCH', path: `/admin/users/${LEA.id}/role`, body: { role: 'admin' } }),
+      ),
+    )
+  })
+
+  it('opens the admin pages for a super admin', async () => {
+    me = { ...ADMIN, role: 'super_admin' }
+    const { router } = renderAt('/agent')
+
+    expect(await screen.findByRole('heading', { name: 'Quote requests' })).toBeInTheDocument()
+    await router.navigate({ to: '/admin/users' })
+    expect(await screen.findByRole('table', { name: 'Users and roles' })).toBeInTheDocument()
+  })
+
   it('filters the users by role', async () => {
-    renderAt('/admin')
+    renderAt('/admin/users')
 
     fireEvent.change(await screen.findByRole('combobox', { name: 'Filter by role' }), { target: { value: 'agent' } })
 
@@ -262,7 +356,7 @@ describe('back-office and plan screens', () => {
 
   it("shows the admin page in the admin's language", async () => {
     me = { ...ADMIN, locale: 'fr' }
-    renderAt('/admin')
+    renderAt('/admin/users')
 
     expect(await screen.findByRole('heading', { level: 1, name: 'Utilisateurs' })).toBeInTheDocument()
     expect(await screen.findByRole('table', { name: 'Utilisateurs et rôles' })).toBeInTheDocument()
@@ -359,6 +453,8 @@ describe('back-office and plan screens', () => {
 
     await waitFor(() => expect(router.state.location.pathname).toBe('/login'))
     expect(router.state.location.search).toEqual({ redirect: `/plans/${PLAN_ID}` })
+    // Let the login page finish loading, or it ends after the test, without a window.
+    expect(await screen.findByRole('heading', { name: 'Sign in' })).toBeInTheDocument()
   })
 
   it('does not lead from the plan to a priced quote', async () => {
@@ -373,7 +469,7 @@ describe('back-office and plan screens', () => {
     me = { ...ADMIN, role: 'agent' }
     renderAt('/agent')
 
-    expect(await screen.findByRole('tab', { name: 'To assign · 3' })).toBeInTheDocument()
+    expect(await screen.findByRole('tab', { name: 'To take · 1' })).toBeInTheDocument()
     expect(screen.getByRole('tab', { name: 'In progress · 0' })).toBeInTheDocument()
     expect(screen.getByRole('tab', { name: 'Decided · 0' })).toBeInTheDocument()
   })
@@ -466,6 +562,8 @@ describe('back-office and plan screens', () => {
 
     await waitFor(() => expect(router.state.location.pathname).toBe('/login'))
     expect(router.state.location.search).toEqual({ redirect: `/plans/${PLAN_ID}/days/2` })
+    // Let the login page finish loading, or it ends after the test, without a window.
+    expect(await screen.findByRole('heading', { name: 'Sign in' })).toBeInTheDocument()
   })
 
   it("shows a day in the client's language", async () => {
@@ -492,7 +590,7 @@ describe('back-office and plan screens', () => {
     expect(screen.getByText(/Answering an offer is coming soon/)).toBeInTheDocument()
   })
 
-  it.each(['/plans/chania', '/quotes/NV-2026-0182', '/agent'])(
+  it.each(['/plans/chania', '/quotes/NV-2026-0182'])(
     'says %s shows demo data',
     async (url) => {
       renderAt(url)
@@ -526,11 +624,24 @@ describe('back-office and plan screens', () => {
     expect(screen.queryByText(/messages can't be sent yet/)).not.toBeInTheDocument()
   })
 
-  it('does not let an agent take a demo request', async () => {
+  it('shows the real agency queue, without the demo banner', async () => {
     me = { ...ADMIN, role: 'agent' }
     renderAt('/agent')
 
-    const buttons = await screen.findAllByRole('button', { name: 'Take the plan' })
-    for (const button of buttons) expect(button).toBeDisabled()
+    expect(await screen.findByRole('heading', { name: REQUEST.summary })).toBeInTheDocument()
+    expect(screen.queryByRole('note')).not.toBeInTheDocument()
+  })
+
+  it('lets an agent take a request from the queue', async () => {
+    me = { ...ADMIN, role: 'agent' }
+    renderAt('/agent')
+
+    const button = await screen.findByRole('button', { name: 'Take the plan' })
+    expect(button).toBeEnabled()
+    fireEvent.click(button)
+
+    await waitFor(() =>
+      expect(requests).toContainEqual(expect.objectContaining({ method: 'POST', path: `/agent/plans/${REQUEST.id}/take` })),
+    )
   })
 })

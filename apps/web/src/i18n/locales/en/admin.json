@@ -1,8 +1,13 @@
 {
   "area": "Administration",
   "nav": {
+    "overview": "Overview",
     "users": "Users",
-    "partners": "Partners"
+    "partners": "Partners",
+    "extras": "Extras",
+    "reviews": "Reviews",
+    "activity": "Activity",
+    "import": "Import"
   },
   "eyebrow": "Administration",
   "title": "Users",
@@ -13,7 +18,8 @@
   "roles": {
     "client": "Client",
     "agent": "Agent",
-    "admin": "Admin"
+    "admin": "Admin",
+    "super_admin": "Super admin"
   },
   "status": {
     "active": "Active",
@@ -26,14 +32,15 @@
   "changeFailed": "The role could not be changed. Please try again.",
   "statusChangeFailed": "The account could not be changed. Please try again.",
   "changeRefused": {
-    "adminRole": "This person is an admin: you cannot change their role.",
-    "adminStatus": "This person is an admin: you cannot disable or enable their account.",
+    "adminRole": "Only a super admin can give or take the Admin role.",
+    "adminStatus": "This person is an admin: only a super admin can disable or enable their account.",
+    "superAdmin": "This person is a super admin: their role and account are managed on the server only.",
     "disabledAccount": "This account is disabled: enable it before giving it the Agent or Admin role."
   },
   "loading": "Loading users…",
   "loadFailed": "The users could not be loaded.",
   "empty": "No user matches this search.",
-  "note": "The Agent and Admin roles are only available for verified emails. A disabled account stays a Client. You cannot change your own role or account, nor another admin's role or account.",
+  "note": "The Agent, Admin and Super admin roles are only available for verified emails. A disabled account stays a Client. You cannot change your own role or account. Only a super admin gives the Admin role and changes an admin's role or account. Super admins are managed on the server only.",
   "table": {
     "caption": "Users and roles",
     "user": "User",
@@ -208,5 +215,208 @@
     "invalid": "Some fields were refused. Check them and try again.",
     "notFound": "This partner or offer no longer exists.",
     "unknown": "This could not be saved. Please try again."
+  },
+  "extras": {
+    "title": "Extras",
+    "intro": "The options a client can add when asking for a quote. They come from {{agency}}: here you can only hide one, so clients no longer see it.",
+    "loading": "Loading extras…",
+    "loadFailed": "The extras could not be loaded.",
+    "empty": "No extra yet: they come with the {{agency}} import.",
+    "switchFailed": "The change could not be saved. Please try again.",
+    "pricing": {
+      "included": "Included",
+      "supplement": "Supplement",
+      "on_quote": "On quote"
+    },
+    "table": {
+      "caption": "Extras and their pricing",
+      "extra": "Extra",
+      "pricing": "Pricing",
+      "status": "Status",
+      "hidden": "Hidden",
+      "hiddenOf": "Hidden: {{label}}",
+      "supplementOf": "{{price}} {{unit}}"
+    }
+  },
+  "activity": {
+    "title": "Activity",
+    "intro": "Every wish, plan and quote of every client, to follow the agency's work and spot a request that is stuck.",
+    "tabs": {
+      "wishes": "Wishes",
+      "plans": "Plans",
+      "quotes": "Quotes"
+    },
+    "searchLabel": "Search by client or destination",
+    "searchPlaceholder": "Client name, email, city or country…",
+    "statusFilter": "Filter by status",
+    "allStatuses": "All statuses",
+    "loading": "Loading…",
+    "loadFailed": "This list could not be loaded.",
+    "empty": "Nothing matches this search.",
+    "wishStatus": {
+      "draft": "Draft",
+      "not_covered": "Not covered",
+      "panel_shown": "Choosing",
+      "answered": "Answered",
+      "planned": "Planned"
+    },
+    "planStatus": {
+      "proposed": "Proposed",
+      "requested": "Quote asked",
+      "negotiating": "Negotiating",
+      "quoted": "Quoted",
+      "accepted": "Accepted",
+      "rejected": "Rejected"
+    },
+    "quoteStatus": {
+      "open": "Waiting for the client",
+      "expired": "Expired",
+      "accepted": "Accepted",
+      "rejected": "Rejected"
+    },
+    "noClient": "Deleted account",
+    "noAgent": "Not taken",
+    "noPlace": "No destination yet",
+    "noDates": "No dates yet",
+    "travellers_one": "{{count}} traveller",
+    "travellers_other": "{{count}} travellers",
+    "wishes": {
+      "caption": "Every client's wishes",
+      "client": "Client",
+      "wish": "Wish",
+      "dates": "Dates",
+      "status": "Status",
+      "updated": "Updated",
+      "seePlans": "See its plans"
+    },
+    "plans": {
+      "caption": "Every client's plans",
+      "client": "Client",
+      "trip": "Trip",
+      "status": "Status",
+      "agent": "Agent",
+      "updated": "Updated",
+      "open": "Open the plan to {{place}}",
+      "ofWish": "Plans of one wish only.",
+      "allPlans": "Show every plan"
+    },
+    "quotes": {
+      "caption": "Every client's quotes",
+      "quote": "Quote",
+      "trip": "Trip",
+      "total": "Total",
+      "validUntil": "Valid until",
+      "status": "Status"
+    },
+    "plan": {
+      "back": "Activity",
+      "eyebrow": "Plan",
+      "loading": "Loading the plan…",
+      "loadFailed": "The plan could not be loaded.",
+      "notFound": "This plan doesn't exist.",
+      "readOnly": "Read-only: the agent who takes the plan enters the prices.",
+      "client": "Client",
+      "agent": "Agent",
+      "dates": "Dates",
+      "travellers": "Travellers",
+      "budget": "Client's budget",
+      "total": "Total so far",
+      "overBudget": "Over the client's budget",
+      "noBudget": "Not given",
+      "items": "Day by day",
+      "itemsCaption": "The plan's items, partners and prices",
+      "day": "Day",
+      "item": "What",
+      "partner": "Partner",
+      "quantity": "Qty",
+      "price": "Price",
+      "noPrice": "No price yet",
+      "removed": "Removed",
+      "unavailable": "No longer listed",
+      "dayN": "Day {{day}}",
+      "extras": "Extras",
+      "included": "Included",
+      "onQuote": "On quote",
+      "quote": "Quote",
+      "noQuote": "No quote sent yet.",
+      "quoteLoadFailed": "The quote could not be loaded.",
+      "sentOn": "Sent on {{date}}",
+      "validUntil": "Valid until {{date}}",
+      "pdf": "Download the PDF"
+    }
+  },
+  "reviews": {
+    "title": "Reviews",
+    "loading": "Loading reviews…",
+    "loadFailed": "The reviews could not be loaded.",
+    "empty": "No published review yet.",
+    "switchFailed": "The change could not be saved. Please try again.",
+    "table": {
+      "caption": "Published reviews",
+      "review": "Review",
+      "rating": "Rating",
+      "date": "Date",
+      "text": "Text",
+      "hidden": "Hidden",
+      "hiddenOf": "Hidden: {{author}}",
+      "ratingOf": "{{rating}} / 5"
+    }
+  },
+  "dashboard": {
+    "title": "Overview",
+    "intro": "The agency at a glance. Each number opens its page.",
+    "loading": "Loading the numbers…",
+    "loadFailed": "The numbers could not be loaded.",
+    "sections": {
+      "work": "Quotes to handle",
+      "catalog": "Catalog",
+      "accounts": "Accounts"
+    },
+    "waiting": "Plans waiting for a quote",
+    "waitingDetail_one": "{{count}} being negotiated",
+    "waitingDetail_other": "{{count}} being negotiated",
+    "openQuotes": "Quotes waiting for the client",
+    "expiredQuotes": "Expired quotes",
+    "answered": "Accepted quotes",
+    "rejected_one": "{{count}} rejected",
+    "rejected_other": "{{count}} rejected",
+    "partners": "Active partners",
+    "offers": "Active offers",
+    "extras": "Active extras",
+    "reviews": "Published reviews",
+    "hidden_one": "{{count}} hidden",
+    "hidden_other": "{{count}} hidden",
+    "inactive_one": "{{count}} no longer in {{agency}}",
+    "inactive_other": "{{count}} no longer in {{agency}}",
+    "offersHidden_one": "{{count}} hidden",
+    "offersHidden_other": "{{count}} hidden",
+    "offersInactive_one": "{{count}} no longer in {{agency}}",
+    "offersInactive_other": "{{count}} no longer in {{agency}}",
+    "users": "Accounts",
+    "byRole": "{{client}} clients · {{agent}} agents · {{admin}} admins"
+  },
+  "import": {
+    "title": "Import an export",
+    "intro": "Upload the latest {{agency}} export to update partners, offers, reviews and extras. The whole file is imported or nothing is. The file is read once and deleted: it is never kept.",
+    "file": "{{agency}} export (.sqlite)",
+    "fileHint": "The .sqlite file {{agency}} sends, {{max}} MB at most.",
+    "fileHintNoLimit": "The .sqlite file {{agency}} sends.",
+    "submit": "Import",
+    "importing": "Importing…",
+    "done": "Export imported.",
+    "counts": {
+      "partners": "Partners",
+      "offers": "Offers",
+      "reviews": "Reviews",
+      "extras": "Extras"
+    },
+    "errors": {
+      "notSqlite": "This is not a {{agency}} export: choose the .sqlite file.",
+      "tooLarge": "This file is larger than {{max}} MB.",
+      "tooLargeNoLimit": "This file is too large.",
+      "failed": "Nothing was imported: a row of the export was refused ({{detail}}). Fix it in {{agency}}, then import a new export.",
+      "running": "Another import is running. Try again in a moment.",
+      "unknown": "The export could not be imported. Please try again."
+    }
   }
 }

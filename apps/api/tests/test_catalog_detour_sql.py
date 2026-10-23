@@ -18,12 +18,17 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 from sqlalchemy.pool import NullPool
 
 from alembic import command
+from novoya_api.catalog.application.dto import ImportCounts
 from novoya_api.catalog.application.use_cases.get_offer_detail import GetOfferDetail
 from novoya_api.catalog.application.use_cases.update_extra import UpdateExtra, UpdateExtraCommand
 from novoya_api.catalog.application.use_cases.update_offer import UpdateOffer, UpdateOfferCommand
 from novoya_api.catalog.application.use_cases.update_partner import (
     UpdatePartner,
     UpdatePartnerCommand,
+)
+from novoya_api.catalog.application.use_cases.update_review import (
+    UpdateReview,
+    UpdateReviewCommand,
 )
 from novoya_api.catalog.domain import ImportedRow, OfferNotFound
 from novoya_api.catalog.infrastructure.db.models import ExtraRow, OfferRow, PartnerRow, ReviewRow
@@ -34,12 +39,20 @@ from novoya_api.catalog.infrastructure.db.repositories import (
     SqlReviewRepository,
 )
 from novoya_api.catalog.infrastructure.detour.mapping import DetourImportError, detour_id
-from novoya_api.catalog.infrastructure.detour.run import import_detour
+from novoya_api.catalog.infrastructure.detour.run import LOCK_KEY, DetourImportBusy, import_detour
+from novoya_api.catalog.infrastructure.detour.upload import DetourUploadImporter
 from novoya_api.catalog.infrastructure.seed.run import seed_catalog
 from novoya_api.catalog.public import covered_destinations, get_extras, search_offers, tags_at
 from novoya_api.shared.infrastructure.db.session import close_db
 from novoya_api.shared.infrastructure.db.unit_of_work import SqlAlchemyUnitOfWork
-from tests.detour_fixture import CHANIA, CHANIA_STAY, CHANIA_TRANSFER, DetourFile, sample_detour
+from tests.detour_fixture import (
+    CHANIA,
+    CHANIA_STAY,
+    CHANIA_TRANSFER,
+    DetourFile,
+    leftover_folders,
+    sample_detour,
+)
 from tests.test_catalog_sql import (
     API_DIR,
     database_url,  # noqa: F401  (fixture)
@@ -144,6 +157,32 @@ async def test_an_invalid_file_writes_nothing(session, source):
         await import_detour(source)
 
     assert await counts(session) == {"partners": 0, "offers": 0, "reviews": 0, "extras": 0}
+
+
+async def test_a_second_import_stops_while_one_is_running(session, source):
+    # The test's session holds the lock, as a running import's transaction would.
+    await session.execute(select(func.pg_advisory_lock(LOCK_KEY)))
+    try:
+        with pytest.raises(DetourImportBusy):
+            await import_detour(source)
+    finally:
+        await session.execute(select(func.pg_advisory_unlock(LOCK_KEY)))
+
+    assert await counts(session) == {"partners": 0, "offers": 0, "reviews": 0, "extras": 0}
+    assert (await import_detour(source)).partners == 3  # the lock went with the transaction
+
+
+async def test_an_uploaded_export_is_imported_and_not_kept(session, source):
+    async def chunks():
+        data = source.read_bytes()
+        for start in range(0, len(data), 4096):
+            yield data[start : start + 4096]
+
+    reported = await DetourUploadImporter(max_bytes=10_000_000).import_export(chunks())
+
+    assert reported == ImportCounts(partners=3, offers=3, reviews=3, extras=3)
+    assert await counts(session) == {"partners": 3, "offers": 3, "reviews": 3, "extras": 3}
+    assert not leftover_folders()
 
 
 async def test_imported_destinations_with_an_active_partner_are_covered(session, source):
@@ -330,6 +369,19 @@ async def test_a_hidden_extra_is_not_offered(session, source):
     assert bag in {extra.id for extra in await SqlExtraRepository(session).list_all()}
 
 
+async def test_a_hidden_review_is_not_listed(session, source):
+    await import_detour(source)
+    avis = detour_id("avis", "A001")
+
+    await UpdateReview(SqlReviewRepository(session), SqlAlchemyUnitOfWork(session))(
+        UpdateReviewCommand(avis, hidden=True)
+    )
+
+    listed = await SqlReviewRepository(session).list_at("Greece", "Chania", 100)
+    assert avis not in {review.id for review in listed}
+    assert avis in {review.id for review in await SqlReviewRepository(session).list_all()}
+
+
 async def test_a_new_import_keeps_what_novoya_decided(session, source):
     await import_detour(source)
     stay = detour_id("offres", CHANIA_STAY)
@@ -342,6 +394,10 @@ async def test_a_new_import_keeps_what_novoya_decided(session, source):
     await UpdateExtra(SqlExtraRepository(session), SqlAlchemyUnitOfWork(session))(
         UpdateExtraCommand(extra_id=detour_id("preferences", "O001"), hidden=True)
     )
+    avis = detour_id("avis", "A001")
+    await UpdateReview(SqlReviewRepository(session), SqlAlchemyUnitOfWork(session))(
+        UpdateReviewCommand(avis, hidden=True)
+    )
 
     await import_detour(source)
 
@@ -350,9 +406,11 @@ async def test_a_new_import_keeps_what_novoya_decided(session, source):
         PartnerRow, detour_id("partenaires", "P002"), populate_existing=True
     )
     extra = await session.get(ExtraRow, detour_id("preferences", "O001"), populate_existing=True)
+    review = await session.get(ReviewRow, avis, populate_existing=True)
     assert (offer.featured, offer.hidden, offer.active) == (True, True, True)
     assert (partner.hidden, partner.active) == (True, True)
     assert (extra.hidden, extra.active) == (True, True)
+    assert review.hidden is True
 
 
 async def test_editing_an_imported_offer_is_refused_and_writes_nothing(session, source):
