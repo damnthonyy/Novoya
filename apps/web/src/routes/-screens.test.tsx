@@ -63,6 +63,7 @@ const PLAN: Plan = {
     },
     { id: 'i2', offer_id: 'o2', day: 2, quantity: 1, note: null, kind: 'guide', title: 'Chania à pied', description: null, available: true },
   ],
+  answer_within_days: 4,
 }
 
 let me: MeResponse
@@ -363,8 +364,8 @@ describe('back-office and plan screens', () => {
   it('does not lead from the plan to a priced quote', async () => {
     renderAt('/plans/chania')
 
-    expect(await screen.findByRole('button', { name: 'Ask an advisor for a quote' })).toBeDisabled()
-    expect(screen.getByText('Asking for a quote is coming soon.')).toBeInTheDocument()
+    expect(await screen.findByRole('button', { name: 'Send to the agency' })).toBeDisabled()
+    expect(screen.getByText('The demo trip cannot be sent.')).toBeInTheDocument()
     expect(document.querySelector('a[href^="/quotes/"]')).toBeNull()
   })
 

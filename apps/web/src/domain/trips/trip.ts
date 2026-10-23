@@ -23,7 +23,8 @@ export type TripStatus =
   | 'panel_shown'
   | 'answered'
   | 'plan_proposed'
-  | 'quote_requested'
+  | 'sent'
+  | 'in_progress'
   | 'quoted'
   | 'accepted'
   | 'rejected'
@@ -33,8 +34,9 @@ export function tripStatus(trip: Pick<Trip, 'status' | 'plan_status'>): TripStat
     case 'proposed':
       return 'plan_proposed'
     case 'requested':
+      return 'sent'
     case 'negotiating':
-      return 'quote_requested'
+      return 'in_progress'
     case 'quoted':
       return 'quoted'
     case 'accepted':

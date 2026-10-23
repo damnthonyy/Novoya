@@ -61,6 +61,9 @@ export function TripList({ trips }: { trips: Trip[] }) {
               </span>
               <small className="text-xs text-muted">{t('placeAndDates', { place, dates })}</small>
               <b className="line-clamp-2 font-serif text-[17px] font-normal">{trip.text}</b>
+              {status === 'sent' && (
+                <span className="text-xs text-muted">{t('answerWithin', { count: trip.answer_within_days })}</span>
+              )}
               {trip.persons !== null && (
                 <span className="text-xs text-muted">{t('travellers', { count: trip.persons })}</span>
               )}
