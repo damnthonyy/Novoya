@@ -4,6 +4,7 @@ import { fireEvent, render, screen, waitFor, within } from '@testing-library/rea
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import '../api/client'
+import { listFeaturedOffersQueryKey } from '../api/generated/@tanstack/react-query.gen'
 import { client } from '../api/generated/client.gen'
 import type { FeaturedOfferResponse } from '../api/generated/types.gen'
 import { createAppRouter } from '../router'
@@ -49,7 +50,12 @@ function renderAt(url: string) {
       <RouterProvider router={router} />
     </QueryClientProvider>,
   )
-  return { router }
+  return { router, queryClient }
+}
+
+// The featured offers answered (a list or an error), so the page shows its final state.
+async function featuredSettled(queryClient: QueryClient) {
+  await waitFor(() => expect(queryClient.getQueryState(listFeaturedOffersQueryKey())?.status).not.toBe('pending'))
 }
 
 describe('home page inspirations', () => {
@@ -96,18 +102,17 @@ describe('home page inspirations', () => {
 
   it('has no inspirations section when no offer is featured', async () => {
     featuredAnswer = () => Response.json([])
-    renderAt('/')
+    const { queryClient } = renderAt('/')
 
-    await screen.findByRole('contentinfo')
-    await waitFor(() => expect(globalThis.fetch).toHaveBeenCalled())
+    await featuredSettled(queryClient)
     expect(screen.queryByRole('region', { name: 'a few ideas to branch off.' })).not.toBeInTheDocument()
   })
 
   it('has no inspirations section when the offers could not be loaded', async () => {
     featuredAnswer = () => Response.json({ code: 'internal', detail: 'down' }, { status: 500 })
-    renderAt('/')
+    const { queryClient } = renderAt('/')
 
-    await screen.findByRole('contentinfo')
+    await featuredSettled(queryClient)
     expect(screen.queryByRole('region', { name: 'a few ideas to branch off.' })).not.toBeInTheDocument()
   })
 })
