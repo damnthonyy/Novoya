@@ -311,8 +311,11 @@ async def test_patch_me_cannot_change_the_email(client, mailer):
     await sign_up(client, mailer, "alice@example.com")
     await sign_in(client, "alice@example.com")
     response = await client.patch("/me", json={"email": "eve@example.com", "locale": "fr"})
-    assert response.status_code == 200
-    assert response.json()["email"] == "alice@example.com"
+    assert response.status_code == 422
+    assert response.json()["code"] == "invalid_input"
+    assert response.json()["detail"].startswith("email:")
+    me = (await client.get("/me")).json()
+    assert (me["email"], me["locale"]) == ("alice@example.com", "en")
 
 
 @pytest.mark.parametrize("body", [{"locale": "de"}, {"locale": "FR"}, {"locale": None}, {}])

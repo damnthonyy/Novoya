@@ -301,6 +301,20 @@ async def test_a_changed_language_is_saved(session):
     assert row.locale == "fr"
 
 
+async def test_a_rename_is_saved(session):
+    users = SqlUserRepository(session)
+    await users.add(make_user("alice@example.com"))
+    await session.commit()
+
+    alice = await users.get_by_email(Email("alice@example.com"))
+    alice.rename("Camille", "Durand")
+    await users.save(alice)
+    await session.commit()
+
+    row = (await session.execute(text("SELECT first_name, last_name, name FROM users"))).one()
+    assert (row.first_name, row.last_name, row.name) == ("Camille", "Durand", "Camille Durand")
+
+
 async def test_the_database_refuses_a_second_account_with_the_same_email(session):
     users = SqlUserRepository(session)
     await users.add(make_user("alice@example.com"))

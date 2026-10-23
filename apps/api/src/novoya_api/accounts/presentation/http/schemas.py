@@ -6,6 +6,7 @@ from uuid import UUID
 from pydantic import (
     AfterValidator,
     BaseModel,
+    ConfigDict,
     Field,
     SecretStr,
     StringConstraints,
@@ -75,7 +76,10 @@ class ChangeStatusRequest(BaseModel):
 
 
 class UpdateMeRequest(BaseModel):
-    """Send only what changes, at least one field. A field sent as null is refused."""
+    """Send only what changes, at least one field. A field sent as null is refused, and so is
+    any other field: the email, the sign-in identity, cannot be changed here."""
+
+    model_config = ConfigDict(extra="forbid")
 
     first_name: PersonName | None = None
     last_name: PersonName | None = None

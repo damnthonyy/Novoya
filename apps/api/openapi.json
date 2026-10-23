@@ -3456,7 +3456,8 @@
         "type": "object"
       },
       "UpdateMeRequest": {
-        "description": "Send only what changes, at least one field. A field sent as null is refused.",
+        "additionalProperties": false,
+        "description": "Send only what changes, at least one field. A field sent as null is refused, and so is\nany other field: the email, the sign-in identity, cannot be changed here.",
         "properties": {
           "first_name": {
             "anyOf": [

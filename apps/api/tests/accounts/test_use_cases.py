@@ -284,6 +284,14 @@ async def test_update_me_with_nothing_new_does_not_commit(accounts):
     assert accounts.store.uow.commits == commits
 
 
+async def test_update_me_with_the_same_language_does_not_commit(accounts):
+    user = await accounts.signed_up()
+    commits = accounts.store.uow.commits
+    account = await accounts.update_me(user.id, UpdateMeCommand(locale=user.locale))
+    assert account.user.locale is user.locale
+    assert accounts.store.uow.commits == commits
+
+
 async def test_update_me_of_an_unknown_user_fails(accounts):
     with pytest.raises(UserNotFound):
         await accounts.update_me(make_user().id, UpdateMeCommand(locale=Locale.FR))
