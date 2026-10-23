@@ -138,15 +138,16 @@ describe('PreferencesTab', () => {
 
 describe('sectionTones', () => {
   it('gives the catalog sections fixed, different colours', () => {
-    const ids = ['style', 'rhythm', 'food', 'accommodation', 'activities', 'transport', 'night_life', 'preferences']
+    const ids = ['style', 'rhythm', 'food', 'accommodation', 'activities', 'transport', 'preferences']
     const tones = sectionTones(ids)
     expect(new Set(tones.values()).size).toBe(ids.length)
     expect(sectionTones(['transport']).get('transport')).toBe(tones.get('transport'))
   })
 
-  it('gives other sections the colours not used on the page first', () => {
-    const tones = sectionTones(['activities', 'culture', 'nightlife', 'style', 'food'])
-    expect(new Set(tones.values()).size).toBe(5)
+  it('gives any other section the same colour whatever else is on the page', () => {
+    const alone = sectionTones(['family']).get('family')
+    expect(sectionTones(['style', 'food', 'family', 'season']).get('family')).toBe(alone)
+    expect(sectionTones(['season', 'transport', 'family']).get('family')).toBe(alone)
   })
 
   it('gives the same colours for the same sections every time', () => {

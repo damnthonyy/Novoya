@@ -43,15 +43,16 @@ const PANEL_WISH: CachedWish = {
     ask_budget: true,
     ask_persons: true,
     ask_dates: true,
-    sections: [section('style', 'Style'), section('rhythm', 'Rhythm'), section('transport', 'Transport'), section('night_life', 'Night life')],
+    sections: [section('style', 'Style'), section('rhythm', 'Rhythm'), section('transport', 'Transport'), section('family', 'Family')],
   },
   text: 'A week in Chania',
 } satisfies WishResponse & { text: string }
 
 // The tab gathers every wish: other sections than this panel's, in another order.
-const PREFERENCES: PreferenceSectionOut[] = ['night_life', 'food', 'accommodation', 'transport'].map((id) => ({
+// family is no catalog section (a back-office offer can use any section:tag).
+const PREFERENCES: PreferenceSectionOut[] = ['season', 'food', 'family', 'accommodation', 'transport'].map((id) => ({
   id,
-  title: id === 'night_life' ? 'Night life' : id[0].toUpperCase() + id.slice(1),
+  title: id[0].toUpperCase() + id.slice(1),
   tags: [{ id: `${id}-tag`, label: `${id} tag`, removable: true }],
 }))
 
@@ -98,7 +99,7 @@ async function tabTone(name: string) {
 }
 
 describe('section colours across pages', () => {
-  it.each(['Transport', 'Night life'])('gives %s the same colour on the panel and on the tab', async (name) => {
+  it.each(['Transport', 'Family'])('gives %s the same colour on the panel and on the tab', async (name) => {
     const onPanel = await panelTone(name)
     const onTab = await tabTone(name)
 

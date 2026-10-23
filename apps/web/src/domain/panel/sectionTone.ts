@@ -1,20 +1,17 @@
 /**
  * The colours of the preference panel sections (#165), on the panel and on the Preferences
- * tab. Panel sections come from the model, which may only use the catalog's sections:
- * - the catalog sections (DÉTOUR import: accommodation, transport, activities, style; seed
- *   offers: rhythm, food, night_life; untagged: preferences) have fixed tones, so they look
- *   the same on every page;
- * - any other section takes a tone still unused on its page, in the order given, so up to
- *   8 sections on one page never share a colour. Past 8, a tone is picked from the id. Only
- *   the fixed sections are sure to match across pages, which show different sections.
- * The same list of sections always gets the same tones.
+ * tab. A section has the same colour on every page:
+ * - the catalog sections have fixed tones that never clash: the DÉTOUR import gives
+ *   accommodation, transport, activities and style; the seed offers style, rhythm, food,
+ *   transport and accommodation; an untagged offer goes to preferences;
+ * - any other section (a back-office offer accepts any section:tag, e.g. family or season)
+ *   gets a tone from a hash of its id. It is the same on every page, but it can be the same
+ *   colour as another section.
  * The colours are the theme tokens --color-section-N and --color-section-N-soft (index.css).
  */
 export const SECTION_TONES = 8
 
 export type SectionTone = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8
-
-const ALL_TONES: SectionTone[] = [1, 2, 3, 4, 5, 6, 7, 8]
 
 // A Map, not an object: a section named "constructor" must not reach Object.prototype.
 const KNOWN = new Map<string, SectionTone>([
@@ -26,32 +23,20 @@ const KNOWN = new Map<string, SectionTone>([
   ['stay', 4],
   ['activities', 5],
   ['transport', 6],
-  ['night_life', 7],
-  ['nightlife', 7],
-  ['preferences', 8],
+  ['preferences', 7],
 ])
 
 const key = (sectionId: string) => sectionId.trim().toLowerCase()
 
-/** The tone of each section shown together on one page, keyed by section id. */
+/** The tone of one section, the same on every page. */
+export function sectionTone(sectionId: string): SectionTone {
+  const id = key(sectionId)
+  return KNOWN.get(id) ?? hashTone(id)
+}
+
+/** The tone of each section of a page, keyed by section id. */
 export function sectionTones(sectionIds: readonly string[]): Map<string, SectionTone> {
-  const tones = new Map<string, SectionTone>()
-  const used = new Set<SectionTone>()
-  for (const id of sectionIds) {
-    const known = KNOWN.get(key(id))
-    if (known) {
-      tones.set(id, known)
-      used.add(known)
-    }
-  }
-  for (const id of sectionIds) {
-    if (tones.has(id)) continue
-    const free = ALL_TONES.find((tone) => !used.has(tone))
-    const tone = free ?? hashTone(key(id))
-    tones.set(id, tone)
-    used.add(tone)
-  }
-  return tones
+  return new Map(sectionIds.map((id) => [id, sectionTone(id)]))
 }
 
 function hashTone(id: string): SectionTone {
