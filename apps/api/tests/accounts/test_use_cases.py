@@ -24,11 +24,11 @@ from novoya_api.accounts.application.use_cases.register import Register, Registe
 from novoya_api.accounts.application.use_cases.resend_verification_email import (
     ResendVerificationEmail,
 )
-from novoya_api.accounts.application.use_cases.update_me import UpdateMe, UpdateMeCommand
 from novoya_api.accounts.application.use_cases.sign_in_with_password import (
     SignInWithPassword,
     SignInWithPasswordCommand,
 )
+from novoya_api.accounts.application.use_cases.update_me import UpdateMe, UpdateMeCommand
 from novoya_api.accounts.application.use_cases.verify_email import VerifyEmail
 from novoya_api.accounts.domain.actor import GRANT_ROLE_COMMAND, AdminActor
 from novoya_api.accounts.domain.errors import (

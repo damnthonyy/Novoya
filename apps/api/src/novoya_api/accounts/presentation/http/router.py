@@ -7,7 +7,6 @@ from fastapi import APIRouter, Depends, Path, Query, Request, Response, status
 from fastapi.responses import RedirectResponse
 
 from novoya_api.accounts.application.dto import ClientInfo, CurrentUserView
-from novoya_api.accounts.application.use_cases.update_me import UpdateMe, UpdateMeCommand
 from novoya_api.accounts.application.use_cases.change_password import ChangePassword
 from novoya_api.accounts.application.use_cases.change_user_role import (
     ChangeUserRole,
@@ -38,6 +37,7 @@ from novoya_api.accounts.application.use_cases.start_sign_in import (
     StartSignIn,
     StartSignInCommand,
 )
+from novoya_api.accounts.application.use_cases.update_me import UpdateMe, UpdateMeCommand
 from novoya_api.accounts.application.use_cases.verify_email import VerifyEmail
 from novoya_api.accounts.domain.actor import AdminActor
 from novoya_api.accounts.domain.user import UserStatus
@@ -55,7 +55,6 @@ from novoya_api.accounts.presentation.http.dependencies import (
     CurrentUser,
     SettingsDep,
     callback_url,
-    get_update_me,
     get_change_password,
     get_change_user_role,
     get_change_user_status,
@@ -71,6 +70,7 @@ from novoya_api.accounts.presentation.http.dependencies import (
     get_sign_out,
     get_sign_out_everywhere,
     get_start_sign_in,
+    get_update_me,
     get_verify_email,
     require_admin,
 )

@@ -32,7 +32,6 @@ from novoya_api.accounts.application.ports.security import PasswordHasher, Token
 from novoya_api.accounts.application.ports.user_data import UserDataEraser
 from novoya_api.accounts.application.services.session_opener import SessionOpener, SessionPolicy
 from novoya_api.accounts.application.use_cases.authenticate_session import AuthenticateSession
-from novoya_api.accounts.application.use_cases.update_me import UpdateMe
 from novoya_api.accounts.application.use_cases.change_password import ChangePassword
 from novoya_api.accounts.application.use_cases.change_user_role import ChangeUserRole
 from novoya_api.accounts.application.use_cases.change_user_status import ChangeUserStatus
@@ -51,6 +50,7 @@ from novoya_api.accounts.application.use_cases.sign_in import SignIn
 from novoya_api.accounts.application.use_cases.sign_in_with_password import SignInWithPassword
 from novoya_api.accounts.application.use_cases.sign_out import SignOut, SignOutEverywhere
 from novoya_api.accounts.application.use_cases.start_sign_in import StartSignIn
+from novoya_api.accounts.application.use_cases.update_me import UpdateMe
 from novoya_api.accounts.application.use_cases.verify_email import VerifyEmail
 from novoya_api.accounts.domain.errors import NotAllowed, SessionInvalid, TooManyAttempts
 from novoya_api.accounts.domain.policies import PasswordPolicy, RedirectPolicy
