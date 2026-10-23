@@ -29,7 +29,7 @@ type Call = { method: string; path: string; body: unknown }
 let me: MeResponse
 let calls: Call[]
 /** What PATCH /me answers. By default, the stored user with the body applied. */
-let patchAnswer: ((body: Record<string, string>) => Response) | undefined
+let patchAnswer: ((body: Record<string, string>) => Response | Promise<Response>) | undefined
 
 function mockApi() {
   vi.spyOn(globalThis, 'fetch').mockImplementation(async (input) => {
@@ -154,6 +154,51 @@ describe('the personal information tab on My trips', () => {
     )
     expect(within(form).getByLabelText('First name')).toHaveAttribute('aria-invalid', 'true')
     expect(screen.queryByRole('status')).not.toBeInTheDocument()
+  })
+
+  it('sends one PATCH for a double submit before the page renders again', async () => {
+    renderAt('/trips')
+    const form = await openProfileTab()
+
+    fireEvent.change(within(form).getByLabelText('First name'), { target: { value: 'Camille-Anne' } })
+    fireEvent.submit(form)
+    fireEvent.submit(form)
+    expect(await screen.findByRole('status')).toHaveTextContent('Your details are saved.')
+
+    expect(patches()).toEqual([{ method: 'PATCH', path: '/me', body: { first_name: 'Camille-Anne' } }])
+  })
+
+  it('sends one PATCH for a double tap on Save', async () => {
+    renderAt('/trips')
+    const form = await openProfileTab()
+
+    fireEvent.change(within(form).getByLabelText('First name'), { target: { value: 'Camille-Anne' } })
+    const button = within(form).getByRole('button', { name: 'Save' })
+    fireEvent.click(button)
+    fireEvent.click(button)
+    expect(await screen.findByRole('status')).toHaveTextContent('Your details are saved.')
+
+    expect(patches()).toHaveLength(1)
+  })
+
+  it('disables the button and says it is saving while the PATCH is on its way', async () => {
+    let answer: (response: Response) => void = () => {}
+    patchAnswer = (body) =>
+      new Promise((resolve) => {
+        answer = resolve
+        me = { ...me, ...body }
+      })
+    renderAt('/trips')
+    const form = await openProfileTab()
+
+    fireEvent.change(within(form).getByLabelText('First name'), { target: { value: 'Camille-Anne' } })
+    fireEvent.click(within(form).getByRole('button', { name: 'Save' }))
+
+    const busy = await within(form).findByRole('button', { name: 'Saving…' })
+    expect(busy).toBeDisabled()
+    answer(Response.json(me))
+    expect(await screen.findByRole('status')).toHaveTextContent('Your details are saved.')
+    expect(within(form).getByRole('button', { name: 'Save' })).toBeEnabled()
   })
 
   it('sends nothing when nothing changed, and says the details are saved', async () => {

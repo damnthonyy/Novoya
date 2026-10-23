@@ -39,7 +39,6 @@ export function ProfileForm({
   const form = useForm({
     defaultValues: profile,
     onSubmit: async ({ value, formApi }) => {
-      if (pending) return
       try {
         formApi.reset(await onSubmit(value))
       } catch {
@@ -48,6 +47,9 @@ export function ProfileForm({
     },
   })
   const dirty = useStore(form.store, (state) => state.isDirty)
+  // Set at once by handleSubmit, unlike `pending`, which needs a render: a double tap
+  // sends one request.
+  const submitting = useStore(form.store, (state) => state.isSubmitting)
 
   // What is stored can change elsewhere (the header's language switch): follow it in every
   // field the client has not edited, so a save never sends an old value back.
@@ -69,6 +71,7 @@ export function ProfileForm({
       noValidate
       onSubmit={(event) => {
         event.preventDefault()
+        if (form.state.isSubmitting) return
         void form.handleSubmit()
       }}
     >
@@ -128,8 +131,8 @@ export function ProfileForm({
           {success}
         </p>
       )}
-      <Button type="submit" className="mt-2 w-full sm:w-auto" disabled={pending}>
-        {pending ? t('saving') : t('save')}
+      <Button type="submit" className="mt-2 w-full sm:w-auto" disabled={pending || submitting}>
+        {pending || submitting ? t('saving') : t('save')}
       </Button>
     </form>
   )
