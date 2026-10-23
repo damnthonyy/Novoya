@@ -4,6 +4,7 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, StringConstraints
 
+from novoya_api.catalog.application.dto import ImportCounts
 from novoya_api.catalog.application.use_cases.update_offer import CLEARABLE
 from novoya_api.catalog.domain import Extra, Offer, Partner, Review
 
@@ -281,6 +282,26 @@ class ReviewResponse(BaseModel):
         return cls.model_validate(review, from_attributes=True)
 
 
+class AdminReviewResponse(ReviewResponse):
+    """A review for admins: hidden ones too. hidden is the only field an admin changes;
+    DÉTOUR owns the rest."""
+
+    hidden: bool
+
+    @classmethod
+    def of(cls, review: Review) -> "AdminReviewResponse":
+        return cls(**ReviewResponse.of(review).model_dump(), hidden=review.hidden)
+
+
+class UpdateReviewRequest(BaseModel):
+    """true hides the review from GET /reviews, false shows it again. The import never
+    changes it."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    hidden: bool
+
+
 class ExtraResponse(BaseModel):
     """An option a client can add to a plan. supplement_eur only for a supplement."""
 
@@ -327,3 +348,27 @@ class UpdateExtraRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     hidden: bool
+
+
+class ImportLimitsResponse(BaseModel):
+    """What the import accepts, so the page refuses a file before sending it."""
+
+    max_bytes: int
+
+
+class ImportCountsResponse(BaseModel):
+    """What the DÉTOUR import wrote: rows in the export, imported or updated."""
+
+    partners: int
+    offers: int
+    reviews: int
+    extras: int
+
+    @classmethod
+    def of(cls, counts: ImportCounts) -> "ImportCountsResponse":
+        return cls(
+            partners=counts.partners,
+            offers=counts.offers,
+            reviews=counts.reviews,
+            extras=counts.extras,
+        )

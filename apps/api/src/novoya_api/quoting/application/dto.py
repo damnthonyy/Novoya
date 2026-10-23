@@ -126,6 +126,17 @@ class QuoteView:
 
 
 @dataclass(frozen=True)
+class PlanQuoteView:
+    """A sent quote as its agent follows it: where it stands, and the client's answer and
+    comment once they gave them."""
+
+    quote: QuoteView
+    status: QuoteStatus
+    decided_at: datetime | None
+    client_comment: str | None
+
+
+@dataclass(frozen=True)
 class QuoteDetailView:
     """A quote as its reader sees it, without its PDF: where it stands, the client's answer,
     who prepared it and the trip with its priced lines. The trip fields are empty and the
@@ -188,3 +199,21 @@ class QuoteDetailView:
 class QuotePdf:
     filename: str
     content: bytes
+
+
+@dataclass(frozen=True)
+class AdminQuoteView:
+    """One quote in the admin overview, without its PDF. client is None when the account is
+    gone."""
+
+    id: UUID
+    number: str
+    plan_id: UUID
+    status: str
+    total: Decimal
+    currency: str
+    locale: str
+    sent_at: datetime
+    valid_until: datetime
+    trip: QuoteTrip
+    client: Person | None

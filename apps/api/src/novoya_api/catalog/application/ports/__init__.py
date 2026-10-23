@@ -1,7 +1,8 @@
-from collections.abc import Sequence
+from collections.abc import AsyncIterable, Sequence
 from typing import Protocol
 from uuid import UUID
 
+from novoya_api.catalog.application.dto import ImportCounts
 from novoya_api.catalog.domain import Extra, Offer, Partner, Review
 
 
@@ -46,8 +47,17 @@ class OfferRepository(Protocol):
 
 class ReviewRepository(Protocol):
     async def list_at(self, country: str | None, city: str | None, limit: int) -> list[Review]:
-        """Newest first, at most `limit`. None for country or city means any."""
+        """Published reviews, newest first, at most `limit`. Hidden ones are omitted.
+        None for country or city means any."""
         ...
+
+    async def list_all(self) -> list[Review]:
+        """Every review still in the database, hidden ones too, newest first."""
+        ...
+
+    async def get(self, review_id: UUID) -> Review | None: ...
+
+    async def save(self, review: Review) -> None: ...
 
 
 class ExtraRepository(Protocol):
@@ -66,3 +76,12 @@ class ExtraRepository(Protocol):
     async def get(self, extra_id: UUID) -> Extra | None: ...
 
     async def save(self, extra: Extra) -> None: ...
+
+
+class CatalogImporter(Protocol):
+    async def import_export(self, chunks: AsyncIterable[bytes]) -> ImportCounts:
+        """Imports an uploaded DÉTOUR export, all of it or nothing, and keeps no copy.
+
+        Raises DetourExportTooLarge, NotADetourExport, CatalogImportFailed or
+        CatalogImportRunning."""
+        ...

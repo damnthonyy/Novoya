@@ -1,11 +1,15 @@
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, Body, Depends, Response, status
+from fastapi import APIRouter, Body, Depends, Query, Response, status
 
+from novoya_api.accounts.public import require_admin
+from novoya_api.quoting.application.ports.quote_repository import ADMIN_CAP, ADMIN_PAGE
 from novoya_api.quoting.application.use_cases.answer_quote import AnswerQuote
+from novoya_api.quoting.application.use_cases.get_plan_quote import GetPlanQuote
 from novoya_api.quoting.application.use_cases.get_quote import GetQuote
 from novoya_api.quoting.application.use_cases.get_quote_pdf import GetQuotePdf
+from novoya_api.quoting.application.use_cases.list_admin_quotes import ListAdminQuotes
 from novoya_api.quoting.application.use_cases.resend_quote_email import ResendQuoteEmail
 from novoya_api.quoting.application.use_cases.send_quote import SendQuote
 from novoya_api.quoting.domain.quote import QuoteStatus
@@ -14,15 +18,19 @@ from novoya_api.quoting.presentation.http.dependencies import (
     Staff,
     get_answer_quote,
     get_current_agent_id,
+    get_get_plan_quote,
     get_get_quote,
     get_get_quote_pdf,
+    get_list_admin_quotes,
     get_reader,
     get_resend_quote_email,
     get_send_quote,
     get_staff,
 )
 from novoya_api.quoting.presentation.http.schemas import (
+    AdminQuote,
     AnswerQuoteRequest,
+    PlanQuote,
     Quote,
     QuoteDetail,
     SendQuoteRequest,
@@ -57,6 +65,18 @@ async def send_quote(
     return Quote.of(await use_case(plan_id, agent_id, locale))
 
 
+@agent_router.get("/{plan_id}/quote", operation_id="getPlanQuote")
+async def get_plan_quote(
+    plan_id: UUID,
+    staff: Annotated[Staff, Depends(get_staff)],
+    use_case: Annotated[GetPlanQuote, Depends(get_get_plan_quote)],
+) -> PlanQuote:
+    """The quote sent for this plan, with the id of its PDF, where it stands and the
+    client's answer and comment. Only the agent who sent it or an admin (403). 404 before
+    the quote is sent."""
+    return PlanQuote.of_plan(await use_case(plan_id, staff.user_id, staff.admin))
+
+
 agent_quotes_router = APIRouter(prefix="/agent/quotes", tags=["agent"], responses=ERRORS)
 
 
@@ -88,9 +108,9 @@ async def get_quote(
     response: Response,
 ) -> QuoteDetail:
     """The quote and where it stands (open, expired after its validity date, accepted or
-    rejected), for its client or staff (agents, admins). 404 for anyone else, so the id
-    stays hidden."""
-    detail = QuoteDetail.of(await use_case(quote_id, reader.user_id, reader.staff))
+    rejected), for its client, the agent who sent it or an admin. 404 for anyone else
+    (another agent too), so the id stays hidden."""
+    detail = QuoteDetail.of(await use_case(quote_id, reader.user_id, reader.admin))
     # The client's negotiated price: no shared or browser cache keeps it, as for the PDF.
     response.headers["Cache-Control"] = "private, no-store"
     return detail
@@ -110,9 +130,9 @@ async def accept_quote(
 ) -> None:
     """The client accepts their quote, with an optional comment for the agent. The plan
     becomes accepted. 409 quote_expired after the validity day, 409 quote_answered when it
-    is answered already; 403 for staff, 404 for anyone else."""
+    is answered already; 403 for its agent and admins, 404 for anyone else."""
     comment = body.comment if body else None
-    await use_case(quote_id, reader.user_id, reader.staff, QuoteStatus.ACCEPTED, comment)
+    await use_case(quote_id, reader.user_id, reader.admin, QuoteStatus.ACCEPTED, comment)
 
 
 @router.post(
@@ -130,7 +150,7 @@ async def reject_quote(
     """The client rejects their quote, with an optional comment for the agent. The plan
     becomes rejected, and the client can start a new wish. Same errors as accept."""
     comment = body.comment if body else None
-    await use_case(quote_id, reader.user_id, reader.staff, QuoteStatus.REJECTED, comment)
+    await use_case(quote_id, reader.user_id, reader.admin, QuoteStatus.REJECTED, comment)
 
 
 @router.get(
@@ -144,9 +164,9 @@ async def get_quote_pdf(
     reader: Annotated[Reader, Depends(get_reader)],
     use_case: Annotated[GetQuotePdf, Depends(get_get_quote_pdf)],
 ) -> Response:
-    """The quote as a PDF, for its client or an agent. 404 for anyone else, so the id stays
-    hidden."""
-    pdf = await use_case(quote_id, reader.user_id, reader.staff)
+    """The quote as a PDF, for its client, the agent who sent it or an admin. 404 for anyone
+    else (another agent too), so the id stays hidden."""
+    pdf = await use_case(quote_id, reader.user_id, reader.admin)
     return Response(
         content=pdf.content,
         media_type="application/pdf",
@@ -155,3 +175,29 @@ async def get_quote_pdf(
             "Cache-Control": "private, no-store",
         },
     )
+
+
+admin_router = APIRouter(
+    prefix="/admin/quotes",
+    tags=["admin"],
+    responses=ERRORS,
+    dependencies=[Depends(require_admin)],
+)
+
+
+@admin_router.get("", operation_id="listAdminQuotes")
+async def list_admin_quotes(
+    use_case: Annotated[ListAdminQuotes, Depends(get_list_admin_quotes)],
+    status: QuoteStatus | None = None,
+    q: Annotated[
+        str | None,
+        Query(max_length=254, description="Part of the client's email or name, or of the place"),
+    ] = None,
+    plan_id: UUID | None = None,
+    limit: Annotated[int, Query(ge=1, le=ADMIN_CAP)] = ADMIN_PAGE,
+    offset: Annotated[int, Query(ge=0)] = 0,
+) -> list[AdminQuote]:
+    """Every client's quotes, newest first: number, client, trip, total, validity and status.
+    plan_id gives the quote of one plan. Admin only."""
+    quotes = await use_case(status, q, plan_id, limit=limit, offset=offset)
+    return [AdminQuote.of(quote) for quote in quotes]

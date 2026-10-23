@@ -1,16 +1,18 @@
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Query, status
+from fastapi import APIRouter, Depends, Query, Request, status
 
-from novoya_api.accounts.public import current_user, require_agent
+from novoya_api.accounts.public import current_user, require_admin
 from novoya_api.catalog.application.use_cases.create_offer import CreateOffer, CreateOfferCommand
 from novoya_api.catalog.application.use_cases.create_partner import (
     CreatePartner,
     CreatePartnerCommand,
 )
 from novoya_api.catalog.application.use_cases.get_offer_detail import GetOfferDetail
+from novoya_api.catalog.application.use_cases.import_catalog import ImportCatalog
 from novoya_api.catalog.application.use_cases.list_all_extras import ListAllExtras
+from novoya_api.catalog.application.use_cases.list_all_reviews import ListAllReviews
 from novoya_api.catalog.application.use_cases.list_destinations import ListDestinations
 from novoya_api.catalog.application.use_cases.list_extras import ListExtras
 from novoya_api.catalog.application.use_cases.list_offers import ListOffers
@@ -22,12 +24,19 @@ from novoya_api.catalog.application.use_cases.update_partner import (
     UpdatePartner,
     UpdatePartnerCommand,
 )
+from novoya_api.catalog.application.use_cases.update_review import (
+    UpdateReview,
+    UpdateReviewCommand,
+)
 from novoya_api.catalog.domain import OfferKind, PartnerKind, PriceUnit
 from novoya_api.catalog.presentation.http.dependencies import (
     get_create_offer,
     get_create_partner,
+    get_detour_max_bytes,
     get_get_offer_detail,
+    get_import_catalog,
     get_list_all_extras,
+    get_list_all_reviews,
     get_list_destinations,
     get_list_extras,
     get_list_offers,
@@ -36,13 +45,17 @@ from novoya_api.catalog.presentation.http.dependencies import (
     get_update_extra,
     get_update_offer,
     get_update_partner,
+    get_update_review,
 )
 from novoya_api.catalog.presentation.http.schemas import (
     AdminExtraResponse,
+    AdminReviewResponse,
     CreateOfferRequest,
     CreatePartnerRequest,
     DestinationResponse,
     ExtraResponse,
+    ImportCountsResponse,
+    ImportLimitsResponse,
     OfferDetailResponse,
     OfferResponse,
     PartnerResponse,
@@ -51,6 +64,7 @@ from novoya_api.catalog.presentation.http.schemas import (
     UpdateExtraRequest,
     UpdateOfferRequest,
     UpdatePartnerRequest,
+    UpdateReviewRequest,
 )
 from novoya_api.shared.presentation.http.errors import ErrorResponse
 
@@ -66,20 +80,32 @@ partners_router = APIRouter(
     prefix="/admin/partners",
     tags=["admin"],
     responses=ERRORS,
-    dependencies=[Depends(require_agent)],
+    dependencies=[Depends(require_admin)],
 )
 offers_router = APIRouter(
     prefix="/admin/offers",
     tags=["admin"],
     responses=ERRORS,
-    dependencies=[Depends(require_agent)],
+    dependencies=[Depends(require_admin)],
 )
 
 extras_router = APIRouter(
     prefix="/admin/extras",
     tags=["admin"],
     responses=ERRORS,
-    dependencies=[Depends(require_agent)],
+    dependencies=[Depends(require_admin)],
+)
+reviews_router = APIRouter(
+    prefix="/admin/reviews",
+    tags=["admin"],
+    responses=ERRORS,
+    dependencies=[Depends(require_admin)],
+)
+import_router = APIRouter(
+    prefix="/admin/catalog",
+    tags=["admin"],
+    responses={code: {"model": ErrorResponse} for code in (401, 403, 409, 413, 422)},
+    dependencies=[Depends(require_admin)],
 )
 
 
@@ -98,7 +124,8 @@ async def list_reviews(
     city: Annotated[PlaceName | None, Query()] = None,
 ) -> list[ReviewResponse]:
     """Published reviews, newest first, at most 100. Public: only reviews the travellers agreed
-    to publish, under "First name I." or "Voyageur anonyme". Filter by country and city."""
+    to publish, under "First name I." or "Voyageur anonyme". Hidden reviews are omitted.
+    Filter by country and city."""
     return [ReviewResponse.of(review) for review in await use_case(country, city)]
 
 
@@ -275,9 +302,64 @@ async def update_extra(
     return AdminExtraResponse.of(await use_case(UpdateExtraCommand(extra_id, hidden=body.hidden)))
 
 
+@reviews_router.get("", operation_id="listAllReviews")
+async def list_all_reviews(
+    use_case: Annotated[ListAllReviews, Depends(get_list_all_reviews)],
+) -> list[AdminReviewResponse]:
+    """All published reviews, hidden ones too, newest first. No paging: there are few
+    enough. Admins only."""
+    return [AdminReviewResponse.of(review) for review in await use_case()]
+
+
+@reviews_router.patch("/{review_id}", operation_id="updateReview")
+async def update_review(
+    review_id: UUID,
+    body: UpdateReviewRequest,
+    use_case: Annotated[UpdateReview, Depends(get_update_review)],
+) -> AdminReviewResponse:
+    """Hide a review from GET /reviews, or show it again. The import never changes hidden.
+    Admins only."""
+    return AdminReviewResponse.of(
+        await use_case(UpdateReviewCommand(review_id, hidden=body.hidden))
+    )
+
+
+@import_router.get("/import", operation_id="getImportLimits")
+async def get_import_limits(
+    max_bytes: Annotated[int, Depends(get_detour_max_bytes)],
+) -> ImportLimitsResponse:
+    """The largest export POST /admin/catalog/import accepts, in bytes. Admins only."""
+    return ImportLimitsResponse(max_bytes=max_bytes)
+
+
+@import_router.post(
+    "/import",
+    operation_id="importDetour",
+    openapi_extra={
+        "requestBody": {
+            "required": True,
+            "content": {
+                "application/octet-stream": {"schema": {"type": "string", "format": "binary"}}
+            },
+        }
+    },
+)
+async def import_detour(
+    request: Request,
+    use_case: Annotated[ImportCatalog, Depends(get_import_catalog)],
+) -> ImportCountsResponse:
+    """Import a DÉTOUR sqlite export, sent as the raw body: the same import as the command
+    line, all of it or nothing. The file is read once and deleted, never kept. 413 over the
+    size limit, 422 not_a_detour_export or detour_import_failed (the message names the DÉTOUR
+    table and id), 409 import_running while another import runs. Admins only."""
+    return ImportCountsResponse.of(await use_case(request.stream()))
+
+
 router = APIRouter()
 router.include_router(destinations_router)
 router.include_router(signed_in_router)
 router.include_router(partners_router)
 router.include_router(offers_router)
 router.include_router(extras_router)
+router.include_router(reviews_router)
+router.include_router(import_router)

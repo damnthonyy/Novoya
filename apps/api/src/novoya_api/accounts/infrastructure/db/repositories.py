@@ -4,10 +4,11 @@ They map rows to entities and back: no ORM object leaves this file. They never c
 use case does, through the UnitOfWork that shares their session.
 """
 
+from collections.abc import Sequence
 from datetime import datetime
 from uuid import UUID
 
-from sqlalchemy import delete, or_, select, update
+from sqlalchemy import delete, func, or_, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -83,6 +84,12 @@ class SqlUserRepository:
         row = await self._session.get(UserModel, user_id.value)
         return self._entity(row) if row else None
 
+    async def list_by_ids(self, user_ids: Sequence[UUID]) -> list[User]:
+        if not user_ids:
+            return []
+        rows = await self._session.scalars(select(UserModel).where(UserModel.id.in_(user_ids)))
+        return [self._entity(row) for row in rows]
+
     async def get_by_email(self, email: Email) -> User | None:
         row = await self._session.scalar(select(UserModel).where(UserModel.email == email.value))
         return self._entity(row) if row else None
@@ -109,6 +116,13 @@ class SqlUserRepository:
                 update(UserModel).where(UserModel.id == user.id.value).values(**changed)
             )
         self._read[user.id] = columns
+
+    async def count_by_role(self) -> dict[str, int]:
+        """Every account, disabled ones too, by role. Roles with nobody are left out."""
+        rows = await self._session.execute(
+            select(UserModel.role, func.count()).group_by(UserModel.role)
+        )
+        return {role: count for role, count in rows}
 
     async def count_active_with_role(self, role: Role) -> int:
         # FOR UPDATE locks these rows until commit: two admins demoting each other at the
@@ -352,6 +366,13 @@ class SqlSessionRepository:
             statement = statement.where(SessionModel.id != except_session_id)
         await self._session.execute(statement)
 
+    async def delete_expired(self, now: datetime) -> None:
+        await self._session.execute(
+            delete(SessionModel)
+            .where(SessionModel.absolute_expires_at <= now)
+            .execution_options(synchronize_session=False)
+        )
+
 
 def token_to_entity(row: OneTimeTokenModel) -> OneTimeToken:
     return OneTimeToken(
@@ -408,4 +429,11 @@ class SqlOneTimeTokenRepository:
                 OneTimeTokenModel.used_at.is_(None),
             )
             .values(used_at=now)
+        )
+
+    async def delete_expired(self, now: datetime) -> None:
+        await self._session.execute(
+            delete(OneTimeTokenModel)
+            .where(OneTimeTokenModel.expires_at <= now)
+            .execution_options(synchronize_session=False)
         )
