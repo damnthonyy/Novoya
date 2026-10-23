@@ -6,7 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import '../../api/client'
 import { client } from '../../api/generated/client.gen'
 import type { PreferenceSectionOut } from '../../api/generated/types.gen'
-import { SECTION_TONES, sectionTones } from '../../domain/panel/sectionTone'
+import { OTHER_TONE, sectionTones } from '../../domain/panel/sectionTone'
 import i18n from '../../i18n'
 import { PreferencesTab } from './PreferencesTab'
 
@@ -157,6 +157,7 @@ describe('sectionTones', () => {
 
   it('does not trip over section names that are object properties', () => {
     const tones = sectionTones(['constructor', '__proto__', 'toString'])
-    expect([...tones.values()].every((tone) => tone >= 1 && tone <= SECTION_TONES)).toBe(true)
+    // They are no catalog sections: the tone of every other section.
+    expect([...tones.values()]).toEqual([OTHER_TONE, OTHER_TONE, OTHER_TONE])
   })
 })
