@@ -270,6 +270,7 @@ Client:
 | GET | `/me/trips` | The signed-in client's wishes, newest first: destination, dates, travellers, status, and the ids and status of its plan and quote when they exist. Own wishes only: 401 without a session, 403 for an agent or an admin. Not cached (`private, no-store`) |
 | GET | `/destinations` | Destinations with at least one listed offer (active offer of an active partner) |
 | GET | `/reviews?country=&city=` | Published reviews, newest first. Public. Hidden reviews are omitted |
+| GET | `/offers/featured` | Public: up to three listed offers an agent featured, for the home page. Title, description and place only |
 | GET | `/offers/{id}` | A listed offer: indicative price, opening months, terms. Never the partner |
 | GET | `/extras` | The extras a client can add to a plan |
 | POST | `/wishes` | Send the wish. Returns the panel, or `not_covered` with suggested destinations |

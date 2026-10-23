@@ -1488,6 +1488,53 @@
         "title": "ExtraResponse",
         "type": "object"
       },
+      "FeaturedOfferResponse": {
+        "description": "A featured offer as a public inspiration card: no price, terms or partner.",
+        "properties": {
+          "city": {
+            "title": "City",
+            "type": "string"
+          },
+          "country": {
+            "title": "Country",
+            "type": "string"
+          },
+          "description": {
+            "title": "Description",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "hotel",
+              "guide",
+              "transport",
+              "activity",
+              "agency"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "kind",
+          "title",
+          "description",
+          "country",
+          "city"
+        ],
+        "title": "FeaturedOfferResponse",
+        "type": "object"
+      },
       "HTTPValidationError": {
         "properties": {
           "detail": {
@@ -9693,6 +9740,32 @@
         "summary": "List My Trips",
         "tags": [
           "trips"
+        ]
+      }
+    },
+    "/offers/featured": {
+      "get": {
+        "description": "Public: up to three listed offers an agent featured, by title, for the home page.\nOnly what a card shows: never the price, the terms or the partner.",
+        "operationId": "listFeaturedOffers",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/FeaturedOfferResponse"
+                  },
+                  "title": "Response Listfeaturedoffers",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "List Featured Offers",
+        "tags": [
+          "catalog"
         ]
       }
     },
