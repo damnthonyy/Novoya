@@ -1,6 +1,6 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { ApiError } from '../../../api/errors'
@@ -46,11 +46,26 @@ function WishPage() {
     },
   })
 
+  // Set at once on send, not at the next render: a second ⌘/Ctrl + Enter in between sends nothing.
+  const sending = useRef(false)
   const submit = () => {
+    if (sending.current) return
     const error = wishTextError(text)
     setCheckError(error ?? undefined)
-    if (!error) send.mutate({ body: { text: text.trim() } })
+    if (error) return
+    sending.current = true
+    // The last answer goes: its "where?" status must not stay next to the progress.
+    setAnswer(undefined)
+    send.mutate({ body: { text: text.trim() } }, { onSettled: () => (sending.current = false) })
   }
+
+  // The box was disabled while sending, which drops the keyboard focus: give it back when the
+  // client stays here (an error, or a question). After a navigation the box is gone: no-op.
+  const wasPending = useRef(false)
+  useEffect(() => {
+    if (wasPending.current && !send.isPending) textarea.current?.focus()
+    wasPending.current = send.isPending
+  }, [send.isPending])
 
   const startOver = (nextText: string) => {
     setAnswer(undefined)
@@ -117,7 +132,7 @@ function WishPage() {
           onSubmit={submit}
           pending={send.isPending}
           error={textError ?? sendError}
-          onRetry={!textError && sendError ? submit : undefined}
+          onRetry={!textError && refused?.key === 'wish.unknown' ? submit : undefined}
           textareaRef={textarea}
         />
         <div className="mt-[22px] flex w-full items-center justify-start gap-2.5 overflow-x-auto md:w-auto md:justify-center">

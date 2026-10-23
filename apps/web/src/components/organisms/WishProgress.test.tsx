@@ -13,9 +13,11 @@ afterEach(() => {
 })
 
 describe('WishProgress', () => {
-  it('announces the first step at once', () => {
+  it('mounts the status empty, then announces the first step on the next tick', () => {
     render(<WishProgress steps={STEPS} everyMs={3000} />)
+    expect(screen.getByRole('status')).toBeEmptyDOMElement()
 
+    act(() => vi.advanceTimersByTime(0))
     expect(screen.getByRole('status')).toHaveTextContent('Reading your wish')
   })
 
@@ -46,14 +48,40 @@ describe('WishProgress', () => {
     expect(vi.getTimerCount()).toBe(0)
   })
 
-  it('only animates when the device allows motion', () => {
+  it('keeps an empty status in place while it is not running, and starts over when it runs again', () => {
+    const { rerender } = render(<WishProgress steps={STEPS} everyMs={3000} active={false} />)
+    expect(screen.getByRole('status')).toBeEmptyDOMElement()
+    expect(vi.getTimerCount()).toBe(0)
+
+    rerender(<WishProgress steps={STEPS} everyMs={3000} active />)
+    act(() => vi.advanceTimersByTime(3000))
+    expect(screen.getByRole('status')).toHaveTextContent('Finding destinations')
+
+    rerender(<WishProgress steps={STEPS} everyMs={3000} active={false} />)
+    expect(screen.getByRole('status')).toBeEmptyDOMElement()
+    rerender(<WishProgress steps={STEPS} everyMs={3000} active />)
+    act(() => vi.advanceTimersByTime(0))
+    expect(screen.getByRole('status')).toHaveTextContent('Reading your wish')
+  })
+
+  it('reads the note with the step', () => {
+    render(<WishProgress steps={STEPS} everyMs={3000} note="This can take up to a minute." />)
+    act(() => vi.advanceTimersByTime(0))
+
+    expect(screen.getByRole('status')).toHaveTextContent('Reading your wish')
+    expect(screen.getByRole('status')).toHaveTextContent('This can take up to a minute.')
+  })
+
+  it('only animates when the device allows motion, and only for a few turns', () => {
     const { container } = render(<WishProgress steps={STEPS} everyMs={3000} />)
+    act(() => vi.advanceTimersByTime(0))
 
     const animated = [...container.querySelectorAll('[class*="animate-"]')]
     expect(animated.length).toBeGreaterThan(0)
     for (const element of animated) {
       for (const name of element.classList) {
-        if (name.includes('animate-')) expect(name).toMatch(/^motion-safe:/)
+        // `orbit` turns three times then stops (index.css, WCAG 2.2.2); `spin` never stops.
+        if (name.includes('animate-')) expect(name).toBe('motion-safe:animate-orbit')
       }
     }
   })

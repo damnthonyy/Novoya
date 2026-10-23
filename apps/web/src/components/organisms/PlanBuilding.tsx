@@ -46,9 +46,9 @@ export function PlanBuilding() {
         tone="dark"
         steps={STEPS.map((step) => t(`steps.${step}`))}
         everyMs={STEP_EVERY_MS}
+        note={t('wait')}
         className="mt-[18px] max-w-[min(420px,85vw)]"
       />
-      <p className="mt-3 max-w-[min(420px,85vw)] text-sm text-white/80">{t('wait')}</p>
       <p className="mt-2 max-w-[min(420px,85vw)] text-sm text-white/65">{t('status')}</p>
     </main>
   )

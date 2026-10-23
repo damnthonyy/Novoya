@@ -295,48 +295,99 @@ describe('sending a wish', () => {
       vi.useRealTimers()
     })
 
+    const progress = () =>
+      screen.getAllByRole('status').find((element) => element.textContent?.includes('…')) ?? null
+    const showsStep = (step: string) => waitFor(() => expect(progress()).toHaveTextContent(step))
+
     it('shows the steps at once, and locks the box and the button', async () => {
       renderAt('/wish')
 
       await writeAndSend('La Crète en mai')
 
-      expect(await screen.findByRole('status')).toHaveTextContent('Reading your wish')
+      await showsStep('Reading your wish')
       expect(screen.getByLabelText('Your travel wish')).toBeDisabled()
       expect(screen.getByRole('button', { name: 'Sending' })).toBeDisabled()
 
       await act(() => vi.advanceTimersByTimeAsync(3000))
-      expect(screen.getByRole('status')).toHaveTextContent('Finding destinations')
+      expect(progress()).toHaveTextContent('Finding destinations')
       await act(() => vi.advanceTimersByTimeAsync(3000))
-      expect(screen.getByRole('status')).toHaveTextContent('Preparing your preferences')
+      expect(progress()).toHaveTextContent('Preparing your preferences')
+      expect(posts('/wishes')).toHaveLength(1)
+    })
+
+    it('keeps the status region in place before the wish is sent, empty', async () => {
+      renderAt('/wish')
+      await screen.findByLabelText('Your travel wish')
+
+      expect(screen.getByRole('status')).toBeEmptyDOMElement()
+    })
+
+    it('sends only once when the client sends twice before the page redraws', async () => {
+      renderAt('/wish')
+      const box = await screen.findByLabelText('Your travel wish')
+      fireEvent.change(box, { target: { value: 'La Crète en mai' } })
+
+      act(() => {
+        fireEvent.keyDown(box, { key: 'Enter', ctrlKey: true })
+        fireEvent.keyDown(box, { key: 'Enter', ctrlKey: true })
+      })
+
+      await showsStep('Reading your wish')
       expect(posts('/wishes')).toHaveLength(1)
     })
 
     it('goes away as soon as the answer arrives, whatever the step', async () => {
       const { router } = renderAt('/wish')
       await writeAndSend('Une semaine calme à Chania')
-      expect(await screen.findByRole('status')).toHaveTextContent('Reading your wish')
+      await showsStep('Reading your wish')
+      await act(() => vi.advanceTimersByTimeAsync(3000))
+      expect(progress()).toHaveTextContent('Finding destinations')
 
       finish(Response.json(PANEL_WISH, { status: 201 }))
 
       expect(await screen.findByRole('heading', { name: /What matters/ })).toBeInTheDocument()
       expect(router.state.location.pathname).toBe(`/wish/${WISH_ID}/preferences`)
-      expect(screen.queryByText('Reading your wish')).not.toBeInTheDocument()
+      expect(screen.queryByText(/Finding destinations/)).not.toBeInTheDocument()
     })
 
     it('gives the box back with a message and a way to try again when it fails', async () => {
       renderAt('/wish')
       await writeAndSend('La Crète en mai')
-      expect(await screen.findByRole('status')).toHaveTextContent('Reading your wish')
+      await showsStep('Reading your wish')
 
       finish(Response.json({ code: 'internal_error', detail: 'boom' }, { status: 500 }))
 
       expect(await screen.findByRole('alert')).toHaveTextContent("couldn't be sent")
-      expect(screen.queryByText('Reading your wish')).not.toBeInTheDocument()
-      expect(screen.getByLabelText('Your travel wish')).toBeEnabled()
+      expect(screen.queryByText(/Reading your wish/)).not.toBeInTheDocument()
+      const box = screen.getByLabelText('Your travel wish')
+      expect(box).toBeEnabled()
+      await waitFor(() => expect(box).toHaveFocus())
 
       fireEvent.click(screen.getByRole('button', { name: 'Try again' }))
-      await waitFor(() => expect(posts('/wishes')).toHaveLength(2))
+      await showsStep('Reading your wish')
+      finish(Response.json({ code: 'internal_error', detail: 'boom' }, { status: 500 }))
+      expect(await screen.findByRole('alert')).toHaveTextContent("couldn't be sent")
+      expect(posts('/wishes')).toHaveLength(2)
       expect(posts('/wishes')[1]!.body).toEqual({ text: 'La Crète en mai' })
+    })
+
+    it('gives the focus back to the box after asking where, and shows one status on the next send', async () => {
+      renderAt('/wish')
+      await writeAndSend('Quelque part au calme')
+      await showsStep('Reading your wish')
+
+      finish(Response.json({ id: 'x', status: 'draft', destination: null, suggestions: [], panel: null }, { status: 201 }))
+
+      expect(await screen.findByText(/Where would you like to go\?/)).toBeInTheDocument()
+      const box = screen.getByLabelText('Your travel wish')
+      await waitFor(() => expect(box).toHaveFocus())
+
+      fireEvent.change(box, { target: { value: 'Quelque part au calme, en Crète' } })
+      fireEvent.click(screen.getByRole('button', { name: 'Send' }))
+
+      await showsStep('Reading your wish')
+      expect(screen.queryByText(/Where would you like to go\?/)).not.toBeInTheDocument()
+      expect(screen.getAllByRole('status').filter((element) => element.textContent !== '')).toHaveLength(1)
     })
 
     it('shows the steps in French', async () => {
@@ -345,8 +396,18 @@ describe('sending a wish', () => {
       fireEvent.change(await screen.findByLabelText('Votre envie de voyage'), { target: { value: 'La Crète' } })
       fireEvent.click(screen.getByRole('button', { name: 'Envoyer' }))
 
-      expect(await screen.findByRole('status')).toHaveTextContent('Nous lisons votre envie')
+      await showsStep('Nous lisons votre envie')
     })
+  })
+
+  it('does not offer to try again when the wish itself is refused', async () => {
+    wishAnswer = () => Response.json({ code: 'invalid_wish', detail: 'no' }, { status: 422 })
+    renderAt('/wish')
+
+    await writeAndSend('La Crète en mai')
+
+    expect(await screen.findByRole('alert')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Try again' })).not.toBeInTheDocument()
   })
 
   it('says how long to wait when the wish is rate limited', async () => {
@@ -361,6 +422,7 @@ describe('sending a wish', () => {
 
     expect(await screen.findByRole('alert')).toHaveTextContent('Try again in 12 minutes')
     expect(screen.getByLabelText('Your travel wish')).toHaveValue('La Crète en mai')
+    expect(screen.queryByRole('button', { name: 'Try again' })).not.toBeInTheDocument()
   })
 
   it('keeps the usual wait message when Retry-After is missing', async () => {
@@ -438,8 +500,8 @@ describe('the preferences panel', () => {
     fireEvent.click(send)
 
     expect(await screen.findByRole('heading', { name: /Setting the evenings/ })).toHaveFocus()
-    expect(screen.getByText(/up to a minute/)).toBeInTheDocument()
-    expect(screen.getByRole('status')).toHaveTextContent('Reading your answers')
+    await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent('Reading your answers'))
+    expect(screen.getByRole('status')).toHaveTextContent('up to a minute')
     expect(screen.queryByRole('button', { name: /Compose my preview/ })).not.toBeInTheDocument()
     expect(posts(`/wishes/${WISH_ID}/answers`)).toHaveLength(1)
 
@@ -458,7 +520,7 @@ describe('the preferences panel', () => {
 
       fireEvent.click(screen.getByRole('button', { name: /Compose my preview/ }))
 
-      expect(await screen.findByRole('status')).toHaveTextContent('Reading your answers')
+      await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent('Reading your answers'))
       await act(() => vi.advanceTimersByTimeAsync(8000))
       expect(screen.getByRole('status')).toHaveTextContent('Choosing among our partners')
       await act(() => vi.advanceTimersByTimeAsync(8000))

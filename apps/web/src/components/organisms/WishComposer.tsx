@@ -12,7 +12,7 @@ type Props = {
   pending?: boolean
   /** Why the wish was not sent. */
   error?: string
-  /** Sends the same wish again; shown next to the error when the sending failed. */
+  /** Sends the text in the box again (the client may have changed it); shown next to the error. */
   onRetry?: () => void
   textareaRef?: Ref<HTMLTextAreaElement>
 }
@@ -75,9 +75,13 @@ export function WishComposer({ value, onChange, onSubmit, pending = false, error
         </div>
       )}
       <div className="flex items-center justify-between gap-3">
-        {pending ? (
-          <WishProgress steps={PROGRESS_STEPS.map((step) => t(`progress.${step}`))} everyMs={PROGRESS_EVERY_MS} />
-        ) : (
+        {/* Always mounted, so the first step is written into a status region screen readers know. */}
+        <WishProgress
+          active={pending}
+          steps={PROGRESS_STEPS.map((step) => t(`progress.${step}`))}
+          everyMs={PROGRESS_EVERY_MS}
+        />
+        {!pending && (
           <span className="text-xs text-muted">
             <Trans
               t={t}
@@ -94,7 +98,7 @@ export function WishComposer({ value, onChange, onSubmit, pending = false, error
           className="grid size-11 shrink-0 place-items-center rounded-full bg-coral text-xl text-ink transition hover:bg-coral-light disabled:opacity-60"
         >
           {pending ? (
-            <span aria-hidden="true" className="size-4 motion-safe:animate-spin rounded-full border-2 border-ink border-t-transparent" />
+            <span aria-hidden="true" className="size-4 motion-safe:animate-orbit rounded-full border-2 border-ink border-t-transparent" />
           ) : (
             <span aria-hidden="true">↑</span>
           )}
