@@ -5,7 +5,7 @@ import { useTranslation } from 'react-i18next'
 
 import { getMeOptions } from '../../api/generated/@tanstack/react-query.gen'
 import type { MeResponse, UpdateMeRequest } from '../../api/generated/types.gen'
-import { useUpdateMe } from '../../hooks/i18n/useUpdateMe'
+import { useUpdateMe, useUpdateMeBusy } from '../../hooks/i18n/useUpdateMe'
 import { useAccountErrors } from '../../routes/-accountErrors'
 import { ProfileForm, type Profile } from './ProfileForm'
 
@@ -35,6 +35,8 @@ export function ProfileTab() {
   const cached = useQuery({ ...getMeOptions(), enabled: false })
   const me = cached.data ?? loaded
   const save = useUpdateMe()
+  // Also while the header's language switch saves.
+  const busy = useUpdateMeBusy()
   const errors = useAccountErrors(save.error)
   // Saved with nothing left to send: what is shown is what is stored.
   const [upToDate, setUpToDate] = useState(false)
@@ -56,7 +58,7 @@ export function ProfileTab() {
         setUpToDate(false)
         return profileOf(await save.mutateAsync({ body }))
       }}
-      pending={save.isPending}
+      pending={busy}
       errors={{ firstName: errors.firstName, lastName: errors.lastName, form: errors.form }}
       success={save.isSuccess || upToDate ? t('saved') : undefined}
     />

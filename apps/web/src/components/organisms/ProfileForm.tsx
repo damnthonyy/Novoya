@@ -71,7 +71,7 @@ export function ProfileForm({
       noValidate
       onSubmit={(event) => {
         event.preventDefault()
-        if (form.state.isSubmitting) return
+        if (pending || form.state.isSubmitting) return
         void form.handleSubmit()
       }}
     >

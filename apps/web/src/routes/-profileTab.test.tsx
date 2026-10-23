@@ -201,6 +201,86 @@ describe('the personal information tab on My trips', () => {
     expect(within(form).getByRole('button', { name: 'Save' })).toBeEnabled()
   })
 
+  it('saves again after a failed save', async () => {
+    let first = true
+    patchAnswer = (body) => {
+      if (first) {
+        first = false
+        return Response.json({ code: 'boom', detail: 'boom' }, { status: 500 })
+      }
+      me = { ...me, ...body }
+      return Response.json(me)
+    }
+    renderAt('/trips')
+    const form = await openProfileTab()
+
+    fireEvent.change(within(form).getByLabelText('Last name'), { target: { value: 'Martin' } })
+    fireEvent.click(within(form).getByRole('button', { name: 'Save' }))
+    expect(await within(form).findByRole('alert')).toBeInTheDocument()
+    fireEvent.click(within(form).getByRole('button', { name: 'Save' }))
+
+    expect(await screen.findByRole('status')).toHaveTextContent('Your details are saved.')
+    expect(within(form).queryByRole('alert')).not.toBeInTheDocument()
+    expect(patches()).toHaveLength(2)
+    expect(me.last_name).toBe('Martin')
+  })
+
+  it('waits for a header language change before saving the form', async () => {
+    let answer: () => void = () => {}
+    patchAnswer = (body) => {
+      // The header's PATCH is held; any later one answers at once.
+      me = { ...me, ...body }
+      if (patches().length > 1) return Response.json(me)
+      return new Promise((resolve) => {
+        answer = () => resolve(Response.json(me))
+      })
+    }
+    renderAt('/trips')
+    const form = await openProfileTab()
+    fireEvent.change(within(form).getByLabelText('First name'), { target: { value: 'Camille-Anne' } })
+
+    fireEvent.click(screen.getAllByRole('button', { name: 'FR, Français' })[0]!)
+    await waitFor(() => expect(patches()).toHaveLength(1))
+    await waitFor(() => expect(within(form).getByRole('button', { name: 'Saving…' })).toBeDisabled())
+    fireEvent.submit(form)
+    expect(patches()).toHaveLength(1)
+
+    answer()
+    expect(await screen.findByRole('heading', { name: 'Mes aperçus' })).toBeInTheDocument()
+    const french = screen.getByRole('form', { name: 'Informations personnelles' })
+    fireEvent.click(await within(french).findByRole('button', { name: 'Enregistrer' }))
+    await screen.findByRole('status')
+
+    expect(patches().map((call) => call.body)).toEqual([{ locale: 'fr' }, { first_name: 'Camille-Anne' }])
+    expect(me.locale).toBe('fr')
+    expect(i18n.language).toBe('fr')
+  })
+
+  it('holds the header language switch while the form saves', async () => {
+    let answer: () => void = () => {}
+    patchAnswer = (body) =>
+      new Promise((resolve) => {
+        me = { ...me, ...body }
+        answer = () => resolve(Response.json(me))
+      })
+    renderAt('/trips')
+    const form = await openProfileTab()
+
+    fireEvent.change(within(form).getByLabelText('First name'), { target: { value: 'Camille-Anne' } })
+    fireEvent.click(within(form).getByRole('button', { name: 'Save' }))
+    await waitFor(() => expect(patches()).toHaveLength(1))
+
+    const french = screen.getAllByRole('button', { name: 'FR, Français' })[0]!
+    await waitFor(() => expect(french).toBeDisabled())
+    fireEvent.click(french)
+    answer()
+    await screen.findByRole('status')
+
+    expect(patches()).toHaveLength(1)
+    expect(me.locale).toBe('en')
+    expect(i18n.language).toBe('en')
+  })
+
   it('sends nothing when nothing changed, and says the details are saved', async () => {
     renderAt('/trips')
     const form = await openProfileTab()
