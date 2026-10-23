@@ -500,6 +500,26 @@ describe('sending a wish', () => {
       expect(router.state.location.pathname).toBe('/trips')
     })
 
+    it('lets the next page find the ended session itself when it is still asking for it', async () => {
+      const { router, queryClient } = renderAt('/wish')
+      await writeAndSend('Une semaine calme à Chania')
+      await showsStep('Reading your wish')
+      let openMe!: () => void
+      meGate = new Promise((resolve) => (openMe = resolve))
+      queryClient.removeQueries({ queryKey: getMeQueryKey() })
+
+      void router.navigate({ to: '/trips' })
+      await waitFor(() => expect(router.latestLocation.pathname).toBe('/trips'))
+      signedIn = null
+
+      finish(Response.json({ code: 'unauthenticated', detail: 'expired' }, { status: 401 }))
+      await act(() => vi.advanceTimersByTimeAsync(100))
+      openMe()
+
+      await waitFor(() => expect(router.state.location.pathname).toBe('/login'))
+      expect(router.state.location.search).toEqual({ redirect: '/trips' })
+    })
+
     it('leaves the focus where the client put it during the sending', async () => {
       renderAt('/wish')
       await writeAndSend('La Crète en mai')

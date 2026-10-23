@@ -59,7 +59,11 @@ function WishPage() {
     // here only from this page.
     onError: async (error) => {
       if (!isUnauthenticated(error)) return
-      queryClient.removeQueries({ queryKey: getMeQueryKey() })
+      // Not while /me is being read (the next page's guard): removing it would cancel that
+      // fetch, and the guard would show the error page. That fetch gets the 401 itself.
+      if (queryClient.isFetching({ queryKey: getMeQueryKey() }) === 0) {
+        queryClient.removeQueries({ queryKey: getMeQueryKey() })
+      }
       if (!stillHere()) return
       await navigate({ to: '/login', search: { redirect: '/wish' }, replace: true })
     },
