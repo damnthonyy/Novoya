@@ -10,7 +10,8 @@ type Props = {
   tags: { id: string; label: string }[]
   selected: string[]
   onToggle: (tagId: string) => void
-  /** The section's colour, from sectionTones(): the same as on the Preferences tab. */
+  /** The section's colour, from sectionTones() of the panel's sections. Only the fixed (catalog)
+   * sections are sure to have the same colour on the Preferences tab. */
   tone?: SectionTone
 }
 

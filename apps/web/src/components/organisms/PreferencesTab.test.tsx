@@ -6,9 +6,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import '../../api/client'
 import { client } from '../../api/generated/client.gen'
 import type { PreferenceSectionOut } from '../../api/generated/types.gen'
-import { sectionTones } from '../../domain/panel/sectionTone'
+import { SECTION_TONES, sectionTones } from '../../domain/panel/sectionTone'
 import i18n from '../../i18n'
-import { TagGroup } from '../molecules/TagGroup'
 import { PreferencesTab } from './PreferencesTab'
 
 const SECTIONS: PreferenceSectionOut[] = [
@@ -25,15 +24,19 @@ const SECTIONS: PreferenceSectionOut[] = [
 
 let stored: PreferenceSectionOut[]
 let calls: { method: string; path: string }[]
+/** When set, DELETE answers this instead of removing the tag. */
+let deleteAnswer: (() => Response) | undefined
 
 beforeEach(() => {
   client.setConfig({ baseUrl: 'http://api.test' })
   stored = structuredClone(SECTIONS)
   calls = []
+  deleteAnswer = undefined
   vi.spyOn(globalThis, 'fetch').mockImplementation(async (input) => {
     const request = input instanceof Request ? input : new Request(String(input))
     const path = new URL(request.url).pathname
     calls.push({ method: request.method, path })
+    if (request.method === 'DELETE' && deleteAnswer) return deleteAnswer()
     if (request.method === 'DELETE') {
       const [, , , section, tag] = path.split('/')
       stored = stored
@@ -97,6 +100,24 @@ describe('PreferencesTab', () => {
     expect(within(food).queryByRole('button')).not.toBeInTheDocument()
   })
 
+  it('reloads the list when the trip went to the agency meanwhile (409), and shows the tag as locked', async () => {
+    renderTab()
+    const beach = await screen.findByRole('button', { name: 'Remove Beach' })
+    // Meanwhile the client asked for a quote on the only wish with the beach.
+    deleteAnswer = () => {
+      stored[0].tags[0].removable = false
+      return Response.json({ code: 'preference_locked', detail: 'locked' }, { status: 409 })
+    }
+
+    fireEvent.click(beach)
+
+    await waitFor(() => expect(screen.queryByRole('button', { name: 'Remove Beach' })).not.toBeInTheDocument())
+    const style = screen.getByRole('region', { name: 'Style' })
+    expect(within(style).getByText('Beach')).toBeInTheDocument()
+    expect(within(style).getByText('Part of a trip sent to the agency')).toBeInTheDocument()
+    expect(calls.filter((call) => call.method === 'GET').length).toBeGreaterThan(1)
+  })
+
   it('explains where preferences come from when there are none, with a link to the wish page', async () => {
     stored = []
     renderTab()
@@ -115,20 +136,12 @@ describe('PreferencesTab', () => {
   })
 })
 
-describe('the preference panel', () => {
-  it('uses the same colour for a section as the preferences tab', () => {
-    const tone = sectionTones(['style', 'food']).get('food')
-    render(<TagGroup title="Food" multi tags={[{ id: 'wine', label: 'Wine' }]} selected={[]} onToggle={() => {}} tone={tone} />)
-
-    expect(screen.getByRole('group', { name: 'Food' })).toHaveAttribute('data-tone', String(tone))
-  })
-})
-
 describe('sectionTones', () => {
-  it('gives the usual sections fixed, different colours', () => {
-    const tones = sectionTones(['style', 'rhythm', 'food', 'stay', 'activities'])
-    expect(new Set(tones.values()).size).toBe(5)
-    expect(sectionTones(['activities']).get('activities')).toBe(tones.get('activities'))
+  it('gives the catalog sections fixed, different colours', () => {
+    const ids = ['style', 'rhythm', 'food', 'accommodation', 'activities', 'transport', 'night_life', 'preferences']
+    const tones = sectionTones(ids)
+    expect(new Set(tones.values()).size).toBe(ids.length)
+    expect(sectionTones(['transport']).get('transport')).toBe(tones.get('transport'))
   })
 
   it('gives other sections the colours not used on the page first', () => {
@@ -143,6 +156,6 @@ describe('sectionTones', () => {
 
   it('does not trip over section names that are object properties', () => {
     const tones = sectionTones(['constructor', '__proto__', 'toString'])
-    expect([...tones.values()].every((tone) => tone >= 1 && tone <= 6)).toBe(true)
+    expect([...tones.values()].every((tone) => tone >= 1 && tone <= SECTION_TONES)).toBe(true)
   })
 })
