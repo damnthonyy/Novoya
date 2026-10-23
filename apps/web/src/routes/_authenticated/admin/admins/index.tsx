@@ -10,7 +10,7 @@ import { Eyebrow } from '../../../../components/atoms/Eyebrow'
 import { Input } from '../../../../components/atoms/Input'
 import { ErrorNote } from '../../../../components/molecules/ErrorNote'
 import { RoleChangeDialog, type RoleChange } from '../../../../components/organisms/RoleChangeDialog'
-import { adminOutOfReach, isAdminRole, type Role } from '../../../../components/organisms/roles'
+import { adminOutOfReach, canGiveRole, type Role } from '../../../../components/organisms/roles'
 import { canOpen } from '../../../../domain/auth/roles'
 import { roleErrorKey } from '../../../-roleErrors'
 
@@ -42,7 +42,9 @@ function AdminsPage() {
   // GET /admin/users filters on one role: one request for each admin role.
   const admins = useQuery(listUsersOptions({ query: { role: 'admin', limit: 100 } }))
   const superAdmins = useQuery(listUsersOptions({ query: { role: 'super_admin', limit: 100 } }))
-  const found = useQuery({ ...listUsersOptions({ query: { q, limit: 10 } }), enabled: q.length >= 2 })
+  // The search asks for clients and agents, so that admins never take the matches' places.
+  const foundClients = useQuery({ ...listUsersOptions({ query: { q, role: 'client', limit: 10 } }), enabled: q.length >= 2 })
+  const foundAgents = useQuery({ ...listUsersOptions({ query: { q, role: 'agent', limit: 10 } }), enabled: q.length >= 2 })
   // Refetch after a failure too: the row may have changed in another tab.
   const changeRole = useMutation({
     ...changeUserRoleMutation(),
@@ -51,7 +53,7 @@ function AdminsPage() {
   const saving = changeRole.isPending ? changeRole.variables?.path.user_id : undefined
 
   const team = [...(superAdmins.data ?? []), ...(admins.data ?? [])]
-  const candidates = (found.data ?? []).filter((user) => !isAdminRole(user.role))
+  const candidates = [...(foundAgents.data ?? []), ...(foundClients.data ?? [])]
   const name = (user: UserResponse) => user.name ?? user.email
 
   return (
@@ -95,7 +97,8 @@ function AdminsPage() {
           <tbody>
             {team.map((user) => {
               // The viewer's own row and the super admins (managed on the server) are locked.
-              const locked = user.id === me.id || adminOutOfReach(user.role, me.role)
+              const isMe = user.id === me.id
+              const locked = isMe || adminOutOfReach(user.role, me.role)
               return (
                 <tr key={user.id} className="border-t border-line">
                   <th scope="row" className="px-2 py-4 text-left font-normal md:p-4">
@@ -107,22 +110,23 @@ function AdminsPage() {
                   <td className="px-2 py-4 md:p-4">{t(`roles.${user.role}`)}</td>
                   <td className="px-2 py-4 md:p-4">{t(`status.${user.status}`)}</td>
                   <td className="px-2 py-4 text-right md:p-4">
-                    {user.id === me.id ? (
-                      <span className="text-xs text-muted">{t('table.you')}</span>
-                    ) : locked ? (
-                      <span className="text-xs text-muted">{t('admins.locked')}</span>
+                    {locked ? (
+                      <span className="text-xs text-muted">{t(isMe ? 'table.you' : 'admins.locked')}</span>
                     ) : (
                       <Button
                         variant="link"
                         size="inline"
                         disabled={saving === user.id}
                         aria-label={t('admins.revokeOf', { name: name(user) })}
-                        onClick={() =>
+                        onClick={() => {
+                          // A disabled or unverified admin can only go back to client (the API
+                          // refuses agent): the dialog offers what the API accepts, agent first.
+                          const choices = REVOKE_TO.filter((role) => canGiveRole(role, user, me.role))
                           setPending({
-                            change: { userId: user.id, name: name(user), from: user.role, to: 'agent' },
-                            choices: REVOKE_TO,
+                            change: { userId: user.id, name: name(user), from: user.role, to: choices[0] },
+                            choices,
                           })
-                        }
+                        }}
                         className="min-h-11 text-xs"
                       >
                         {t('admins.revoke')}
@@ -153,17 +157,28 @@ function AdminsPage() {
           className="md:max-w-[350px]"
         />
         {q.length >= 2 &&
-          (found.isPending ? (
+          (foundClients.isPending || foundAgents.isPending ? (
             <p className="py-4 text-muted">{t('admins.searching')}</p>
-          ) : found.isError ? (
-            <ErrorNote message={t('loadFailed')} onRetry={() => found.refetch()} />
+          ) : foundClients.isError || foundAgents.isError ? (
+            <ErrorNote
+              message={t('loadFailed')}
+              onRetry={() => {
+                void foundClients.refetch()
+                void foundAgents.refetch()
+              }}
+            />
           ) : candidates.length === 0 ? (
             <p className="py-4 text-muted">{t('admins.noMatch')}</p>
           ) : (
-            <ul className="m-0 mt-4 grid list-none gap-1 p-0">
+            <ul aria-label={t('admins.results')} className="m-0 mt-4 grid list-none gap-1 p-0">
               {candidates.map((user) => {
-                // The API gives the admin role to an active account with a verified email only.
-                const reason = user.status === 'disabled' ? 'admins.cannot.disabled' : !user.email_verified ? 'admins.cannot.unverified' : null
+                // The same rule as the users page: a disabled account or an unverified email
+                // stays a client, so the page says why instead of offering the role.
+                const reason = canGiveRole('admin', user, me.role)
+                  ? null
+                  : user.status === 'disabled'
+                    ? 'admins.cannot.disabled'
+                    : 'admins.cannot.unverified'
                 return (
                   <li key={user.id} className="flex flex-wrap items-center justify-between gap-2 border-t border-line py-3">
                     <span className="grid">

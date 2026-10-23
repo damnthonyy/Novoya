@@ -9,5 +9,6 @@ export function roleErrorKey(error: unknown) {
   if (code === 'cannot_change_admin_role') return 'changeRefused.adminRole'
   if (code === 'super_admin_server_only') return 'changeRefused.superAdmin'
   if (code === 'cannot_promote_disabled') return 'changeRefused.disabledAccount'
+  if (code === 'email_not_verified') return 'changeRefused.emailNotVerified'
   return 'changeFailed'
 }

@@ -5,7 +5,7 @@ import { formatShortDate } from '@/lib/format'
 
 import { Button } from '../atoms/Button'
 
-import { adminOutOfReach, GIVEN_ROLES, isAdminRole, type Role } from './roles'
+import { adminOutOfReach, canGiveRole, GIVEN_ROLES, type Role } from './roles'
 
 export type UserRow = {
   id: string
@@ -44,7 +44,6 @@ export function UsersTable({
 }: Props) {
   const id = useId()
   const { t, i18n } = useTranslation('admin')
-  const superAdmin = meRole === 'super_admin'
   return (
     <table className="w-full border-collapse border-t border-line text-sm">
       <caption className="sr-only">{t('table.caption')}</caption>
@@ -79,10 +78,7 @@ export function UsersTable({
           const disabled = user.status === 'disabled'
           const saving = savingIds.has(user.id)
           const name = user.name ?? user.email
-          // A disabled account stays a client, only a super admin gives the admin role,
-          // and the super admin role is given on the server only.
-          const canGive = (role: Role) =>
-            role !== 'super_admin' && (!disabled || role === 'client') && (superAdmin || !isAdminRole(role))
+          const canGive = (role: Role) => canGiveRole(role, user, meRole)
           return (
             <tr key={user.id} className="border-t border-line">
               <th scope="row" className="px-2 py-4 text-left font-normal md:p-4">

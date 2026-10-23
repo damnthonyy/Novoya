@@ -36,7 +36,8 @@
     "adminRole": "Seul un super admin peut donner ou retirer le rôle Admin.",
     "adminStatus": "Cette personne est admin : seul un super admin peut désactiver ou réactiver son compte.",
     "superAdmin": "Cette personne est super admin : son rôle et son compte se gèrent uniquement sur le serveur.",
-    "disabledAccount": "Ce compte est désactivé : réactivez-le avant de lui donner le rôle Agent ou Admin."
+    "disabledAccount": "Ce compte est désactivé : réactivez-le avant de lui donner le rôle Agent ou Admin.",
+    "emailNotVerified": "L'e-mail de cette personne n'est pas encore vérifié : elle ne peut être que Client tant qu'elle ne l'a pas confirmé."
   },
   "loading": "Chargement des utilisateurs…",
   "loadFailed": "Impossible de charger les utilisateurs.",
@@ -79,6 +80,7 @@
     "searchLabel": "Chercher un utilisateur par e-mail ou par nom",
     "searchPlaceholder": "E-mail ou nom…",
     "searching": "Recherche…",
+    "results": "Résultats de la recherche",
     "noMatch": "Aucun client ni agent ne correspond à cette recherche.",
     "grant": "Nommer admin",
     "grantOf": "Donner le rôle admin à {{name}}",

@@ -36,7 +36,8 @@
     "adminRole": "Only a super admin can give or take the Admin role.",
     "adminStatus": "This person is an admin: only a super admin can disable or enable their account.",
     "superAdmin": "This person is a super admin: their role and account are managed on the server only.",
-    "disabledAccount": "This account is disabled: enable it before giving it the Agent or Admin role."
+    "disabledAccount": "This account is disabled: enable it before giving it the Agent or Admin role.",
+    "emailNotVerified": "This person's email is not verified yet: they can only be a Client until they confirm it."
   },
   "loading": "Loading users…",
   "loadFailed": "The users could not be loaded.",
@@ -79,6 +80,7 @@
     "searchLabel": "Find a user by email or name",
     "searchPlaceholder": "Email or name…",
     "searching": "Searching…",
+    "results": "Search results",
     "noMatch": "No client or agent matches this search.",
     "grant": "Make admin",
     "grantOf": "Give {{name}} the admin role",

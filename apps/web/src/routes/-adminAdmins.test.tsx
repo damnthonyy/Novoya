@@ -42,6 +42,8 @@ const OTHER_SUPER = row('2', 'Sami Haddad', 'super_admin')
 const INES = row('3', 'Inès Faure', 'admin')
 const LEA = row('4', 'Léa Morel', 'client')
 const MARC = row('5', 'Marc Petit', 'agent')
+const ZOE: UserResponse = { ...row('6', 'Zoé Blanc', 'client'), status: 'disabled' }
+const YANN: UserResponse = { ...row('7', 'Yann Roux', 'agent'), email_verified: false }
 
 let me: MeResponse
 let users: UserResponse[]
@@ -197,6 +199,72 @@ describe('admins page', () => {
     )
   })
 
+  it('searches clients and agents only, and says why one cannot become admin', async () => {
+    users = [...users, ZOE, YANN]
+    renderAt('/admin/admins')
+    fireEvent.change(await screen.findByLabelText('Find a user by email or name', {}, { timeout: 3000 }), {
+      target: { value: 'novoya' },
+    })
+    const results = await screen.findByRole('list', { name: 'Search results' })
+    const item = (name: string) => within(results).getByText(name).closest('li') as HTMLElement
+
+    // Admins could fill the newest matches: the search asks for each staff-free role.
+    const searched = requests.filter((request) => request.path === '/admin/users' && request.search.get('q'))
+    expect(searched.map((request) => request.search.get('role')).sort()).toEqual(['agent', 'client'])
+    await waitFor(() => expect(within(results).getByText('Marc Petit')).toBeInTheDocument())
+    expect(within(results).queryByText('Inès Faure')).not.toBeInTheDocument()
+    expect(within(results).queryByText('Sami Haddad')).not.toBeInTheDocument()
+    expect(within(item('Léa Morel')).getByRole('button', { name: /give/i })).toBeInTheDocument()
+    expect(within(item('Zoé Blanc')).queryByRole('button')).not.toBeInTheDocument()
+    expect(item('Zoé Blanc')).toHaveTextContent('Account disabled')
+    expect(within(item('Yann Roux')).queryByRole('button')).not.toBeInTheDocument()
+    expect(item('Yann Roux')).toHaveTextContent('Email not verified')
+  })
+
+  it('takes the role back from a disabled admin to client only', async () => {
+    users = users.map((user) => (user.id === INES.id ? { ...user, status: 'disabled' as const } : user))
+    renderAt('/admin/admins')
+    fireEvent.click(await screen.findByRole('button', { name: /take back.*Inès Faure/i }, { timeout: 3000 }))
+    const dialog = await screen.findByRole('alertdialog')
+
+    expect(within(dialog).getByRole('combobox')).toHaveValue('client')
+    expect(within(dialog).getAllByRole('option').map((option) => option.textContent)).toEqual(['Client'])
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Change role' }))
+    await waitFor(() =>
+      expect(patches()).toEqual([
+        expect.objectContaining({ path: `/admin/users/${INES.id}/role`, body: { role: 'client' } }),
+      ]),
+    )
+  })
+
+  it('takes the role back from an unverified admin to client only', async () => {
+    users = users.map((user) => (user.id === INES.id ? { ...user, email_verified: false } : user))
+    renderAt('/admin/admins')
+    fireEvent.click(await screen.findByRole('button', { name: /take back.*Inès Faure/i }, { timeout: 3000 }))
+
+    expect(within(await screen.findByRole('alertdialog')).getByRole('combobox')).toHaveValue('client')
+  })
+
+  it("locks the viewer's own row even when it reads as a plain admin", async () => {
+    // The list can be newer than /me (a demotion on the server in between): the row is still theirs.
+    users = [{ ...ME_ROW, role: 'admin' }, INES]
+    renderAt('/admin/admins')
+    await screen.findByRole('row', { name: /Inès Faure/ }, { timeout: 3000 })
+
+    expect(within(rowOf('Arthur Roche')).queryByRole('button')).not.toBeInTheDocument()
+  })
+
+  it('says in plain words when the email is not verified', async () => {
+    roleRefusal = 'email_not_verified'
+    renderAt('/admin/admins')
+    fireEvent.click(await screen.findByRole('button', { name: /take back.*Inès Faure/i }, { timeout: 3000 }))
+    fireEvent.click(within(await screen.findByRole('alertdialog')).getByRole('button', { name: 'Change role' }))
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      "This person's email is not verified yet: they can only be a Client until they confirm it.",
+    )
+  })
+
   it('sends nothing when the super admin cancels', async () => {
     renderAt('/admin/admins')
     fireEvent.click(await screen.findByRole('button', { name: /take back.*Inès Faure/i }, { timeout: 3000 }))
@@ -223,5 +291,7 @@ describe('admins page', () => {
 
     expect(await screen.findByRole('heading', { level: 1, name: 'Admins' }, { timeout: 3000 })).toBeInTheDocument()
     expect(await screen.findByText('Les super admins se gèrent uniquement sur le serveur')).toBeInTheDocument()
+    expect(await screen.findByRole('button', { name: 'Retirer le rôle admin de Inès Faure' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { level: 2, name: 'Donner le rôle Admin' })).toBeInTheDocument()
   })
 })
