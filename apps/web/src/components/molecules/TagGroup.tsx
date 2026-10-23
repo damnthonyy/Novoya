@@ -11,8 +11,8 @@ type Props = {
   selected: string[]
   onToggle: (tagId: string) => void
   /** The section's colour, from sectionTones(): the same as on the Preferences tab. The
-   * catalog sections never share a colour; any other section gets one from a hash of its id,
-   * which can clash with another section's. */
+   * catalog sections never share a colour; every other section has tone 8, which no catalog
+   * section uses, so those other sections can only match each other. */
   tone?: SectionTone
 }
 

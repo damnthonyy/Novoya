@@ -5,13 +5,16 @@
  *   accommodation, transport, activities and style; the seed offers style, rhythm, food,
  *   transport and accommodation; an untagged offer goes to preferences;
  * - any other section (a back-office offer accepts any section:tag, e.g. family or season)
- *   gets a tone from a hash of its id. It is the same on every page, but it can be the same
- *   colour as another section.
+ *   gets OTHER_TONE, which no catalog section uses: it never looks like a catalog section and
+ *   is the same on every page; two such sections share that colour.
  * The colours are the theme tokens --color-section-N and --color-section-N-soft (index.css).
  */
 export const SECTION_TONES = 8
 
 export type SectionTone = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8
+
+/** The tone of every section outside the catalog. */
+export const OTHER_TONE: SectionTone = 8
 
 // A Map, not an object: a section named "constructor" must not reach Object.prototype.
 const KNOWN = new Map<string, SectionTone>([
@@ -30,19 +33,12 @@ const key = (sectionId: string) => sectionId.trim().toLowerCase()
 
 /** The tone of one section, the same on every page. */
 export function sectionTone(sectionId: string): SectionTone {
-  const id = key(sectionId)
-  return KNOWN.get(id) ?? hashTone(id)
+  return KNOWN.get(key(sectionId)) ?? OTHER_TONE
 }
 
 /** The tone of each section of a page, keyed by section id. */
 export function sectionTones(sectionIds: readonly string[]): Map<string, SectionTone> {
   return new Map(sectionIds.map((id) => [id, sectionTone(id)]))
-}
-
-function hashTone(id: string): SectionTone {
-  let hash = 0
-  for (const char of id) hash = (hash * 31 + char.charCodeAt(0)) >>> 0
-  return ((hash % SECTION_TONES) + 1) as SectionTone
 }
 
 /** Literal class names, so Tailwind finds them. */

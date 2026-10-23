@@ -107,3 +107,14 @@ describe('section colours across pages', () => {
     expect(onPanel).toBe(onTab)
   })
 })
+
+describe('sections outside the catalog', () => {
+  it('all take tone 8, which no catalog section uses', async () => {
+    const tones: Record<string, string | null> = {}
+    for (const name of ['Season', 'Food', 'Family', 'Accommodation', 'Transport']) tones[name] = await tabTone(name)
+
+    expect(tones.Season).toBe('8')
+    expect(tones.Family).toBe('8')
+    for (const name of ['Food', 'Accommodation', 'Transport']) expect(tones[name]).not.toBe('8')
+  })
+})
