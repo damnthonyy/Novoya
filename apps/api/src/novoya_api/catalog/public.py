@@ -3,8 +3,9 @@
 - covered_destinations() -> destinations with at least one listed offer (listed: an active,
   not hidden offer of an active, not hidden partner)
 - tags_at(country, city) -> tags of listed offers there (city None = the whole country)
-- search_offers(country, city, tags, persons, start, end) -> listed offers that fit, as
-  OfferView. OfferView carries partner name and contact; other modules decide who may see them.
+- search_offers(country, city, tags, persons, start, end) -> listed offers that fit the group
+  and are open on at least one day of the trip, as OfferView with open_days (#182). OfferView
+  carries partner name and contact; other modules decide who may see them.
 - get_offers(ids) -> OfferView for those ids, including inactive (a saved plan still
   needs titles). Callers drop partner fields when the client must not see them.
 - get_extras(ids) -> ExtraView for the listed extras (active, not hidden) among those ids,
@@ -71,7 +72,8 @@ async def search_offers(
     *,
     session: AsyncSession | None = None,
 ) -> list[OfferView]:
-    """Listed offers at this destination that fit the group and the whole trip, best first.
+    """Listed offers at this destination that fit the group and are open on at least one day
+    of the trip, best first. Each view's open_days lists those days, day 1 being start.
 
     With tags, an offer needs at least one of them (section:tag); without, all fitting offers
     come back. city None = the whole country."""

@@ -57,7 +57,26 @@ async def noop_handler(**kwargs):
     return {}
 
 
-TOOLS = [Tool("search_offers", "Find offers", {"type": "object"}, noop_handler)]
+SEARCH_TOOL = Tool("search_offers", "Find offers", {"type": "object"}, noop_handler)
+
+
+def TOOLS(request):  # noqa: N802 - the tools for this request, as public.py builds them
+    return [SEARCH_TOOL]
+
+
+async def test_the_tools_are_built_for_the_request_being_planned():
+    # The search is bound to this trip's dates and travellers (#182): the model can't pick them.
+    seen = []
+
+    def tools_for(request):
+        seen.append(request)
+        return [SEARCH_TOOL]
+
+    orchestrator = FakeOrchestrator(VALID)
+    await LlmPlanWriter(orchestrator, tools_for).write(REQUEST)
+
+    assert seen == [REQUEST]
+    assert list(orchestrator.calls[0]["tools"]) == [SEARCH_TOOL]
 
 
 def system_prompt(orchestrator: FakeOrchestrator) -> str:
@@ -80,7 +99,7 @@ async def test_the_tools_are_given_to_the_model():
 
     await LlmPlanWriter(orchestrator, TOOLS).write(REQUEST)
 
-    assert list(orchestrator.calls[0]["tools"]) == TOOLS
+    assert list(orchestrator.calls[0]["tools"]) == [SEARCH_TOOL]
 
 
 async def test_an_answer_invalid_twice_returns_none():

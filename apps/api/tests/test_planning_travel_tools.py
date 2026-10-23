@@ -12,6 +12,7 @@ from novoya_api.planning.infrastructure.llm import tools as tools_module
 from novoya_api.planning.infrastructure.llm.tools import (
     MAX_OFFERS,
     SEARCH_OFFERS,
+    TripBounds,
     _SearchArguments,
     travel_tools,
 )
@@ -37,6 +38,7 @@ def offer_view(**overrides):
         "partner_name": "Elounda Bay House",
         "partner_contact_email": "stay@elounda.example",
         "partner_contact_phone": "+30 28210 00001",
+        "open_days": (1, 2, 3, 4, 5, 6, 7, 8),  # every day of SEARCH's trip
     }
     values.update(overrides)
     return SimpleNamespace(**values)
@@ -174,6 +176,69 @@ async def test_search_offers_never_sends_partner_name_or_contact_to_the_model():
     assert "example" not in json.dumps(result)
 
 
+async def test_search_offers_tells_the_model_the_days_an_offer_is_open_when_not_all():
+    june = offer_view(open_days=(5, 6, 7, 8))
+    result = await tools_by_name(FakeCatalog([june]))["search_offers"].handler(**SEARCH)
+    # As ranges, first and last day included: a long trip would otherwise list hundreds of days.
+    assert result["offers"][0]["open_days"] == [[5, 8]]
+
+
+async def test_search_offers_sends_each_run_of_open_days_as_a_range():
+    split = offer_view(open_days=(1, 2, 5, 6, 7, 8))
+    result = await tools_by_name(FakeCatalog([split]))["search_offers"].handler(**SEARCH)
+    assert result["offers"][0]["open_days"] == [[1, 2], [5, 8]]
+
+
+async def test_search_offers_refuses_a_range_longer_than_a_trip_can_be():
+    # The model chooses the dates: a range of centuries must not reach the catalog.
+    catalog = FakeCatalog([offer_view()])
+    tool = tools_by_name(catalog)["search_offers"]
+    with pytest.raises(ToolError):
+        await tool.handler(**{**SEARCH, "start_date": "0001-01-01", "end_date": "9999-12-31"})
+    assert catalog.searches == []
+
+
+# search_offers bound to the trip being planned
+
+TRIP = TripBounds(persons=2, start_date=date(2026, 5, 10), end_date=date(2026, 5, 17))
+
+
+def trip_tools(catalog: FakeCatalog):
+    tools = travel_tools(
+        covered_destinations=catalog.covered_destinations,
+        search_offers=catalog.search_offers,
+        trip=TRIP,
+    )
+    return {tool.name: tool for tool in tools}
+
+
+def test_a_trip_bound_search_offers_takes_no_dates_or_travellers():
+    parameters = trip_tools(FakeCatalog())["search_offers"].parameters
+    assert set(parameters["properties"]) == {"country", "city", "tags"}
+    assert set(parameters["required"]) == {"country"}
+    assert parameters["additionalProperties"] is False
+
+
+async def test_a_trip_bound_search_uses_the_trips_dates_and_travellers():
+    catalog = FakeCatalog([offer_view()])
+    await trip_tools(catalog)["search_offers"].handler(country="Greece", city="Chania")
+    assert catalog.searches == [("Greece", "Chania", [], 2, date(2026, 5, 10), date(2026, 5, 17))]
+
+
+async def test_a_trip_bound_search_refuses_dates_or_travellers_from_the_model():
+    catalog = FakeCatalog([offer_view()])
+    tool = trip_tools(catalog)["search_offers"]
+    with pytest.raises(ToolError):
+        await tool.handler(**SEARCH)
+    assert catalog.searches == []
+
+
+async def test_search_offers_sends_no_open_days_for_an_offer_open_every_trip_day():
+    always = offer_view(open_days=(1, 2, 3, 4, 5, 6, 7, 8))
+    result = await tools_by_name(FakeCatalog([always]))["search_offers"].handler(**SEARCH)
+    assert "open_days" not in result["offers"][0]
+
+
 async def test_search_offers_returns_at_most_max_offers_best_first():
     offers = [offer_view(title=f"Offer {n}") for n in range(MAX_OFFERS + 5)]
     result = await tools_by_name(FakeCatalog(offers))["search_offers"].handler(**SEARCH)
@@ -300,3 +365,24 @@ async def test_the_orchestrator_runs_search_offers_and_sends_the_offers_back():
     tool_message = second["messages"][-1]
     assert tool_message["role"] == "tool"
     assert json.loads(tool_message["content"])["offers"][0]["offer_id"] == str(stay.id)
+
+
+def test_the_plan_writer_gives_the_model_a_search_bound_to_the_trip():
+    from decimal import Decimal
+
+    from novoya_api.planning.public import PlanRequest, _trip_tools
+
+    request = PlanRequest(
+        wish_id=uuid4(),
+        text="A calm week",
+        country="Greece",
+        city="Chania",
+        tags=(),
+        persons=2,
+        start_date=date(2026, 5, 10),
+        end_date=date(2026, 5, 17),
+        budget_max=Decimal("1500"),
+    )
+    search = {tool.name: tool for tool in _trip_tools(request)}["search_offers"]
+
+    assert set(search.parameters["properties"]) == {"country", "city", "tags"}

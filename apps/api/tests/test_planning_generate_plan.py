@@ -14,6 +14,7 @@ from novoya_api.planning.domain.plan import DraftItem, Plan, PlanStatus
 
 WISH_ID = UUID("00000000-0000-0000-0000-0000000000a1")
 NOW = datetime(2026, 10, 19, 9, 0, tzinfo=UTC)
+EVERY_DAY = frozenset(range(1, 32))  # open on every day of any trip these tests plan
 
 HOTEL = OfferSummary(
     UUID("00000000-0000-0000-0000-0000000000b1"),
@@ -22,6 +23,7 @@ HOTEL = OfferSummary(
     "Rooms over the bay",
     ("style:beach",),
     False,
+    open_days=EVERY_DAY,
 )
 WALK = OfferSummary(
     UUID("00000000-0000-0000-0000-0000000000b2"),
@@ -30,6 +32,7 @@ WALK = OfferSummary(
     "Two hours with a local guide",
     ("style:city",),
     False,
+    open_days=EVERY_DAY,
 )
 BOAT = OfferSummary(
     UUID("00000000-0000-0000-0000-0000000000b3"),
@@ -38,6 +41,7 @@ BOAT = OfferSummary(
     "A day at sea",
     ("style:beach",),
     True,
+    open_days=EVERY_DAY,
 )
 TRANSFER = OfferSummary(
     UUID("00000000-0000-0000-0000-0000000000b4"),
@@ -46,6 +50,7 @@ TRANSFER = OfferSummary(
     "Car from the airport",
     (),
     False,
+    open_days=EVERY_DAY,
 )
 UNKNOWN = UUID("00000000-0000-0000-0000-0000000000ff")
 
@@ -507,7 +512,13 @@ async def test_the_model_summary_is_dropped_when_hotel_nights_were_cut():
 
 
 SECOND_HOTEL = OfferSummary(
-    UUID("00000000-0000-0000-0000-0000000000b5"), "hotel", "Old town inn", "Rooms", (), False
+    UUID("00000000-0000-0000-0000-0000000000b5"),
+    "hotel",
+    "Old town inn",
+    "Rooms",
+    (),
+    False,
+    open_days=EVERY_DAY,
 )
 
 
@@ -537,3 +548,107 @@ async def test_a_hotel_whose_nights_are_all_taken_is_dropped():
     view = await setup.generate(plan_request(days=5))
 
     assert [(i.offer_id, i.day, i.quantity) for i in view.items] == [(HOTEL.id, 1, 4)]
+
+
+# Each item fits its own days (#182)
+
+LATE_BOAT = OfferSummary(
+    UUID("00000000-0000-0000-0000-0000000000b6"),
+    "activity",
+    "Summer boat trip",
+    "Open from day 3 of the trip",
+    ("style:beach",),
+    False,
+    open_days=frozenset({3, 4}),
+)
+GAP_HOTEL = OfferSummary(
+    UUID("00000000-0000-0000-0000-0000000000b7"),
+    "hotel",
+    "Harbour hotel",
+    "Full on night 2",
+    ("style:beach",),
+    False,
+    open_days=frozenset({1, 3, 4}),
+)
+
+
+async def test_an_offer_open_on_some_trip_days_is_enough_to_build_a_plan():
+    setup = Setup(FakeCatalog([LATE_BOAT]), draft(DraftItem(LATE_BOAT.id, 3, 1, None)))
+
+    view = await setup.generate(plan_request(tags=(), days=4))
+
+    assert [(i.offer_id, i.day) for i in view.items] == [(LATE_BOAT.id, 3)]
+
+
+async def test_a_model_item_on_a_closed_day_is_dropped_and_one_on_an_open_day_kept():
+    setup = Setup(
+        FakeCatalog([HOTEL, LATE_BOAT]),
+        draft(
+            DraftItem(HOTEL.id, 1, 3, None),
+            DraftItem(LATE_BOAT.id, 2, 1, None),
+            DraftItem(LATE_BOAT.id, 3, 1, None),
+        ),
+    )
+
+    view = await setup.generate(plan_request(tags=(), days=4))
+
+    assert [(i.offer_id, i.day) for i in view.items] == [(HOTEL.id, 1), (LATE_BOAT.id, 3)]
+
+
+async def test_a_model_hotel_closed_on_one_of_its_nights_is_dropped():
+    setup = Setup(
+        FakeCatalog([GAP_HOTEL, WALK]),
+        draft(DraftItem(GAP_HOTEL.id, 1, 3, None), DraftItem(WALK.id, 2, 1, None)),
+    )
+
+    view = await setup.generate(plan_request(tags=(), days=4))
+
+    assert [(i.offer_id, i.day) for i in view.items] == [(WALK.id, 2)]
+
+
+async def test_the_fallback_puts_each_offer_only_on_a_day_it_is_open():
+    setup = Setup(FakeCatalog([LATE_BOAT, HOTEL, WALK]), None)
+
+    view = await setup.generate(plan_request(tags=(), days=4))
+
+    assert [(i.offer_id, i.day, i.quantity) for i in view.items] == [
+        (HOTEL.id, 1, 3),
+        (WALK.id, 1, 1),
+        (LATE_BOAT.id, 3, 1),
+    ]
+
+
+async def test_the_fallback_skips_a_hotel_not_open_every_night():
+    setup = Setup(FakeCatalog([GAP_HOTEL, WALK]), None)
+
+    view = await setup.generate(plan_request(tags=(), days=4))
+
+    assert [(i.offer_id, i.day) for i in view.items] == [(WALK.id, 1)]
+
+
+async def test_only_hotels_not_open_every_night_raise_no_offer_fits_and_store_nothing():
+    # GAP_HOTEL is open on some days, so it fits the trip, but the fallback can't book it
+    # every night and there is nothing else: the client gets no_offer_fits, not a broken plan.
+    setup = Setup(FakeCatalog([GAP_HOTEL]), None)
+
+    with pytest.raises(NoOfferFits):
+        await setup.generate(plan_request(tags=(), days=4))
+
+    assert setup.plans.added == []
+
+
+async def test_the_fallback_hotel_of_a_one_day_trip_must_be_open_that_day():
+    closed_day_one = OfferSummary(
+        id=UUID("00000000-0000-0000-0000-00000000c1d1"),
+        kind="hotel",
+        title="Closed on day one",
+        description="",
+        tags=(),
+        featured=False,
+        open_days=frozenset({2}),
+    )
+    setup = Setup(FakeCatalog([closed_day_one, WALK]), None)
+
+    view = await setup.generate(plan_request(tags=(), days=1))
+
+    assert [(i.offer_id, i.day) for i in view.items] == [(WALK.id, 1)]

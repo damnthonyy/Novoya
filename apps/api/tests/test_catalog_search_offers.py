@@ -63,13 +63,44 @@ async def test_keeps_only_offers_that_fit_the_group_size():
     assert await search(pairs, persons=7) == []
 
 
-async def test_keeps_only_offers_available_for_the_whole_trip():
+async def test_an_offer_open_for_part_of_the_trip_comes_back_with_its_open_days():
     hotel = _partner()
     summer = _offer(hotel, available_from=date(2026, 6, 1), available_to=date(2026, 8, 31))
-    season = _offer(hotel, available_from=date(2026, 4, 1), available_to=date(2026, 10, 31))
-    pairs = [(summer, hotel), (season, hotel)]
-    found = await search(pairs, start=date(2026, 5, 25), end=date(2026, 6, 5))
-    assert [view.id for view in found] == [season.id]
+    found = await search([(summer, hotel)], start=date(2026, 5, 28), end=date(2026, 6, 4))
+    assert [view.id for view in found] == [summer.id]
+    assert found[0].open_days == (5, 6, 7, 8)
+
+
+async def test_an_offer_open_only_in_the_second_month_has_those_trip_days_open():
+    hotel = _partner()
+    june = _offer(hotel, opening_months=(6,))
+    found = await search([(june, hotel)], start=date(2026, 5, 28), end=date(2026, 6, 4))
+    assert [view.id for view in found] == [june.id]
+    assert found[0].open_days == (5, 6, 7, 8)
+
+
+async def test_an_offer_closed_every_day_of_the_trip_is_not_returned():
+    hotel = _partner()
+    july = _offer(hotel, opening_months=(7,))
+    autumn = _offer(hotel, available_from=date(2026, 9, 1), available_to=date(2026, 10, 31))
+    pairs = [(july, hotel), (autumn, hotel)]
+    assert await search(pairs, start=date(2026, 5, 28), end=date(2026, 6, 4)) == []
+
+
+async def test_an_offer_open_the_whole_trip_has_every_trip_day_open():
+    hotel = _partner()
+    season = _offer(hotel)
+    found = await search([(season, hotel)], start=MAY_START, end=MAY_END)
+    assert found[0].open_days == (1, 2, 3, 4, 5, 6, 7, 8)
+
+
+async def test_group_size_still_filters_an_offer_open_part_of_the_trip():
+    hotel = _partner()
+    june_couple = _offer(hotel, opening_months=(6,), min_persons=1, max_persons=2)
+    pairs = [(june_couple, hotel)]
+    trip = {"start": date(2026, 5, 28), "end": date(2026, 6, 4)}
+    assert [view.id for view in await search(pairs, persons=2, **trip)] == [june_couple.id]
+    assert await search(pairs, persons=3, **trip) == []
 
 
 async def test_dates_in_the_wrong_order_find_nothing():
@@ -108,3 +139,26 @@ async def test_without_tags_every_fitting_offer_comes_back_featured_first():
 async def test_unknown_destination_finds_nothing():
     hotel = _partner(country="Greece", city="Chania")
     assert await search([(_offer(hotel), hotel)], country="Japan", city="Kyoto") == []
+
+
+async def test_a_search_over_centuries_only_looks_at_the_offers_own_season(monkeypatch):
+    # The dates can come from the model: the work must follow the offer's season, not the
+    # range asked for, or one search could hold the server for minutes.
+    from novoya_api.catalog.domain import Offer
+
+    checked: list[date] = []
+    open_on = Offer.open_on
+
+    def counting_open_on(self, day):
+        checked.append(day)
+        return open_on(self, day)
+
+    monkeypatch.setattr(Offer, "open_on", counting_open_on)
+    hotel = _partner()
+    june = _offer(hotel, available_from=date(2026, 6, 1), available_to=date(2026, 6, 30))
+
+    found = await search([(june, hotel)], start=date(1, 1, 1), end=date(9999, 12, 31))
+
+    assert len(checked) == 30
+    first = (date(2026, 6, 1) - date(1, 1, 1)).days + 1
+    assert found[0].open_days == tuple(range(first, first + 30))

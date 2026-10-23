@@ -171,7 +171,8 @@ ORM models are not entities. A repository maps rows to entities and back, so no 
 
 The LLM is an adapter behind `PanelBuilder` (wishes) and `PlanGenerator` (planning):
 
-- `GeneratePlan` keeps only the items whose `offer_id` is a real, active offer that fits the travellers and dates. That check is a domain rule in `planning`, applied to every plan whatever the model returns.
+- `GeneratePlan` keeps only the items whose `offer_id` is a real, active offer that fits the travellers and is open on the days the item covers. That check is a domain rule in `planning` (`keep_valid`), applied to every plan whatever the model returns. Each item is checked against its own days, not the whole trip (#182): an activity against its day in `keep_valid`, a hotel in `tidy` against every night it keeps once the other hotels have theirs (night n starts on day n). So an activity open only in June can go on a June day of a trip from late May into June. The catalog says which days each offer is open on (`open_days` from `search_offers`, counted only over the offer's own season); `planning` never reads opening months or availability dates itself. The fallback plan follows the same rule, and its hotel must be open every night; when nothing is left, the client gets `no_offer_fits`.
+- The model's `search_offers` is bound to the trip being planned (`TripBounds`): it takes the place and the tags only, never the dates or the travellers, so a wish can't make the model search a range longer than the trip. The unbound tool refuses ranges over 366 days.
 - If the model fails or returns invalid JSON twice, the adapter raises and the use case falls back, for example to a panel built from the offers' tags.
 - Changing the model (`NOVOYA_LLM_MODEL`) or the provider touches `shared/infrastructure/llm/` only.
 

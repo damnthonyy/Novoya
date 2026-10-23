@@ -18,8 +18,9 @@ class OfferCatalog(Protocol):
         start: date,
         end: date,
     ) -> list[OfferSummary]:
-        """Listed offers there that fit the group and the whole trip, best first. With tags,
-        only offers matching at least one; featured offers come first among equals."""
+        """Listed offers there that fit the group and are open on at least one day of the trip,
+        best first, each with its open_days. With tags, only offers matching at least one;
+        featured offers come first among equals."""
         ...
 
     async def summaries_for(self, offer_ids: Sequence[UUID]) -> list[OfferSummary]:

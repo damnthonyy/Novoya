@@ -24,9 +24,12 @@ class OfferView:
     partner_name: str
     partner_contact_email: str
     partner_contact_phone: str | None
+    # From a search only: the days of the searched trip the offer is open on, day 1 being its
+    # first day. Empty when the view does not come from a search.
+    open_days: tuple[int, ...] = ()
 
     @classmethod
-    def of(cls, offer: Offer, partner: Partner) -> "OfferView":
+    def of(cls, offer: Offer, partner: Partner, open_days: tuple[int, ...] = ()) -> "OfferView":
         return cls(
             id=offer.id,
             kind=offer.kind,
@@ -41,6 +44,7 @@ class OfferView:
             partner_name=partner.name,
             partner_contact_email=partner.contact_email,
             partner_contact_phone=partner.contact_phone,
+            open_days=open_days,
         )
 
 

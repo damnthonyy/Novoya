@@ -7,7 +7,14 @@ from uuid import UUID, uuid4
 import pytest
 
 from novoya_api.planning.domain.errors import InvalidPlan, NoOfferFits, PlanNotFound
-from novoya_api.planning.domain.plan import DraftItem, Plan, PlanExtra, PlanStatus, keep_valid
+from novoya_api.planning.domain.plan import (
+    DraftItem,
+    Plan,
+    PlanExtra,
+    PlanStatus,
+    keep_valid,
+    tidy,
+)
 from novoya_api.shared.domain.errors import InvalidInput, InvalidTransition, PermissionDenied
 
 WISH_ID = UUID("00000000-0000-0000-0000-0000000000a1")
@@ -472,24 +479,33 @@ def test_a_supplement_per_stay_does_not_block_the_quote():
 
 # keep_valid
 
+EVERY_DAY = frozenset(range(1, 9))
+ALL_OPEN = {HOTEL: EVERY_DAY, WALK: EVERY_DAY}
+
 
 def test_keep_valid_drops_an_offer_that_is_not_allowed():
     drafts = [DraftItem(HOTEL, 1, 7, None), DraftItem(UNKNOWN, 2, 1, None)]
 
-    assert keep_valid(drafts, {HOTEL, WALK}, trip_days=8) == [DraftItem(HOTEL, 1, 7, None)]
+    assert keep_valid(drafts, open_days=ALL_OPEN, hotels={HOTEL}, trip_days=8) == [
+        DraftItem(HOTEL, 1, 7, None)
+    ]
 
 
 @pytest.mark.parametrize("day", [0, -1, 9])
 def test_keep_valid_drops_a_day_outside_the_trip(day):
     drafts = [DraftItem(WALK, day, 1, None), DraftItem(HOTEL, 1, 7, None)]
 
-    assert keep_valid(drafts, {HOTEL, WALK}, trip_days=8) == [DraftItem(HOTEL, 1, 7, None)]
+    assert keep_valid(drafts, open_days=ALL_OPEN, hotels={HOTEL}, trip_days=8) == [
+        DraftItem(HOTEL, 1, 7, None)
+    ]
 
 
 def test_keep_valid_drops_a_quantity_below_one():
     drafts = [DraftItem(WALK, 2, 0, None), DraftItem(HOTEL, 1, 7, None)]
 
-    assert keep_valid(drafts, {HOTEL, WALK}, trip_days=8) == [DraftItem(HOTEL, 1, 7, None)]
+    assert keep_valid(drafts, open_days=ALL_OPEN, hotels={HOTEL}, trip_days=8) == [
+        DraftItem(HOTEL, 1, 7, None)
+    ]
 
 
 def test_keep_valid_keeps_the_order_of_valid_items():
@@ -499,4 +515,91 @@ def test_keep_valid_keeps_the_order_of_valid_items():
         DraftItem(WALK, 8, 1, None),
     ]
 
-    assert keep_valid(drafts, {HOTEL, WALK}, trip_days=8) == drafts
+    assert keep_valid(drafts, open_days=ALL_OPEN, hotels={HOTEL}, trip_days=8) == drafts
+
+
+def test_keep_valid_keeps_an_activity_on_a_day_it_is_open():
+    drafts = [DraftItem(WALK, 5, 1, None)]
+    open_days = {WALK: frozenset({5, 6, 7, 8})}
+
+    assert keep_valid(drafts, open_days=open_days, hotels=set(), trip_days=8) == drafts
+
+
+def test_keep_valid_drops_an_activity_on_a_day_it_is_closed():
+    drafts = [DraftItem(WALK, 2, 1, None), DraftItem(WALK, 6, 1, None)]
+    open_days = {WALK: frozenset({5, 6, 7, 8})}
+
+    assert keep_valid(drafts, open_days=open_days, hotels=set(), trip_days=8) == [
+        DraftItem(WALK, 6, 1, None)
+    ]
+
+
+# Hotel nights are checked after tidy() has cut them (#182): a night another hotel already has
+# is not this hotel's, so it need not be open.
+
+OTHER_HOTEL = UUID("00000000-0000-0000-0000-0000000000b3")
+
+
+def fit(drafts, open_days, hotels, trip_days):
+    """What GeneratePlan keeps of the drafts: keep_valid, then tidy."""
+    valid = keep_valid(drafts, open_days=open_days, hotels=hotels, trip_days=trip_days)
+    return tidy(valid, hotels, trip_days, open_days)
+
+
+def test_a_hotel_closed_on_one_of_its_nights_is_dropped():
+    drafts = [DraftItem(HOTEL, 1, 7, None)]
+
+    assert fit(drafts, {HOTEL: EVERY_DAY - {4}}, {HOTEL}, trip_days=8) == []
+
+
+def test_a_hotel_open_on_all_its_nights_is_kept():
+    drafts = [DraftItem(HOTEL, 5, 3, None)]
+
+    assert fit(drafts, {HOTEL: frozenset({5, 6, 7})}, {HOTEL}, trip_days=8) == drafts
+
+
+def test_hotel_nights_are_checked_only_up_to_the_last_night_of_the_trip():
+    # Nights 5 to 7 are in the trip; the quantity asks for more, and day 8 has no night.
+    drafts = [DraftItem(HOTEL, 5, 30, None)]
+
+    assert fit(drafts, {HOTEL: frozenset({5, 6, 7})}, {HOTEL}, trip_days=8) == [
+        DraftItem(HOTEL, 5, 3, None)
+    ]
+
+
+def test_a_hotel_is_checked_only_on_the_nights_it_keeps():
+    # OTHER_HOTEL has nights 3 and 4, so HOTEL keeps 1 and 2, both open: its closed night 4
+    # was never going to be its own.
+    drafts = [DraftItem(OTHER_HOTEL, 3, 2, None), DraftItem(HOTEL, 1, 4, None)]
+    open_days = {OTHER_HOTEL: frozenset(range(1, 6)), HOTEL: frozenset({1, 2, 3})}
+
+    assert fit(drafts, open_days, {HOTEL, OTHER_HOTEL}, trip_days=5) == [
+        DraftItem(OTHER_HOTEL, 3, 2, None),
+        DraftItem(HOTEL, 1, 2, None),
+    ]
+
+
+def test_a_dropped_hotel_leaves_its_nights_free_for_the_next_one():
+    drafts = [DraftItem(HOTEL, 1, 4, None), DraftItem(OTHER_HOTEL, 1, 4, None)]
+    open_days = {HOTEL: frozenset({1, 3, 4}), OTHER_HOTEL: frozenset(range(1, 6))}
+
+    assert fit(drafts, open_days, {HOTEL, OTHER_HOTEL}, trip_days=5) == [
+        DraftItem(OTHER_HOTEL, 1, 4, None)
+    ]
+
+
+def test_a_one_day_trip_has_no_hotel_night():
+    drafts = [DraftItem(HOTEL, 1, 1, None), DraftItem(WALK, 1, 1, None)]
+
+    assert fit(drafts, ALL_OPEN, {HOTEL}, trip_days=1) == [DraftItem(WALK, 1, 1, None)]
+
+
+@pytest.mark.parametrize(
+    ("open_on", "kept"),
+    [({1}, [DraftItem(HOTEL, 1, 1, None)]), ({2}, [])],
+)
+def test_a_two_day_trip_has_one_night_on_day_one(open_on, kept):
+    # Its only night starts on day 1: a hotel open only on day 2 has no night to sell.
+    drafts = [DraftItem(HOTEL, 1, 1, None)]
+
+    assert fit(drafts, {HOTEL: frozenset(open_on)}, {HOTEL}, trip_days=2) == kept
