@@ -75,7 +75,7 @@ flowchart LR
 | Part | Tech | Job |
 |---|---|---|
 | `apps/web` | React, TypeScript, Vite, TanStack Router, TanStack Query, TanStack Form | Client pages (wish, panel, plan, quote) and agent pages (quote queue, pricing) and admin pages (users, partners and offers, extras, reviews, activity) |
-| `apps/api` | Python 3.12, FastAPI, Pydantic v2, SQLAlchemy 2, Alembic | Modular monolith with Clean Architecture: accounts, catalog, wishes, planning and quoting modules, each with domain, use cases, adapters and REST endpoints |
+| `apps/api` | Python 3.12, FastAPI, Pydantic v2, SQLAlchemy 2, Alembic | Modular monolith with Clean Architecture: accounts, catalog, wishes, planning, quoting and trips modules, each with domain, use cases, adapters and REST endpoints |
 | Database | PostgreSQL | Users, partners and offers, wishes, plans, quotes |
 | LLM | OpenRouter, called with the OpenAI Python SDK | Check coverage, build the panel, write the plan |
 
@@ -92,6 +92,7 @@ The backend is a modular monolith: one application and one database, split by bu
 | `wishes` | The wish, the coverage check, the preference panel |
 | `planning` | The plan built from offers, its status machine, the agent's negotiation |
 | `quoting` | The quote: total, validity, PDF, email, accept or reject |
+| `trips` | The client's list of trips: their wishes, each with its plan and its quote, read through the public files of wishes, planning and quoting. Reads only |
 | `dashboard` | The admin home's key numbers. No table: each module counts its own rows |
 | `shared` | Domain errors, common value objects, database session, LLM client |
 
@@ -264,6 +265,7 @@ Client:
 | POST | `/auth/logout-all` | Sign out on every device |
 | GET | `/me` | The signed-in user, their role, language and sign-in methods |
 | PATCH | `/me` | Change the signed-in user's language (`{"locale": "en"}` or `"fr"`); answers like `GET /me` |
+| GET | `/me/trips` | The signed-in client's wishes, newest first: destination, dates, travellers, status, and the ids and status of its plan and quote when they exist. Own wishes only: 401 without a session, 403 for an agent or an admin. Not cached (`private, no-store`) |
 | GET | `/destinations` | Destinations with at least one listed offer (active offer of an active partner) |
 | GET | `/reviews?country=&city=` | Published reviews, newest first. Public. Hidden reviews are omitted |
 | GET | `/offers/{id}` | A listed offer: indicative price, opening months, terms. Never the partner |
@@ -315,7 +317,7 @@ novoya/
     web/                     React + TanStack (pnpm)
     api/                     FastAPI (uv)
       src/novoya_api/
-        accounts/ catalog/ wishes/ planning/ quoting/ dashboard/
+        accounts/ catalog/ wishes/ planning/ quoting/ trips/ dashboard/
           public.py          what other modules may use
           domain/            entities, rules
           application/       use_cases/, ports/

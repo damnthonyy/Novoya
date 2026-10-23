@@ -21,12 +21,15 @@
 - mark_accepted(plan_id), mark_rejected(plan_id): the client's answer to the quote, in the
   caller's session (the caller commits, with the answer on its quote). Raises PlanNotFound
   (404) or InvalidTransition (409, not quoted, or changed meanwhile).
+- plans_for_wishes(wish_ids) -> {wish id: WishPlan}: the plan id and status of each of these
+  wishes, for the client's list of trips. Wishes without a plan are left out.
 - delete_for_user(user_id): erases the plans of this user's wishes; their items and extras
   go with them. Erase the user's quotes first (quoting.public.delete_for_user) and the wishes
   after (wishes.public.delete_for_user): neither has a cascade. The caller commits.
 """
 
 from collections.abc import Sequence
+from dataclasses import dataclass
 from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -71,6 +74,7 @@ __all__ = [
     "PricedItem",
     "PricedPlan",
     "TripBrief",
+    "WishPlan",
     "count_plans_by_status",
     "delete_for_user",
     "find_plan_ids",
@@ -79,6 +83,7 @@ __all__ = [
     "mark_rejected",
     "plan_trip",
     "plan_trips",
+    "plans_for_wishes",
     "priced_plan",
     "quote_plan",
 ]
@@ -89,6 +94,15 @@ SEARCH_CAP = 1000
 
 # The client waits for the plan; the fallback covers a slow model.
 DEADLINE_SECONDS = 60
+
+
+@dataclass(frozen=True)
+class WishPlan:
+    """The plan built for a wish, as the client's list of trips shows it."""
+
+    plan_id: UUID
+    wish_id: UUID
+    status: str  # the plan's status: proposed, requested, quoted, accepted...
 
 
 async def generate_plan(request: PlanRequest, *, session: AsyncSession) -> PlanView:
@@ -189,3 +203,11 @@ async def delete_for_user(user_id: UUID, *, session: AsyncSession) -> None:
     """Erase the plans of this user's wishes, after their quotes. The caller commits."""
     wish_ids = await wish_ids_for_user(user_id, session=session)
     await SqlPlanRepository(session).delete_for_wishes(wish_ids)
+
+
+async def plans_for_wishes(
+    wish_ids: Sequence[UUID], *, session: AsyncSession
+) -> dict[UUID, WishPlan]:
+    """The plan of each of these wishes, keyed by wish id. Wishes without a plan are left out."""
+    rows = await SqlPlanRepository(session).summaries_for_wishes(wish_ids)
+    return {wish_id: WishPlan(plan_id, wish_id, status) for plan_id, wish_id, status in rows}
