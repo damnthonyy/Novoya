@@ -10,3 +10,11 @@ export const GIVEN_ROLES: Role[] = ['client', 'agent', 'admin']
 export function isAdminRole(role: Role): boolean {
   return role === 'admin' || role === 'super_admin'
 }
+
+/**
+ * Whether a user is out of the viewer's reach: nobody acts on a super admin here (the server
+ * command manages them), and only a super admin acts on admins. Same rule as the API.
+ */
+export function adminOutOfReach(target: Role, viewer: Role): boolean {
+  return target === 'super_admin' || (viewer !== 'super_admin' && isAdminRole(target))
+}

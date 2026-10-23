@@ -5,7 +5,7 @@ import { formatShortDate } from '@/lib/format'
 
 import { Button } from '../atoms/Button'
 
-import { GIVEN_ROLES, isAdminRole, type Role } from './roles'
+import { adminOutOfReach, GIVEN_ROLES, isAdminRole, type Role } from './roles'
 
 export type UserRow = {
   id: string
@@ -73,9 +73,9 @@ export function UsersTable({
           // Nobody changes their own role or account, only a super admin acts on admins, and a
           // super admin's role and account are managed on the server only. Agent and admin
           // need a verified email (the API enforces all of it too).
-          const adminOutOfReach = user.role === 'super_admin' || (!superAdmin && isAdminRole(user.role))
-          const locked = isMe || adminOutOfReach || !user.email_verified
-          const statusLocked = isMe || adminOutOfReach
+          const outOfReach = adminOutOfReach(user.role, meRole)
+          const locked = isMe || outOfReach || !user.email_verified
+          const statusLocked = isMe || outOfReach
           const disabled = user.status === 'disabled'
           const saving = savingIds.has(user.id)
           const name = user.name ?? user.email
