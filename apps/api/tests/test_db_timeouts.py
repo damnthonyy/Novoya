@@ -12,6 +12,7 @@ from pydantic import ValidationError
 from sqlalchemy.exc import DBAPIError
 
 from novoya_api.config import Settings
+from novoya_api.main import create_app
 from novoya_api.shared.infrastructure.db import session as db_session
 from novoya_api.shared.presentation.http import errors
 from novoya_api.shared.presentation.http.errors import (
@@ -21,7 +22,7 @@ from novoya_api.shared.presentation.http.errors import (
 
 
 def test_timeouts_have_safe_defaults(monkeypatch):
-    for name in ("LOCK", "STATEMENT", "IDLE_IN_TRANSACTION"):
+    for name in ("LOCK", "STATEMENT", "IDLE_IN_TRANSACTION", "MIGRATION_LOCK"):
         monkeypatch.delenv(f"NOVOYA_DB_{name}_TIMEOUT_MS", raising=False)
 
     settings = Settings(_env_file=None)
@@ -29,6 +30,7 @@ def test_timeouts_have_safe_defaults(monkeypatch):
     assert settings.db_lock_timeout_ms == 5_000
     assert settings.db_statement_timeout_ms == 30_000
     assert settings.db_idle_in_transaction_timeout_ms == 60_000
+    assert settings.db_migration_lock_timeout_ms == 10_000
 
 
 def test_timeouts_are_read_from_the_environment(monkeypatch):
@@ -50,6 +52,9 @@ def test_timeouts_are_read_from_the_environment(monkeypatch):
         ("db_idle_in_transaction_timeout_ms", 0),
         ("db_idle_in_transaction_timeout_ms", 999),
         ("db_idle_in_transaction_timeout_ms", 3_600_001),
+        ("db_migration_lock_timeout_ms", 0),
+        ("db_migration_lock_timeout_ms", 999),
+        ("db_migration_lock_timeout_ms", 600_001),
     ],
 )
 def test_timeouts_outside_their_bounds_are_refused(field, value):
@@ -153,3 +158,22 @@ async def test_a_database_timeout_logs_its_type_and_sqlstate_only(caplog, monkey
     assert "FakeAsyncpgError" in caplog.text
     assert "secret-wish-text" not in caplog.text
     assert "SELECT" not in caplog.text
+
+
+def test_the_openapi_schema_lists_503_database_busy_on_every_route():
+    paths = create_app().openapi()["paths"]
+    operations = [
+        (path, method, operation)
+        for path, methods in paths.items()
+        for method, operation in methods.items()
+    ]
+
+    for path, method, operation in operations:
+        busy = operation["responses"].get("503")
+        assert busy is not None, f"{method.upper()} {path} has no 503"
+    wishes = paths["/wishes"]["post"]["responses"]["503"]
+    assert wishes["content"]["application/json"]["schema"] == {
+        "$ref": "#/components/schemas/ErrorResponse"
+    }
+    assert "Retry-After" in wishes["headers"]
+    assert "database_busy" in wishes["description"]

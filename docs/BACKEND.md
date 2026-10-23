@@ -175,7 +175,11 @@ The app's engine (`shared/infrastructure/db/session.py`) sets three PostgreSQL t
 | `NOVOYA_DB_STATEMENT_TIMEOUT_MS` | 30 000 | 1 000 to 600 000 | `statement_timeout` |
 | `NOVOYA_DB_IDLE_IN_TRANSACTION_TIMEOUT_MS` | 60 000 | 1 000 to 3 600 000 | `idle_in_transaction_session_timeout` |
 
-They cannot be 0 (off). The CLI commands (DÉTOUR import, seed, `grant-role`) use the same engine; a one-off run that needs more raises a setting in its environment. Alembic builds its own engine and runs without them, so a migration is never cancelled halfway. A request that hits a lock or statement timeout, or loses a deadlock, gets 503 `database_busy` with `Retry-After`; only the error's type and SQLSTATE are logged. Never wait on the LLM or other slow work inside a transaction: the use cases end their read (`uow.rollback()`) before calling the model.
+They cannot be 0 (off). The CLI commands (DÉTOUR import, seed, `grant-role`) use the same engine; a one-off run that needs more raises a setting in its environment.
+
+Alembic builds its own engine with a lock timeout only, `NOVOYA_DB_MIGRATION_LOCK_TIMEOUT_MS` (10 000 by default, 1 000 to 600 000), and no statement timeout, so a long backfill still runs. The app's timeouts limit each statement and each idle gap, not a whole transaction: a DÉTOUR import holds its row locks until it commits. A migration waiting behind it for an `ACCESS EXCLUSIVE` lock would make every app query on that table queue too. With the lock timeout, the migration fails instead (`canceling statement due to lock timeout`, SQLSTATE `55P03`): nothing is half-applied, since Alembic runs the migrations in one transaction on PostgreSQL, and the deploy can be retried once the import is done.
+
+A request that hits a lock or statement timeout, or loses a deadlock, gets 503 `database_busy` with `Retry-After`; only the error's type and SQLSTATE are logged. Never wait on the LLM or other slow work inside a transaction: the use cases end their read (`uow.rollback()`) before calling the model.
 
 ### The LLM proposes, the use case decides
 

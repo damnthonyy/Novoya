@@ -19,7 +19,10 @@ from novoya_api.quoting.presentation.http.router import agent_quotes_router
 from novoya_api.quoting.presentation.http.router import agent_router as quoting_agent_router
 from novoya_api.quoting.presentation.http.router import router as quoting_router
 from novoya_api.shared.infrastructure.db.session import get_sessionmaker
-from novoya_api.shared.presentation.http.errors import register_error_handlers
+from novoya_api.shared.presentation.http.errors import (
+    DATABASE_BUSY_RESPONSE,
+    register_error_handlers,
+)
 from novoya_api.shared.presentation.http.origin_middleware import OriginCheckMiddleware
 from novoya_api.wishes.presentation.http.router import admin_router as admin_wishes_router
 from novoya_api.wishes.presentation.http.router import router as wishes_router
@@ -47,7 +50,12 @@ async def lifespan(_: FastAPI) -> AsyncIterator[None]:
 
 def create_app() -> FastAPI:
     settings = get_settings()
-    app = FastAPI(title="Novoya API", version="0.1.0", lifespan=lifespan)
+    app = FastAPI(
+        title="Novoya API",
+        version="0.1.0",
+        lifespan=lifespan,
+        responses={503: DATABASE_BUSY_RESPONSE},
+    )
     app.add_middleware(OriginCheckMiddleware, allowed_origins=settings.cors_origins)
     app.add_middleware(
         CORSMiddleware,
