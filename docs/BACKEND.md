@@ -105,6 +105,7 @@ So the inner layers of a module never know other modules exist, and each module 
 | `wishes` | `catalog` (coverage, tags), `planning` (start a plan) | `catalog.public`, `planning.public` |
 | `planning` | `catalog` (check offer ids, LLM travel tools) | `catalog.public` |
 | `quoting` | `planning` (priced plan, mark quoted, accepted or rejected), `accounts` (email, language) | `planning.public`, `accounts.public` |
+| `messaging` | `wishes` (the wish's client), `planning` (the plans' status and agent, for the chat's read rule) | `wishes.public`, `planning.public` |
 | `accounts` | `wishes`, `planning`, `quoting` (delete a user's data) | each `public.delete_for_user` |
 | `dashboard` | `accounts`, `catalog`, `planning`, `quoting` (counts for the admin home) | each `public.count_*` |
 | all routers | `accounts` (`current_user`, `require_client`, `require_agent`, `require_admin`, `Role`, `get_user`) | `accounts.public` |
@@ -146,6 +147,7 @@ The allowed moves are methods on `Plan`, for example `plan.request_quote(by=user
 | wishes | `SendWish`, `AnswerPanel` | `POST /wishes`, `POST /wishes/{id}/answers` | WishRepository, Catalog, PanelBuilder, PlanStarter |
 | planning | `GeneratePlan`, `GetPlan`, `RequestQuote`, `ListQuoteQueue`, `TakePlan`, `SetItemPrice`, `SetExtraPrice` | `GET /plans/{id}`, `POST /plans/{id}/request-quote`, `/agent/plans/*` | PlanRepository, PlanGenerator, Catalog |
 | quoting | `SendQuote`, `GetQuote`, `DownloadQuotePdf`, `DecideQuote` | `POST /agent/plans/{id}/quote`, `/quotes/{id}`, `/quotes/{id}/pdf`, `/accept`, `/reject` | QuoteRepository, Plans, Users, QuoteRenderer, QuoteNotifier |
+| trips | `ListMyTrips` | `GET /me/trips` | TripWishes, TripPlans, TripQuotes |
 | dashboard | `GetAdminStats` | `GET /admin/stats` | Counts |
 | health | `CheckDatabase` | `GET /health`, `GET /health/db` | DatabaseProbe |
 
