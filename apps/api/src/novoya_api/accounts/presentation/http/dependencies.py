@@ -32,7 +32,7 @@ from novoya_api.accounts.application.ports.security import PasswordHasher, Token
 from novoya_api.accounts.application.ports.user_data import UserDataEraser
 from novoya_api.accounts.application.services.session_opener import SessionOpener, SessionPolicy
 from novoya_api.accounts.application.use_cases.authenticate_session import AuthenticateSession
-from novoya_api.accounts.application.use_cases.change_locale import ChangeLocale
+from novoya_api.accounts.application.use_cases.update_me import UpdateMe
 from novoya_api.accounts.application.use_cases.change_password import ChangePassword
 from novoya_api.accounts.application.use_cases.change_user_role import ChangeUserRole
 from novoya_api.accounts.application.use_cases.change_user_status import ChangeUserStatus
@@ -374,8 +374,8 @@ def get_get_account(store: StoreDep) -> GetAccount:
     return GetAccount(store.users, store.credentials, store.identities)
 
 
-def get_change_locale(store: StoreDep) -> ChangeLocale:
-    return ChangeLocale(store.users, store.credentials, store.identities, store.uow)
+def get_update_me(store: StoreDep) -> UpdateMe:
+    return UpdateMe(store.users, store.credentials, store.identities, store.uow)
 
 
 def get_user_data_eraser(

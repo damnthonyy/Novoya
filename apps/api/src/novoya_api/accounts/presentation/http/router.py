@@ -7,7 +7,7 @@ from fastapi import APIRouter, Depends, Path, Query, Request, Response, status
 from fastapi.responses import RedirectResponse
 
 from novoya_api.accounts.application.dto import ClientInfo, CurrentUserView
-from novoya_api.accounts.application.use_cases.change_locale import ChangeLocale
+from novoya_api.accounts.application.use_cases.update_me import UpdateMe, UpdateMeCommand
 from novoya_api.accounts.application.use_cases.change_password import ChangePassword
 from novoya_api.accounts.application.use_cases.change_user_role import (
     ChangeUserRole,
@@ -55,7 +55,7 @@ from novoya_api.accounts.presentation.http.dependencies import (
     CurrentUser,
     SettingsDep,
     callback_url,
-    get_change_locale,
+    get_update_me,
     get_change_password,
     get_change_user_role,
     get_change_user_status,
@@ -368,10 +368,16 @@ async def get_me(
 async def update_me(
     body: UpdateMeRequest,
     user: CurrentUser,
-    use_case: Annotated[ChangeLocale, Depends(get_change_locale)],
+    use_case: Annotated[UpdateMe, Depends(get_update_me)],
 ) -> MeResponse:
-    """Change the signed-in user's language (en or fr). Answers like GET /me."""
-    return MeResponse.of_account(await use_case(user.user_id, Locale(body.locale)))
+    """Change the signed-in user's first name, last name or language (en or fr). Send only
+    what changes. The email is the sign-in identity and cannot be changed. Answers like GET /me."""
+    command = UpdateMeCommand(
+        first_name=body.first_name,
+        last_name=body.last_name,
+        locale=Locale(body.locale) if body.locale else None,
+    )
+    return MeResponse.of_account(await use_case(user.user_id, command))
 
 
 @me_router.delete(

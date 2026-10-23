@@ -7,7 +7,6 @@ import pytest
 from novoya_api.accounts.application.dto import ClientInfo
 from novoya_api.accounts.application.services.session_opener import SessionOpener, SessionPolicy
 from novoya_api.accounts.application.use_cases.authenticate_session import AuthenticateSession
-from novoya_api.accounts.application.use_cases.change_locale import ChangeLocale
 from novoya_api.accounts.application.use_cases.change_password import ChangePassword
 from novoya_api.accounts.application.use_cases.change_user_role import (
     ChangeUserRole,
@@ -25,6 +24,7 @@ from novoya_api.accounts.application.use_cases.register import Register, Registe
 from novoya_api.accounts.application.use_cases.resend_verification_email import (
     ResendVerificationEmail,
 )
+from novoya_api.accounts.application.use_cases.update_me import UpdateMe, UpdateMeCommand
 from novoya_api.accounts.application.use_cases.sign_in_with_password import (
     SignInWithPassword,
     SignInWithPasswordCommand,
@@ -114,7 +114,7 @@ class Accounts:
         )
         self.change_role = ChangeUserRole(s.users, s.role_changes, s.uow, self.clock)
         self.change_status = ChangeUserStatus(s.users, s.sessions, s.uow, self.clock)
-        self.change_locale = ChangeLocale(s.users, s.credentials, s.identities, s.uow)
+        self.update_me = UpdateMe(s.users, s.credentials, s.identities, s.uow)
         self.forgot = RequestPasswordReset(
             s.users, s.tokens, self.tokens, self.mailer, self.limiter, s.uow, self.clock
         )
@@ -250,19 +250,43 @@ async def test_role_change_applies_to_the_next_request_without_signing_in_again(
     assert (await accounts.authenticate(token)).role is Role.AGENT
 
 
-async def test_change_locale_saves_the_language_and_returns_the_account(accounts):
+async def test_update_me_saves_the_language_and_returns_the_account(accounts):
     user = await accounts.signed_up()  # registered with fr-FR
     commits = accounts.store.uow.commits
-    account = await accounts.change_locale(user.id, Locale.EN)
+    account = await accounts.update_me(user.id, UpdateMeCommand(locale=Locale.EN))
     assert account.user.locale is Locale.EN
     assert account.has_password is True
     assert (await accounts.store.users.get(user.id)).locale is Locale.EN
     assert accounts.store.uow.commits == commits + 1
 
 
-async def test_change_locale_of_an_unknown_user_fails(accounts):
+async def test_update_me_renames_and_keeps_the_display_name_in_step(accounts):
+    user = await accounts.signed_up()
+    commits = accounts.store.uow.commits
+    account = await accounts.update_me(
+        user.id, UpdateMeCommand(first_name="Camille", last_name="Durand")
+    )
+    assert (account.user.first_name, account.user.last_name) == ("Camille", "Durand")
+    assert account.user.name == "Camille Durand"
+    stored = await accounts.store.users.get(user.id)
+    assert (stored.first_name, stored.last_name, stored.name) == (
+        "Camille",
+        "Durand",
+        "Camille Durand",
+    )
+    assert accounts.store.uow.commits == commits + 1
+
+
+async def test_update_me_with_nothing_new_does_not_commit(accounts):
+    user = await accounts.signed_up()
+    commits = accounts.store.uow.commits
+    await accounts.update_me(user.id, UpdateMeCommand(first_name=user.first_name))
+    assert accounts.store.uow.commits == commits
+
+
+async def test_update_me_of_an_unknown_user_fails(accounts):
     with pytest.raises(UserNotFound):
-        await accounts.change_locale(make_user().id, Locale.FR)
+        await accounts.update_me(make_user().id, UpdateMeCommand(locale=Locale.FR))
 
 
 async def test_signing_in_again_revokes_the_previous_session(accounts):

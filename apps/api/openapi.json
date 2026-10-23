@@ -3456,19 +3456,50 @@
         "type": "object"
       },
       "UpdateMeRequest": {
+        "description": "Send only what changes, at least one field. A field sent as null is refused.",
         "properties": {
-          "locale": {
-            "enum": [
-              "en",
-              "fr"
+          "first_name": {
+            "anyOf": [
+              {
+                "maxLength": 100,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
             ],
-            "title": "Locale",
-            "type": "string"
+            "title": "First Name"
+          },
+          "last_name": {
+            "anyOf": [
+              {
+                "maxLength": 100,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Name"
+          },
+          "locale": {
+            "anyOf": [
+              {
+                "enum": [
+                  "en",
+                  "fr"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Locale"
           }
         },
-        "required": [
-          "locale"
-        ],
         "title": "UpdateMeRequest",
         "type": "object"
       },
@@ -8284,7 +8315,7 @@
         ]
       },
       "patch": {
-        "description": "Change the signed-in user's language (en or fr). Answers like GET /me.",
+        "description": "Change the signed-in user's first name, last name or language (en or fr). Send only\nwhat changes. The email is the sign-in identity and cannot be changed. Answers like GET /me.",
         "operationId": "updateMe",
         "requestBody": {
           "content": {
